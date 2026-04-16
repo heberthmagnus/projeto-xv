@@ -1,11 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/auth";
+import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
-
-const ADMIN_PATH = "/admin/tio-hugo-2026/inscricoes";
+import { ADMIN_REGISTRATIONS_PATH } from "@/lib/routes";
 
 export async function updateRegistrationLevel(formData: FormData) {
+  await requireAdmin();
+
   const id = String(formData.get("id") || "");
   const rawLevel = String(formData.get("level") || "").trim();
 
@@ -23,10 +26,12 @@ export async function updateRegistrationLevel(formData: FormData) {
     data: { level },
   });
 
-  redirect(`${ADMIN_PATH}?success=level`);
+  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=level`);
 }
 
 export async function updateRegistration(formData: FormData) {
+  await requireAdmin();
+
   const id = String(formData.get("id") || "");
   const fullName = String(formData.get("fullName") || "").trim();
   const nickname = String(formData.get("nickname") || "").trim();
@@ -43,6 +48,13 @@ export async function updateRegistration(formData: FormData) {
   if (!preferredPosition) throw new Error("Posição é obrigatória.");
   if (!birthDate) throw new Error("Data de nascimento é obrigatória.");
   if (!phone) throw new Error("Telefone é obrigatório.");
+  if (!isValidBrazilPhone(phone)) {
+    redirect(
+      `${ADMIN_REGISTRATIONS_PATH}?error=${encodeURIComponent(
+        PHONE_ERROR_MESSAGE,
+      )}&open=${id}`,
+    );
+  }
 
   const level =
     rawLevel && ["A", "B", "C", "D", "E"].includes(rawLevel)
@@ -68,10 +80,12 @@ export async function updateRegistration(formData: FormData) {
     },
   });
 
-  redirect(`${ADMIN_PATH}?success=edit&open=${id}`);
+  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=edit&open=${id}`);
 }
 
 export async function deleteRegistration(formData: FormData) {
+  await requireAdmin();
+
   const id = String(formData.get("id") || "");
 
   if (!id) {
@@ -82,5 +96,5 @@ export async function deleteRegistration(formData: FormData) {
     where: { id },
   });
 
-  redirect(`${ADMIN_PATH}?success=delete`);
+  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=delete`);
 }

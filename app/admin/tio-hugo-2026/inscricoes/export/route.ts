@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 function formatPosition(position: string) {
@@ -25,6 +26,8 @@ function escapeCsv(value: string | null | undefined) {
 }
 
 export async function GET() {
+  await requireAdmin();
+
   const championship = await prisma.championship.findUnique({
     where: { slug: "tio-hugo-2026" },
     select: { id: true, name: true },

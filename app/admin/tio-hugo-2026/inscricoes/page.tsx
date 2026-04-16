@@ -1,10 +1,14 @@
 import Image from "next/image";
+import { PlayerLevel, PreferredPosition } from "@prisma/client";
+import { logout } from "@/app/login/actions";
+import { getAuthenticatedAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RegistrationRow } from "./registration-row";
 
 type SearchParams = Promise<{
   success?: string;
   open?: string;
+  error?: string;
   q?: string;
   position?: string;
   level?: string;
@@ -16,10 +20,12 @@ export default async function InscricoesAdminPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  const adminUser = await getAuthenticatedAdmin();
 
   const q = String(params.q || "").trim();
   const position = String(params.position || "").trim();
   const level = String(params.level || "").trim();
+  const error = String(params.error || "").trim();
 
   const championship = await prisma.championship.findUnique({
     where: { slug: "tio-hugo-2026" },
@@ -49,8 +55,10 @@ export default async function InscricoesAdminPage({
             ],
           }
         : {}),
-      ...(position ? { preferredPosition: position as any } : {}),
-      ...(level ? { level: level as any } : {}),
+      ...(position
+        ? { preferredPosition: position as PreferredPosition }
+        : {}),
+      ...(level ? { level: level as PlayerLevel } : {}),
     },
     orderBy: { createdAt: "desc" },
   });
@@ -87,23 +95,36 @@ export default async function InscricoesAdminPage({
                 <p style={subtitleStyle}>
                   Total de inscritos: <strong>{registrations.length}</strong>
                 </p>
+                {adminUser && (
+                  <p style={{ ...subtitleStyle, marginTop: 6 }}>
+                    Logado como <strong>{adminUser.email}</strong>
+                  </p>
+                )}
               </div>
             </div>
 
-            <a
-              href="/admin/tio-hugo-2026/inscricoes/export"
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                background: "#B89020",
-                color: "#FFFFFF",
-                fontWeight: 700,
-                textDecoration: "none",
-                display: "inline-block",
-              }}
-            >
-              Exportar CSV
-            </a>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <a
+                href="/admin/tio-hugo-2026/inscricoes/export"
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#B89020",
+                  color: "#FFFFFF",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-block",
+                }}
+              >
+                Exportar CSV
+              </a>
+
+              <form action={logout}>
+                <button type="submit" style={logoutButtonStyle}>
+                  Sair
+                </button>
+              </form>
+            </div>
           </div>
         </div>
 
@@ -116,6 +137,8 @@ export default async function InscricoesAdminPage({
               "✅ Inscrição excluída com sucesso."}
           </div>
         )}
+
+        {error && <div style={errorBannerStyle}>{error}</div>}
 
         <div style={filterCardStyle}>
           <form method="GET" style={filterFormStyle}>
@@ -230,6 +253,16 @@ const headerCardStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
 };
 
+const logoutButtonStyle: React.CSSProperties = {
+  padding: "10px 14px",
+  borderRadius: 10,
+  border: "1px solid #D1D5DB",
+  background: "#FFFFFF",
+  color: "#101010",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
 const filterCardStyle: React.CSSProperties = {
   background: "#FFFFFF",
   borderRadius: 16,
@@ -237,6 +270,16 @@ const filterCardStyle: React.CSSProperties = {
   marginBottom: 20,
   boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
   border: "1px solid #E5E7EB",
+};
+
+const errorBannerStyle: React.CSSProperties = {
+  marginBottom: 20,
+  padding: "14px 16px",
+  borderRadius: 12,
+  background: "#FEF2F2",
+  border: "1px solid #FECACA",
+  color: "#991B1B",
+  fontWeight: 600,
 };
 
 const filterFormStyle: React.CSSProperties = {

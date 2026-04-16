@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PhoneInput } from "@/app/components/phone-input";
 import {
   deleteRegistration,
   updateRegistration,
@@ -150,7 +151,7 @@ export function RegistrationRow({
                 </Field>
 
                 <Field label="Telefone / WhatsApp *">
-                  <input
+                  <PhoneInput
                     name="phone"
                     defaultValue={registration.phone}
                     required
