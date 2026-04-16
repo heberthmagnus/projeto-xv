@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PreferredPosition {
+  GOLEIRO
+  LATERAL
+  ZAGUEIRO
+  VOLANTE
+  MEIA
+  ATACANTE
+}
+
+enum PlayerLevel {
+  A
+  B
+  C
+  D
+  E
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  password  String
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+}
+
+model Championship {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  teams         ChampionshipTeam[]
+  matches       Match[]
+  standings     Standing[]
+  registrations Registration[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  championships ChampionshipTeam[]
+  homeMatches   Match[] @relation("HomeTeam")
+  awayMatches   Match[] @relation("AwayTeam")
+  standings     Standing[]
+}
+
+model ChampionshipTeam {
+  id             String @id @default(uuid())
+  championshipId String
+  teamId         String
+
+  championship Championship @relation(fields: [championshipId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+
+  @@unique([championshipId, teamId])
+}
+
+model Match {
+  id             String   @id @default(uuid())
+  championshipId String
+  homeTeamId     String
+  awayTeamId     String
+
+  homeScore Int @default(0)
+  awayScore Int @default(0)
+
+  round Int
+
+  createdAt DateTime @default(now())
+
+  championship Championship @relation(fields: [championshipId], references: [id])
+
+  homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  events MatchEvent[]
+}
+
+model Standing {
+  id             String @id @default(uuid())
+  championshipId String
+  teamId         String
+
+  points       Int @default(0)
+  wins         Int @default(0)
+  draws        Int @default(0)
+  losses       Int @default(0)
+  goalsFor     Int @default(0)
+  goalsAgainst Int @default(0)
+
+  championship Championship @relation(fields: [championshipId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+
+  @@unique([championshipId, teamId])
+}
+
+model MatchEvent {
+  id      String @id @default(uuid())
+  matchId String
+  player  String
+  type    String
+
+  match Match @relation(fields: [matchId], references: [id])
+}
+
+model Registration {
+  id                String            @id @default(uuid())
+  championshipId    String
+
+  fullName          String
+  nickname          String?
+  preferredPosition PreferredPosition
+  birthDate         DateTime
+  phone             String
+  email             String?
+  level             PlayerLevel?
+
+  confirmedRules    Boolean
+  createdAt         DateTime          @default(now())
+
+  championship Championship @relation(fields: [championshipId], references: [id])
+
+  @@index([championshipId])
+}
