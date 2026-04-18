@@ -29,6 +29,35 @@ export async function updateRegistrationLevel(formData: FormData) {
   redirect(`${ADMIN_REGISTRATIONS_PATH}?success=level`);
 }
 
+export async function updateRegistrationQuickFields(formData: FormData) {
+  await requireAdmin();
+
+  const id = String(formData.get("id") || "");
+  const rawLevel = String(formData.get("level") || "").trim();
+  const paymentPaid = formData.get("paymentPaid") === "on";
+
+  if (!id) {
+    throw new Error("Inscrição não encontrada.");
+  }
+
+  const level =
+    rawLevel && ["A", "B", "C", "D", "E"].includes(rawLevel)
+      ? (rawLevel as "A" | "B" | "C" | "D" | "E")
+      : null;
+  const paymentStatus = paymentPaid ? "PAGO" : "PENDENTE";
+
+  await prisma.registration.update({
+    where: { id },
+    data: {
+      level,
+      paymentStatus,
+      paidAt: paymentStatus === "PAGO" ? new Date() : null,
+    },
+  });
+
+  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=quick-save`);
+}
+
 export async function updateRegistration(formData: FormData) {
   await requireAdmin();
 

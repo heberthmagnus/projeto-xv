@@ -24,6 +24,11 @@ enum PlayerLevel {
   E
 }
 
+enum PaymentStatus {
+  PENDENTE
+  PAGO
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String?
@@ -126,6 +131,8 @@ model Registration {
   phone             String
   email             String?
   level             PlayerLevel?
+  paymentStatus     PaymentStatus     @default(PENDENTE)
+  paidAt            DateTime?
 
   confirmedRules    Boolean
   createdAt         DateTime          @default(now())

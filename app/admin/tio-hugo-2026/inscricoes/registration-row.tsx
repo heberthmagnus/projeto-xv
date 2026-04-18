@@ -5,7 +5,7 @@ import { PhoneInput } from "@/app/components/phone-input";
 import {
   deleteRegistration,
   updateRegistration,
-  updateRegistrationLevel,
+  updateRegistrationQuickFields,
 } from "./actions";
 
 type Registration = {
@@ -17,6 +17,8 @@ type Registration = {
   phone: string;
   email: string | null;
   level: string | null;
+  paymentStatus: string;
+  paidAt: Date | null;
   createdAt: Date;
 };
 
@@ -28,50 +30,83 @@ export function RegistrationRow({
   initialOpen?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(initialOpen);
+  const quickFormId = `registro-rapido-${registration.id}`;
 
   return (
     <>
       <tr>
-        <td style={tdStyle}>
+        <td style={{ ...tdStyle, ...nameCellStyle }}>
           <strong>{registration.fullName}</strong>
         </td>
-        <td style={tdStyle}>{registration.nickname || "-"}</td>
-        <td style={tdStyle}>
+        <td style={{ ...tdStyle, ...nicknameCellStyle }}>
+          {registration.nickname || "-"}
+        </td>
+        <td style={{ ...tdStyle, ...positionCellStyle }}>
           {formatPosition(registration.preferredPosition)}
         </td>
-        <td style={tdStyle}>
+        <td style={{ ...tdStyle, ...dateCellStyle }}>
           {new Date(registration.birthDate).toLocaleDateString("pt-BR")}
         </td>
-        <td style={tdStyle}>{registration.phone}</td>
-        <td style={tdStyle}>{registration.email || "-"}</td>
-        <td style={tdStyle}>
-          <form
-            action={updateRegistrationLevel}
-            style={{ display: "flex", gap: 8 }}
-          >
-            <input type="hidden" name="id" value={registration.id} />
-            <select
-              name="level"
-              defaultValue={registration.level || ""}
-              style={smallSelectStyle}
-            >
-              <option value="">-</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="E">E</option>
-            </select>
-            <button type="submit" style={smallButtonStyle}>
-              Salvar
-            </button>
-          </form>
+        <td style={{ ...tdStyle, ...phoneCellStyle }}>{registration.phone}</td>
+        <td style={{ ...tdStyle, ...emailCellStyle }}>
+          <span title={registration.email || "-"} style={emailTextStyle}>
+            {registration.email || "-"}
+          </span>
         </td>
-        <td style={tdStyle}>
+        <td style={{ ...tdStyle, ...controlCellStyle }}>
+          <select
+            form={quickFormId}
+            name="level"
+            defaultValue={registration.level || ""}
+            style={levelSelectStyle}
+          >
+            <option value="">-</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+        </td>
+        <td style={{ ...tdStyle, ...paymentCellStyle }}>
+          <div style={paymentFieldWrapStyle}>
+            <label style={checkboxLabelStyle}>
+              <input
+                form={quickFormId}
+                name="paymentPaid"
+                type="checkbox"
+                defaultChecked={registration.paymentStatus === "PAGO"}
+                style={checkboxStyle}
+              />
+              <span>Pagou?</span>
+            </label>
+            <input
+              form={quickFormId}
+              type="hidden"
+              name="paymentStatus"
+              value={registration.paymentStatus}
+            />
+            <span style={helperTextStyle}>
+              {registration.paidAt
+                ? `Pago em ${new Date(registration.paidAt).toLocaleDateString(
+                    "pt-BR",
+                  )}`
+                : ""}
+            </span>
+          </div>
+        </td>
+        <td style={{ ...tdStyle, ...dateCellStyle }}>
           {new Date(registration.createdAt).toLocaleDateString("pt-BR")}
         </td>
-        <td style={tdStyle}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <td style={{ ...tdStyle, ...actionsCellStyle }}>
+          <div style={actionsWrapStyle}>
+            <form id={quickFormId} action={updateRegistrationQuickFields}>
+              <input type="hidden" name="id" value={registration.id} />
+              <button type="submit" style={smallButtonStyle}>
+                Salvar
+              </button>
+            </form>
+
             <button
               type="button"
               onClick={() => setIsEditing((prev) => !prev)}
@@ -100,7 +135,7 @@ export function RegistrationRow({
 
       {isEditing && (
         <tr>
-          <td colSpan={9} style={expandedTdStyle}>
+          <td colSpan={10} style={expandedTdStyle}>
             <div style={editCardStyle}>
               <h3 style={editTitleStyle}>Editar inscrição</h3>
 
@@ -246,6 +281,8 @@ const tdStyle: React.CSSProperties = {
   fontSize: 14,
   color: "#374151",
   verticalAlign: "top",
+  lineHeight: 1.45,
+  overflow: "hidden",
 };
 
 const expandedTdStyle: React.CSSProperties = {
@@ -282,6 +319,91 @@ const fieldLabelStyle: React.CSSProperties = {
   color: "#101010",
 };
 
+const helperTextStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#6B7280",
+  whiteSpace: "nowrap",
+};
+
+const nameCellStyle: React.CSSProperties = {
+  minWidth: 220,
+};
+
+const nicknameCellStyle: React.CSSProperties = {
+  minWidth: 120,
+};
+
+const positionCellStyle: React.CSSProperties = {
+  minWidth: 120,
+  whiteSpace: "nowrap",
+};
+
+const dateCellStyle: React.CSSProperties = {
+  minWidth: 110,
+  whiteSpace: "nowrap",
+};
+
+const phoneCellStyle: React.CSSProperties = {
+  minWidth: 145,
+  whiteSpace: "nowrap",
+};
+
+const emailCellStyle: React.CSSProperties = {
+  minWidth: 220,
+  maxWidth: 220,
+};
+
+const controlCellStyle: React.CSSProperties = {
+  minWidth: 72,
+  maxWidth: 72,
+};
+
+const paymentCellStyle: React.CSSProperties = {
+  minWidth: 150,
+};
+
+const actionsCellStyle: React.CSSProperties = {
+  minWidth: 190,
+};
+
+const paymentFieldWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const checkboxLabelStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 14,
+  fontWeight: 600,
+  color: "#101010",
+  whiteSpace: "nowrap",
+};
+
+const checkboxStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  accentColor: "#B89020",
+};
+
+const actionsWrapStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  alignItems: "center",
+  justifyContent: "center",
+  flexWrap: "wrap",
+};
+
+const emailTextStyle: React.CSSProperties = {
+  display: "block",
+  maxWidth: "100%",
+  overflow: "hidden",
+  whiteSpace: "nowrap",
+  textOverflow: "ellipsis",
+};
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
@@ -302,6 +424,14 @@ const smallSelectStyle: React.CSSProperties = {
   color: "#111827",
   opacity: 1,
   WebkitTextFillColor: "#111827",
+  width: "100%",
+};
+
+const levelSelectStyle: React.CSSProperties = {
+  ...smallSelectStyle,
+  width: 64,
+  minWidth: 64,
+  padding: "8px 8px",
 };
 
 const smallButtonStyle: React.CSSProperties = {

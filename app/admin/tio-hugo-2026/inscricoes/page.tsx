@@ -1,5 +1,9 @@
 import Image from "next/image";
-import { PlayerLevel, PreferredPosition } from "@prisma/client";
+import {
+  PaymentStatus,
+  PlayerLevel,
+  PreferredPosition,
+} from "@prisma/client";
 import { logout } from "@/app/login/actions";
 import { getAuthenticatedAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +16,7 @@ type SearchParams = Promise<{
   q?: string;
   position?: string;
   level?: string;
+  payment?: string;
 }>;
 
 export default async function InscricoesAdminPage({
@@ -25,6 +30,7 @@ export default async function InscricoesAdminPage({
   const q = String(params.q || "").trim();
   const position = String(params.position || "").trim();
   const level = String(params.level || "").trim();
+  const payment = String(params.payment || "").trim();
   const error = String(params.error || "").trim();
 
   const championship = await prisma.championship.findUnique({
@@ -59,13 +65,14 @@ export default async function InscricoesAdminPage({
         ? { preferredPosition: position as PreferredPosition }
         : {}),
       ...(level ? { level: level as PlayerLevel } : {}),
+      ...(payment ? { paymentStatus: payment as PaymentStatus } : {}),
     },
     orderBy: { createdAt: "desc" },
   });
 
   return (
     <main style={pageStyle}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div style={containerStyle}>
         <div style={headerCardStyle}>
           <div
             style={{
@@ -135,6 +142,10 @@ export default async function InscricoesAdminPage({
               "✅ Inscrição atualizada com sucesso."}
             {params.success === "delete" &&
               "✅ Inscrição excluída com sucesso."}
+            {params.success === "payment" &&
+              "✅ Pagamento atualizado com sucesso."}
+            {params.success === "quick-save" &&
+              "✅ Inscrição atualizada com sucesso."}
           </div>
         )}
 
@@ -184,6 +195,15 @@ export default async function InscricoesAdminPage({
               </select>
             </div>
 
+            <div style={filterFieldStyle}>
+              <label style={filterLabelStyle}>Pagamento</label>
+              <select name="payment" defaultValue={payment} style={inputStyle}>
+                <option value="">Todos</option>
+                <option value="PENDENTE">Pendente</option>
+                <option value="PAGO">Pago</option>
+              </select>
+            </div>
+
             <div style={filterActionsStyle}>
               <button type="submit" style={filterButtonStyle}>
                 Filtrar
@@ -201,23 +221,38 @@ export default async function InscricoesAdminPage({
 
         <div style={tableWrapperStyle}>
           <table style={tableStyle}>
+            <colgroup>
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "12%" }} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={thStyle}>Nome</th>
-                <th style={thStyle}>Apelido</th>
-                <th style={thStyle}>Posição</th>
-                <th style={thStyle}>Nascimento</th>
-                <th style={thStyle}>Telefone</th>
-                <th style={thStyle}>E-mail</th>
-                <th style={thStyle}>Nível</th>
-                <th style={thStyle}>Inscrição</th>
-                <th style={thStyle}>Ações</th>
+                <th style={{ ...thStyle, ...nameHeaderStyle }}>Nome</th>
+                <th style={{ ...thStyle, ...nicknameHeaderStyle }}>Apelido</th>
+                <th style={{ ...thStyle, ...positionHeaderStyle }}>Posição</th>
+                <th style={{ ...thStyle, ...dateHeaderStyle }}>Nascimento</th>
+                <th style={{ ...thStyle, ...phoneHeaderStyle }}>Telefone</th>
+                <th style={{ ...thStyle, ...emailHeaderStyle }}>E-mail</th>
+                <th style={{ ...thStyle, ...levelHeaderStyle }}>Nível</th>
+                <th style={{ ...thStyle, ...paymentHeaderStyle }}>
+                  Pagamento
+                </th>
+                <th style={{ ...thStyle, ...dateHeaderStyle }}>Inscrição</th>
+                <th style={{ ...thStyle, ...actionsHeaderStyle }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {registrations.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={emptyStyle}>
+                  <td colSpan={10} style={emptyStyle}>
                     Nenhuma inscrição encontrada com os filtros aplicados.
                   </td>
                 </tr>
@@ -241,13 +276,18 @@ export default async function InscricoesAdminPage({
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
   background: "#F0F0F0",
-  padding: "32px 16px",
+  padding: "24px 12px 32px",
+};
+
+const containerStyle: React.CSSProperties = {
+  maxWidth: 1440,
+  margin: "0 auto",
 };
 
 const headerCardStyle: React.CSSProperties = {
   background: "#FFFFFF",
   borderRadius: 16,
-  padding: 24,
+  padding: "22px 24px",
   marginBottom: 20,
   boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
   border: "1px solid #E5E7EB",
@@ -266,7 +306,7 @@ const logoutButtonStyle: React.CSSProperties = {
 const filterCardStyle: React.CSSProperties = {
   background: "#FFFFFF",
   borderRadius: 16,
-  padding: 20,
+  padding: "18px 20px",
   marginBottom: 20,
   boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
   border: "1px solid #E5E7EB",
@@ -284,7 +324,7 @@ const errorBannerStyle: React.CSSProperties = {
 
 const filterFormStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "2fr 1fr 1fr auto",
+  gridTemplateColumns: "minmax(240px, 2.4fr) repeat(3, minmax(140px, 1fr)) auto",
   gap: 12,
   alignItems: "end",
 };
@@ -362,7 +402,9 @@ const subtitleStyle: React.CSSProperties = {
 const tableWrapperStyle: React.CSSProperties = {
   background: "#FFFFFF",
   borderRadius: 16,
-  overflow: "auto",
+  overflowX: "auto",
+  overflowY: "hidden",
+  WebkitOverflowScrolling: "touch",
   boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
   border: "1px solid #E5E7EB",
 };
@@ -370,7 +412,8 @@ const tableWrapperStyle: React.CSSProperties = {
 const tableStyle: React.CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
-  minWidth: 1100,
+  minWidth: 1220,
+  tableLayout: "fixed",
 };
 
 const thStyle: React.CSSProperties = {
@@ -380,6 +423,44 @@ const thStyle: React.CSSProperties = {
   color: "#FFFFFF",
   fontSize: 14,
   fontWeight: 700,
+  whiteSpace: "nowrap",
+};
+
+const nameHeaderStyle: React.CSSProperties = {
+  minWidth: 220,
+};
+
+const nicknameHeaderStyle: React.CSSProperties = {
+  minWidth: 110,
+};
+
+const positionHeaderStyle: React.CSSProperties = {
+  minWidth: 100,
+};
+
+const dateHeaderStyle: React.CSSProperties = {
+  minWidth: 105,
+};
+
+const phoneHeaderStyle: React.CSSProperties = {
+  minWidth: 130,
+};
+
+const emailHeaderStyle: React.CSSProperties = {
+  minWidth: 220,
+};
+
+const levelHeaderStyle: React.CSSProperties = {
+  minWidth: 72,
+  width: 72,
+};
+
+const paymentHeaderStyle: React.CSSProperties = {
+  minWidth: 150,
+};
+
+const actionsHeaderStyle: React.CSSProperties = {
+  minWidth: 170,
 };
 
 const emptyStyle: React.CSSProperties = {
