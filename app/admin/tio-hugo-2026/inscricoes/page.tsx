@@ -4,7 +4,6 @@ import {
   PlayerLevel,
   PreferredPosition,
 } from "@prisma/client";
-import { logout } from "@/app/login/actions";
 import { getAuthenticatedAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RegistrationRow } from "./registration-row";
@@ -125,12 +124,6 @@ export default async function InscricoesAdminPage({
               >
                 Exportar CSV
               </a>
-
-              <form action={logout}>
-                <button type="submit" style={logoutButtonStyle}>
-                  Sair
-                </button>
-              </form>
             </div>
           </div>
         </div>
@@ -291,16 +284,6 @@ const headerCardStyle: React.CSSProperties = {
   marginBottom: 20,
   boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
   border: "1px solid #E5E7EB",
-};
-
-const logoutButtonStyle: React.CSSProperties = {
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #D1D5DB",
-  background: "#FFFFFF",
-  color: "#101010",
-  fontWeight: 700,
-  cursor: "pointer",
 };
 
 const filterCardStyle: React.CSSProperties = {

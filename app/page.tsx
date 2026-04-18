@@ -1,153 +1,92 @@
-import Image from "next/image";
 import Link from "next/link";
+
+const cards = [
+  {
+    id: "copa-tio-hugo",
+    title: "Copa Tio Hugo",
+    text: "Saiba tudo sobre o campeonato, regulamento e inscrições.",
+    buttonLabel: "Saiba mais",
+    href: "/campeonatos/tio-hugo-2026/inscricao",
+  },
+  {
+    id: "peladas",
+    title: "Peladas",
+    text: "Registre presença, acompanhe a ordem de chegada e divida os times.",
+    buttonLabel: "Acessar peladas",
+    href: "#peladas",
+  },
+];
 
 export default function HomePage() {
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #F5F5F5 0%, #ECECEC 100%)",
-        padding: "32px 16px",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 960,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 24,
-          alignItems: "stretch",
-        }}
-      >
-        <section
-          style={{
-            background: "#101010",
-            color: "#FFFFFF",
-            borderRadius: 24,
-            padding: 32,
-            boxShadow: "0 20px 50px rgba(16,16,16,0.16)",
-          }}
-        >
+    <main id="inicio" className="bg-[#F5F0E8] text-[#1A1A1A]">
+      <section className="w-full px-0 py-0">
+        <div className="w-full overflow-hidden border-y border-black/20">
           <div
+            className="relative min-h-[420px] bg-[#1A1A1A] bg-cover bg-center md:min-h-[440px]"
             style={{
-              width: 88,
-              height: 88,
-              borderRadius: 18,
-              background: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 24,
+              backgroundImage:
+                "linear-gradient(90deg, rgba(24,19,14,0.78) 0%, rgba(24,19,14,0.58) 32%, rgba(24,19,14,0.24) 60%, rgba(24,19,14,0.52) 100%), url('/banner-copa-tio-hugo.webp')",
             }}
           >
-            <Image
-              src="/logo-clube-xv.png"
-              alt="Logo Clube Quinze Veranistas"
-              width={72}
-              height={72}
-            />
+            <div className="mx-auto flex min-h-[420px] w-full max-w-6xl items-center px-4 py-8 md:min-h-[440px] md:px-10">
+              <div className="max-w-3xl">
+                <h2 className="mb-5 text-[2.9rem] font-black uppercase tracking-tight text-[#F2C76B] drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] md:text-[3.5rem]">
+                  Copa Tio Hugo 2026
+                </h2>
+                <p className="mb-5 max-w-3xl text-[1.22rem] font-light leading-[1.6] text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.82)] md:text-[1.35rem]">
+                  <span className="font-extrabold">Inscrições abertas</span> para mais uma edição da tradicional{" "}
+                  <span className="font-extrabold">Copa Tio Hugo.</span> Participe e acompanhe a organização das equipes.
+                </p>
+                <p className="mb-8 text-[1.85rem] font-extrabold text-[#F2C76B] drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)] md:text-[1.95rem]">
+                  Início do campeonato: 07/05/2026
+                </p>
+                <Link
+                  href="/campeonatos/tio-hugo-2026/inscricao"
+                  className="inline-flex rounded-sm border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-7 py-3.5 text-[1rem] font-bold text-white shadow-[0_4px_0_rgba(73,54,9,0.75),0_12px_22px_rgba(0,0,0,0.24)] transition hover:from-[#D3AB35] hover:to-[#9A7618]"
+                >
+                  Fazer inscrição
+                </Link>
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
 
-          <p
-            style={{
-              color: "#E7C56A",
-              fontSize: 13,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              marginBottom: 10,
-            }}
-          >
-            Clube Quinze Veranistas
-          </p>
-
-          <h1
-            style={{
-              fontSize: 36,
-              lineHeight: 1.1,
-              fontWeight: 800,
-              marginBottom: 16,
-            }}
-          >
-            Campeonato Tio Hugo 2026
-          </h1>
-
-          <p style={{ color: "#D1D5DB", lineHeight: 1.7, fontSize: 16 }}>
-            Inscrições abertas para mais uma edição do campeonato do clube.
-            Participe, confirme sua presença e acompanhe a organização das
-            equipes do torneio.
-          </p>
-        </section>
-
-        <section
-          style={{
-            background: "#FFFFFF",
-            borderRadius: 24,
-            padding: 32,
-            border: "1px solid #E5E7EB",
-            boxShadow: "0 16px 40px rgba(16,16,16,0.06)",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 28,
-              fontWeight: 800,
-              color: "#101010",
-              marginBottom: 12,
-            }}
-          >
-            Inscrição pública e acesso administrativo
-          </h2>
-
-          <p style={{ color: "#4B5563", lineHeight: 1.7, marginBottom: 24 }}>
-            Use a inscrição pública para registrar atletas no campeonato ou
-            acesse a área administrativa para gerenciar a lista, filtros, níveis
-            e exportação.
-          </p>
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-            }}
-          >
-            <Link
-              href="/campeonatos/tio-hugo-2026/inscricao"
-              style={primaryLinkStyle}
+      <section className="px-4 pb-14 pt-4 md:px-6 md:pb-20">
+        <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
+          {cards.map((card) => (
+            <article
+              key={card.id}
+              id={card.id}
+              className="flex min-h-[216px] flex-col justify-between rounded-xl border border-[#E5D8C7] bg-white p-8 shadow-[0_18px_40px_rgba(96,72,28,0.10)]"
             >
-              Fazer inscrição
-            </Link>
-            <Link href="/login" style={secondaryLinkStyle}>
-              Área administrativa
-            </Link>
-          </div>
-        </section>
-      </div>
+              <div>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="text-4xl leading-none">
+                    {card.id === "peladas" ? "⚽" : "🏆"}
+                  </span>
+                  <h3 className="text-[2rem] font-bold text-[#1A1A1A]">{card.title}</h3>
+                </div>
+                <p className="text-base leading-7 text-[#1A1A1A]">
+                  {card.text}
+                </p>
+              </div>
+
+              <Link
+                href={card.href}
+                className={`mt-7 inline-flex self-start rounded-full px-5 py-3 text-[1.05rem] font-semibold text-white transition ${
+                  card.id === "copa-tio-hugo"
+                    ? "bg-gradient-to-b from-[#C49B25] to-[#8B6914] hover:from-[#D3AB35] hover:to-[#9A7618]"
+                    : "bg-[#1A1A1A] hover:bg-[#B8960C]"
+                }`}
+              >
+                {card.buttonLabel}
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
-
-const primaryLinkStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "12px 18px",
-  borderRadius: 10,
-  background: "#B89020",
-  color: "#FFFFFF",
-  textDecoration: "none",
-  fontWeight: 700,
-};
-
-const secondaryLinkStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "12px 18px",
-  borderRadius: 10,
-  background: "#101010",
-  color: "#FFFFFF",
-  textDecoration: "none",
-  fontWeight: 700,
-};

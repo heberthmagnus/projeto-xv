@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { RegistrationForm } from "./registration-form";
 
 export default function InscricaoPage() {
@@ -89,25 +88,8 @@ export default function InscricaoPage() {
           <p>• A equipe de folga será responsável pela resenha da noite</p>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <Link href="/" style={backLinkStyle}>
-            Voltar para página inicial
-          </Link>
-        </div>
-
         <RegistrationForm />
       </div>
     </main>
   );
 }
-
-const backLinkStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #D1D5DB",
-  background: "#FFFFFF",
-  color: "#101010",
-  textDecoration: "none",
-  fontWeight: 600,
-};

@@ -14,13 +14,13 @@ export default async function LoginPage() {
   return (
     <main
       style={{
-        minHeight: "100vh",
+        flex: 1,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         background:
           "linear-gradient(180deg, #F4F4F4 0%, #EAEAEA 100%)",
-        padding: 16,
+        padding: "24px 16px 40px",
       }}
     >
       <div
