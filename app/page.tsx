@@ -13,7 +13,7 @@ const cards = [
     title: "Peladas",
     text: "Registre presença, acompanhe a ordem de chegada e divida os times.",
     buttonLabel: "Acessar peladas",
-    href: "#peladas",
+    href: "/peladas",
   },
 ];
 

@@ -29,6 +29,28 @@ enum PaymentStatus {
   PAGO
 }
 
+enum PeladaType {
+  CAMPINHO
+  CAMPAO
+}
+
+enum FirstGameRule {
+  SORTEIO
+  ORDEM_DE_CHEGADA
+}
+
+enum PeladaStatus {
+  ABERTA
+  EM_ANDAMENTO
+  FINALIZADA
+  CANCELADA
+}
+
+enum GoalkeeperSide {
+  GOLEIRO_A
+  GOLEIRO_B
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String?
@@ -140,4 +162,64 @@ model Registration {
   championship Championship @relation(fields: [championshipId], references: [id])
 
   @@index([championshipId])
+}
+
+model Pelada {
+  id                  String         @id @default(uuid())
+  scheduledAt         DateTime
+  type                PeladaType
+  firstGameRule       FirstGameRule
+  arrivalCutoffTime   String?
+  maxFirstGamePlayers Int?
+  linePlayersCount    Int
+  status              PeladaStatus   @default(ABERTA)
+  notes               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  confirmations       PeladaConfirmation[]
+  arrivals            PeladaArrival[]
+
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model PeladaConfirmation {
+  id               String            @id @default(uuid())
+  peladaId         String
+  fullName         String
+  preferredPosition PreferredPosition
+  age              Int
+  guestCount       Int               @default(0)
+  goalkeeperSide   GoalkeeperSide?
+  createdByAdmin   Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  pelada           Pelada            @relation(fields: [peladaId], references: [id], onDelete: Cascade)
+  arrivals         PeladaArrival[]
+
+  @@index([peladaId])
+}
+
+model PeladaArrival {
+  id               String            @id @default(uuid())
+  peladaId         String
+  confirmationId   String?
+  fullName         String
+  preferredPosition PreferredPosition
+  age              Int
+  arrivalOrder     Int
+  playsFirstGame   Boolean           @default(false)
+  playsSecondGame  Boolean           @default(false)
+  level            PlayerLevel?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  pelada           Pelada            @relation(fields: [peladaId], references: [id], onDelete: Cascade)
+  confirmation     PeladaConfirmation? @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
+
+  @@index([peladaId])
+  @@index([confirmationId])
+  @@unique([peladaId, arrivalOrder])
 }

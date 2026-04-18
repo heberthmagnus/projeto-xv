@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { AdminSectionsNavigation } from "./admin-sections-navigation";
 
 export default async function AdminLayout({
   children,
@@ -6,5 +7,10 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   await requireAdmin();
-  return children;
+  return (
+    <>
+      <AdminSectionsNavigation />
+      {children}
+    </>
+  );
 }

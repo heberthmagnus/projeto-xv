@@ -10,7 +10,7 @@ const menuItems = [
     href: "/campeonatos/tio-hugo-2026/inscricao",
     label: "Copa Tio Hugo 2026",
   },
-  { href: "/#peladas", label: "Peladas" },
+  { href: "/peladas", label: "Peladas" },
 ];
 
 export function SiteHeader() {
@@ -59,6 +59,8 @@ export function SiteHeader() {
                 ? pathname === "/"
                 : item.href.startsWith("/campeonatos")
                   ? pathname.startsWith("/campeonatos/tio-hugo-2026")
+                  : item.href.startsWith("/peladas")
+                    ? pathname.startsWith("/peladas")
                   : false;
 
             return (
