@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { syncGuestConfirmations } from "@/lib/pelada-confirmations";
 import { prisma } from "@/lib/prisma";
 import { PeladaConfirmationFormState } from "./form-state";
 
@@ -52,7 +53,7 @@ export async function createPeladaConfirmation(
     return { error: "Esta pelada não está mais aberta para confirmação." };
   }
 
-  await prisma.peladaConfirmation.create({
+  const confirmation = await prisma.peladaConfirmation.create({
     data: {
       pelada: {
         connect: {
@@ -71,6 +72,21 @@ export async function createPeladaConfirmation(
       guestCount,
       createdByAdmin: false,
     },
+  });
+
+  await syncGuestConfirmations({
+    confirmationId: confirmation.id,
+    peladaId,
+    hostFullName: fullName,
+    preferredPosition: preferredPosition as
+      | "GOLEIRO"
+      | "LATERAL"
+      | "ZAGUEIRO"
+      | "VOLANTE"
+      | "MEIA"
+      | "ATACANTE",
+    guestCount,
+    createdByAdmin: false,
   });
 
   redirect(`/peladas/${peladaId}/sucesso`);

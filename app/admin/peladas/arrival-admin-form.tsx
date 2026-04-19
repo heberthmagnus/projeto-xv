@@ -1,21 +1,4 @@
-import { GOALKEEPER_SIDE_OPTIONS, PLAYER_LEVEL_OPTIONS } from "@/lib/peladas";
-
-type ConfirmationAdminFormProps = {
-  peladaId: string;
-  action: (formData: FormData) => void | Promise<void>;
-  submitLabel: string;
-  returnTo?: string;
-  mode?: "host" | "guest";
-  initialValues?: {
-    confirmationId?: string;
-    fullName: string;
-    preferredPosition: string;
-    age: number | string;
-    level: string;
-    guestCount: number | string;
-    goalkeeperSide: string;
-  };
-};
+import { PLAYER_LEVEL_OPTIONS, getPositionLabel, buildArrivalDateTimeInput } from "@/lib/peladas";
 
 const POSITION_OPTIONS = [
   { value: "GOLEIRO", label: "Goleiro" },
@@ -26,30 +9,41 @@ const POSITION_OPTIONS = [
   { value: "ATACANTE", label: "Atacante" },
 ] as const;
 
-export function ConfirmationAdminForm({
+type ArrivalAdminFormProps = {
+  peladaId: string;
+  action: (formData: FormData) => void | Promise<void>;
+  submitLabel: string;
+  returnTo?: string;
+  initialValues?: {
+    arrivalId?: string;
+    fullName: string;
+    preferredPosition: string;
+    age: number | string;
+    arrivalOrder: number | string;
+    arrivedAt: Date;
+    level: string | null;
+    playsFirstGame: boolean;
+    playsSecondGame: boolean;
+  };
+};
+
+export function ArrivalAdminForm({
   peladaId,
   action,
   submitLabel,
   returnTo,
-  mode = "host",
   initialValues,
-}: ConfirmationAdminFormProps) {
-  const isGuest = mode === "guest";
-
+}: ArrivalAdminFormProps) {
   return (
     <form action={action} style={formStyle}>
       <input type="hidden" name="peladaId" value={peladaId} />
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
-      {initialValues?.confirmationId && (
-        <input
-          type="hidden"
-          name="confirmationId"
-          value={initialValues.confirmationId}
-        />
+      {initialValues?.arrivalId && (
+        <input type="hidden" name="arrivalId" value={initialValues.arrivalId} />
       )}
 
       <div style={gridStyle}>
-        <FormField label="Nome completo">
+        <FormField label="Nome">
           <input
             name="fullName"
             type="text"
@@ -71,7 +65,7 @@ export function ConfirmationAdminForm({
             </option>
             {POSITION_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {getPositionLabel(option.value)}
               </option>
             ))}
           </select>
@@ -84,6 +78,32 @@ export function ConfirmationAdminForm({
             min={1}
             max={99}
             defaultValue={initialValues?.age || ""}
+            required
+            style={inputStyle}
+          />
+        </FormField>
+
+        <FormField label="Ordem de chegada">
+          <input
+            name="arrivalOrder"
+            type="number"
+            min={1}
+            defaultValue={initialValues?.arrivalOrder || ""}
+            required
+            style={inputStyle}
+          />
+        </FormField>
+
+        <FormField label="Horário de chegada">
+          <input
+            name="arrivedAt"
+            type="datetime-local"
+            defaultValue={
+              initialValues?.arrivedAt
+                ? buildArrivalDateTimeInput(initialValues.arrivedAt)
+                : ""
+            }
+            required
             style={inputStyle}
           />
         </FormField>
@@ -101,42 +121,26 @@ export function ConfirmationAdminForm({
             ))}
           </select>
         </FormField>
+      </div>
 
-        {!isGuest && (
-          <FormField label="Convidados">
-            <select
-              name="guestCount"
-              defaultValue={String(initialValues?.guestCount ?? 0)}
-              style={inputStyle}
-            >
-              <option value="0">0</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
-          </FormField>
-        )}
+      <div style={checkboxRowStyle}>
+        <label style={checkboxLabelStyle}>
+          <input
+            type="checkbox"
+            name="playsFirstGame"
+            defaultChecked={initialValues?.playsFirstGame || false}
+          />
+          <span>Joga a primeira</span>
+        </label>
 
-        {!isGuest && (
-          <FormField label="Goleiro">
-            <select
-              name="goalkeeperSide"
-              defaultValue={initialValues?.goalkeeperSide || ""}
-              style={inputStyle}
-            >
-              {GOALKEEPER_SIDE_OPTIONS.map((option) => (
-                <option key={option.value || "NONE"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </FormField>
-        )}
-
-        {isGuest && <input type="hidden" name="guestCount" value="0" />}
-        {isGuest && <input type="hidden" name="goalkeeperSide" value="" />}
+        <label style={checkboxLabelStyle}>
+          <input
+            type="checkbox"
+            name="playsSecondGame"
+            defaultChecked={initialValues?.playsSecondGame || false}
+          />
+          <span>Joga a segunda</span>
+        </label>
       </div>
 
       <div style={actionsStyle}>
@@ -195,6 +199,20 @@ const inputStyle: React.CSSProperties = {
   color: "#111827",
 };
 
+const checkboxRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 18,
+};
+
+const checkboxLabelStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 14,
+  color: "#101010",
+};
+
 const actionsStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "flex-start",
@@ -203,7 +221,7 @@ const actionsStyle: React.CSSProperties = {
 const submitButtonStyle: React.CSSProperties = {
   border: "none",
   borderRadius: 10,
-  background: "#B89020",
+  background: "#1A1A1A",
   color: "#FFFFFF",
   fontWeight: 800,
   fontSize: 14,

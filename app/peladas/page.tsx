@@ -64,7 +64,7 @@ export default async function PeladasPage() {
                       {getFirstGameRuleLabel(pelada.firstGameRule)}
                     </p>
                     <p style={factStyle}>
-                      <strong>Confirmações:</strong> {pelada._count.confirmations}
+                      <strong>Confirmados previstos:</strong> {pelada._count.confirmations}
                     </p>
                   </div>
 

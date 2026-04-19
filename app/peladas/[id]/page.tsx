@@ -68,7 +68,7 @@ export default async function PeladaPublicPage({
           </div>
 
           <div style={highlightStyle}>
-            Confirmações recebidas: <strong>{pelada._count.confirmations}</strong>
+            Confirmados previstos: <strong>{pelada._count.confirmations}</strong>
           </div>
         </section>
 

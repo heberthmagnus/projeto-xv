@@ -51,6 +51,21 @@ enum GoalkeeperSide {
   GOLEIRO_B
 }
 
+enum PeladaTeamColor {
+  AMARELO
+  PRETO
+}
+
+enum PeladaRoundStatus {
+  ATIVA
+  FINALIZADA
+}
+
+enum PeladaRoundPlayerSource {
+  FILA
+  REPESCAGEM
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String?
@@ -179,6 +194,8 @@ model Pelada {
 
   confirmations       PeladaConfirmation[]
   arrivals            PeladaArrival[]
+  teamAssignments     PeladaTeamAssignment[]
+  rounds              PeladaRound[]
 
   @@index([scheduledAt])
   @@index([status])
@@ -187,19 +204,26 @@ model Pelada {
 model PeladaConfirmation {
   id               String            @id @default(uuid())
   peladaId         String
+  parentConfirmationId String?
   fullName         String
   preferredPosition PreferredPosition
-  age              Int
+  age              Int?
+  level            PlayerLevel?
   guestCount       Int               @default(0)
   goalkeeperSide   GoalkeeperSide?
   createdByAdmin   Boolean           @default(false)
+  guestOrder       Int?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   pelada           Pelada            @relation(fields: [peladaId], references: [id], onDelete: Cascade)
   arrivals         PeladaArrival[]
+  parentConfirmation PeladaConfirmation? @relation("PeladaConfirmationGuests", fields: [parentConfirmationId], references: [id], onDelete: Cascade)
+  guests           PeladaConfirmation[] @relation("PeladaConfirmationGuests")
 
   @@index([peladaId])
+  @@index([parentConfirmationId])
+  @@unique([parentConfirmationId, guestOrder])
 }
 
 model PeladaArrival {
@@ -208,18 +232,88 @@ model PeladaArrival {
   confirmationId   String?
   fullName         String
   preferredPosition PreferredPosition
-  age              Int
+  age              Int?
+  arrivedAt        DateTime          @default(now())
   arrivalOrder     Int
   playsFirstGame   Boolean           @default(false)
   playsSecondGame  Boolean           @default(false)
+  availableForNextRound Boolean      @default(false)
   level            PlayerLevel?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   pelada           Pelada            @relation(fields: [peladaId], references: [id], onDelete: Cascade)
   confirmation     PeladaConfirmation? @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
+  teamAssignment   PeladaTeamAssignment?
+  roundPlayers     PeladaRoundPlayer[]
 
   @@index([peladaId])
   @@index([confirmationId])
   @@unique([peladaId, arrivalOrder])
+}
+
+model PeladaTeamAssignment {
+  id               String          @id @default(uuid())
+  peladaId         String
+  arrivalId        String          @unique
+  teamColor        PeladaTeamColor
+  assignedPosition PreferredPosition?
+  isFallback       Boolean         @default(false)
+  displayOrder     Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  pelada           Pelada          @relation(fields: [peladaId], references: [id], onDelete: Cascade)
+  arrival          PeladaArrival   @relation(fields: [arrivalId], references: [id], onDelete: Cascade)
+
+  @@index([peladaId, teamColor])
+  @@unique([peladaId, teamColor, displayOrder])
+}
+
+model PeladaRound {
+  id               String                 @id @default(uuid())
+  peladaId         String
+  roundNumber      Int
+  status           PeladaRoundStatus      @default(ATIVA)
+  blackScore       Int                    @default(0)
+  yellowScore      Int                    @default(0)
+  notes            String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  pelada           Pelada                 @relation(fields: [peladaId], references: [id], onDelete: Cascade)
+  players          PeladaRoundPlayer[]
+  goals            PeladaRoundGoal[]
+
+  @@unique([peladaId, roundNumber])
+  @@index([peladaId, status])
+}
+
+model PeladaRoundPlayer {
+  id               String                 @id @default(uuid())
+  roundId          String
+  arrivalId        String
+  source           PeladaRoundPlayerSource
+  queueOrder       Int
+  createdAt        DateTime               @default(now())
+
+  round            PeladaRound             @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  arrival          PeladaArrival           @relation(fields: [arrivalId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, arrivalId])
+  @@unique([roundId, queueOrder])
+  @@index([arrivalId])
+}
+
+model PeladaRoundGoal {
+  id               String          @id @default(uuid())
+  roundId          String
+  scorerName       String
+  teamColor        PeladaTeamColor
+  minute           Int?
+  createdAt        DateTime        @default(now())
+
+  round            PeladaRound     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([roundId, teamColor])
 }

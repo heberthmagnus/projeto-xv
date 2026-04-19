@@ -21,6 +21,15 @@ export const GOALKEEPER_SIDE_OPTIONS = [
   { value: "GOLEIRO_B", label: "Goleiro B" },
 ] as const;
 
+export const PLAYER_LEVEL_OPTIONS = [
+  { value: "", label: "Sem nível" },
+  { value: "A", label: "A" },
+  { value: "B", label: "B" },
+  { value: "C", label: "C" },
+  { value: "D", label: "D" },
+  { value: "E", label: "E" },
+] as const;
+
 export type PeladaTypeValue = (typeof PELADA_TYPE_OPTIONS)[number]["value"];
 export type FirstGameRuleValue =
   (typeof FIRST_GAME_RULE_OPTIONS)[number]["value"];
@@ -95,4 +104,25 @@ export function getGoalkeeperSideLabel(side: string | null) {
   }
 
   return "Nenhum";
+}
+
+export function getPlayerLevelLabel(level: string | null) {
+  return level || "Sem nível";
+}
+
+export function getFirstGamePlayersLimit(pelada: {
+  maxFirstGamePlayers: number | null;
+  linePlayersCount: number;
+}) {
+  return pelada.maxFirstGamePlayers ?? pelada.linePlayersCount * 2;
+}
+
+export function buildArrivalDateTimeInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
