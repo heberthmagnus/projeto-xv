@@ -37,48 +37,33 @@ export function PeladaSubnav({ peladaId }: PeladaSubnavProps) {
   ];
 
   return (
-    <div style={wrapperStyle}>
-      <div style={containerStyle}>
-        <Link href={ADMIN_PELADAS_PATH} style={backLinkStyle}>
-          ← Voltar para peladas
-        </Link>
+    <div className="xv-page-shell pt-3 pb-0">
+      <div className="xv-page-container">
+        <div className="xv-card">
+          <Link href={ADMIN_PELADAS_PATH} style={backLinkStyle}>
+            ← Voltar para peladas
+          </Link>
 
-        <nav style={navStyle} aria-label="Navegação da pelada">
-          {links.map((link) => {
-            const isActive = pathname === link.href;
+          <nav style={navStyle} aria-label="Navegação da pelada">
+            {links.map((link) => {
+              const isActive = pathname === link.href;
 
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={isActive ? activeLinkStyle : linkStyle}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={isActive ? activeLinkStyle : linkStyle}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </div>
   );
 }
-
-const wrapperStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "12px 12px 0",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  background: "#FFFFFF",
-  borderRadius: 16,
-  padding: "14px 18px",
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-  display: "grid",
-  gap: 12,
-};
 
 const backLinkStyle: React.CSSProperties = {
   display: "inline-flex",

@@ -26,6 +26,7 @@ type TeamState = {
   players: TeamDraftPlayer[];
   totalScore: number;
   averageAge: number;
+  remainingRoles: PreferredPosition[];
 };
 
 export type TeamDraftPlayer = {
@@ -79,10 +80,13 @@ export function buildPeladaTeams(
   arrivals: ArrivalForTeams[],
   linePlayersCount: number,
 ): TeamDraftResult {
+  const lineArrivals = arrivals.filter(
+    (arrival) => arrival.preferredPosition !== "GOLEIRO",
+  );
   const warnings: string[] = [];
-  const targetSize = Math.max(1, Math.floor(arrivals.length / 2));
+  const targetSize = Math.max(1, Math.floor(lineArrivals.length / 2));
 
-  if (arrivals.length < 2) {
+  if (lineArrivals.length < 2) {
     return {
       assignments: [],
       warnings: ["Ainda não há jogadores suficientes para dividir os times."],
@@ -95,16 +99,17 @@ export function buildPeladaTeams(
     players: [],
     totalScore: 0,
     averageAge: 0,
+    remainingRoles: [...roles],
   }));
 
-  distributeSkeletonByRoles(arrivals, teams, roles, targetSize);
+  distributeBalancedDraft(lineArrivals, teams, roles, targetSize);
 
   for (const team of teams) {
     team.totalScore = team.players.reduce((sum, player) => {
-      const arrival = arrivals.find((item) => item.id === player.arrivalId);
+      const arrival = lineArrivals.find((item) => item.id === player.arrivalId);
       return sum + getLevelScore(arrival?.level ?? null);
     }, 0);
-    team.averageAge = calculateAverageAge(team.players, arrivals);
+    team.averageAge = calculateAverageAge(team.players, lineArrivals);
   }
 
   const difference = Math.abs(teams[0].totalScore - teams[1].totalScore);
@@ -137,119 +142,103 @@ export function buildPeladaTeams(
   return { assignments, warnings };
 }
 
-function distributeSkeletonByRoles(
+function distributeBalancedDraft(
   arrivals: ArrivalForTeams[],
   teams: TeamState[],
   roles: PreferredPosition[],
   targetSize: number,
 ) {
-  const remaining = [...arrivals];
-
-  for (const role of roles) {
-    const sortedTeams = [...teams].sort((a, b) => {
-      if (a.players.length !== b.players.length) {
-        return a.players.length - b.players.length;
-      }
-
-      if (a.totalScore !== b.totalScore) {
-        return a.totalScore - b.totalScore;
-      }
-
-      return a.averageAge - b.averageAge;
-    });
-
-    for (const team of sortedTeams) {
-      if (remaining.length === 0 || team.players.length >= targetSize) {
-        continue;
-      }
-
-      const bestIndex = findBestPlayerIndexForRole(remaining, role, team);
-      const best = remaining.splice(bestIndex, 1)[0];
-      const mapped = mapArrivalToRole(best, role);
-
-      team.players.push({
-        arrivalId: best.id,
-        assignedPosition: mapped.assignedPosition,
-        isFallback: mapped.isFallback,
-      });
-      team.totalScore += getLevelScore(best.level);
-      team.averageAge = calculateAverageAge(team.players, arrivals);
-    }
-  }
-
-  while (remaining.length > 0) {
-    const sortedTeams = [...teams].sort((a, b) => {
-      if (a.players.length !== b.players.length) {
-        return a.players.length - b.players.length;
-      }
-
-      if (a.totalScore !== b.totalScore) {
-        return a.totalScore - b.totalScore;
-      }
-
-      return a.averageAge - b.averageAge;
-    });
-
-    const team = sortedTeams.find((item) => item.players.length < targetSize) ?? sortedTeams[0];
-    const next = remaining.shift();
-
-    if (!next) {
-      break;
+  const draftPool = [...arrivals].sort((a, b) => {
+    const levelDifference = getLevelScore(b.level) - getLevelScore(a.level);
+    if (levelDifference !== 0) {
+      return levelDifference;
     }
 
-    team.players.push({
-      arrivalId: next.id,
-      assignedPosition: next.preferredPosition,
-      isFallback: false,
-    });
-    team.totalScore += getLevelScore(next.level);
-    team.averageAge = calculateAverageAge(team.players, arrivals);
-  }
-}
-
-function findBestPlayerIndexForRole(
-  arrivals: ArrivalForTeams[],
-  desiredRole: PreferredPosition,
-  team?: TeamState,
-) {
-  let bestIndex = 0;
-  let bestScore = Number.NEGATIVE_INFINITY;
-
-  arrivals.forEach((arrival, index) => {
-    const score =
-      getRoleFitScore(arrival.preferredPosition, desiredRole) * 100 +
-      getLevelPreferenceScore(arrival.level, team) +
-      getAgePreferenceScore(arrival.age, team);
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = index;
+    const ageA = typeof a.age === "number" ? a.age : 0;
+    const ageB = typeof b.age === "number" ? b.age : 0;
+    if (ageB !== ageA) {
+      return ageB - ageA;
     }
+
+    return a.fullName.localeCompare(b.fullName, "pt-BR");
   });
 
-  return bestIndex;
+  for (const arrival of draftPool) {
+    const availableTeams = teams.filter((team) => team.players.length < targetSize);
+    const candidateTeams = availableTeams.length > 0 ? availableTeams : teams;
+    const chosenTeam =
+      candidateTeams.reduce<TeamState | null>((best, team) => {
+        if (!best) {
+          return team;
+        }
+
+        const bestScore = getTeamDraftScore(best, teams, arrival);
+        const teamScore = getTeamDraftScore(team, teams, arrival);
+
+        if (teamScore === bestScore) {
+          if (team.totalScore !== best.totalScore) {
+            return team.totalScore < best.totalScore ? team : best;
+          }
+
+          if (team.players.length !== best.players.length) {
+            return team.players.length < best.players.length ? team : best;
+          }
+
+          return team.color < best.color ? team : best;
+        }
+
+        return teamScore > bestScore ? team : best;
+      }, null) ?? candidateTeams[0];
+
+    const mapped = mapArrivalToBestTeamRole(arrival, chosenTeam);
+
+    chosenTeam.players.push({
+      arrivalId: arrival.id,
+      assignedPosition: mapped.assignedPosition,
+      isFallback: mapped.isFallback,
+    });
+
+    if (mapped.consumeRoleIndex >= 0) {
+      chosenTeam.remainingRoles.splice(mapped.consumeRoleIndex, 1);
+    }
+
+    chosenTeam.totalScore += getLevelScore(arrival.level);
+    chosenTeam.averageAge = calculateAverageAge(chosenTeam.players, arrivals);
+  }
 }
 
-function getLevelPreferenceScore(level: PlayerLevel | null, team?: TeamState) {
-  if (!team) {
-    return 0;
-  }
+function getTeamDraftScore(
+  team: TeamState,
+  teams: TeamState[],
+  arrival: ArrivalForTeams,
+) {
+  const roleOption = getBestRoleOption(arrival, team);
+  const otherTeams = teams.filter((candidate) => candidate.color !== team.color);
+  const weakestOtherTeamScore = Math.min(
+    ...otherTeams.map((candidate) => candidate.totalScore),
+    team.totalScore,
+  );
+  const levelScore = getLevelScore(arrival.level);
 
-  const raw = getLevelScore(level);
-
-  if (raw === 0) {
-    return 0;
-  }
-
-  return team.totalScore === 0 ? raw : raw * (team.totalScore <= 0 ? 1 : 1 / (team.totalScore + 1));
+  return (
+    roleOption.fitScore * 1000 +
+    (weakestOtherTeamScore - team.totalScore) * 120 +
+    (targetTeamSlotsLeft(team) > 0 ? 50 : 0) +
+    (team.players.length === 0 ? levelScore * 10 : 0) +
+    getAgeBalanceScore(arrival.age, team)
+  );
 }
 
-function getAgePreferenceScore(age: number | null, team?: TeamState) {
-  if (!team || typeof age !== "number" || team.averageAge === 0) {
+function targetTeamSlotsLeft(team: TeamState) {
+  return team.remainingRoles.length;
+}
+
+function getAgeBalanceScore(age: number | null, team: TeamState) {
+  if (typeof age !== "number" || team.averageAge === 0) {
     return 0;
   }
 
-  return -Math.abs(team.averageAge - age) / 10;
+  return -Math.abs(team.averageAge - age);
 }
 
 function getRoleFitScore(
@@ -264,10 +253,11 @@ function getRoleFitScore(
     return 7;
   }
 
-  if (
-    desiredRole === "ZAGUEIRO" &&
-    (preferredPosition === "LATERAL" || preferredPosition === "VOLANTE")
-  ) {
+  if (desiredRole === "ZAGUEIRO" && preferredPosition === "VOLANTE") {
+    return 8;
+  }
+
+  if (desiredRole === "ZAGUEIRO" && preferredPosition === "LATERAL") {
     return 7;
   }
 
@@ -279,26 +269,58 @@ function getRoleFitScore(
     return 8;
   }
 
+  if (desiredRole === "LATERAL" && preferredPosition === "MEIA") {
+    return 6;
+  }
+
   return 1;
 }
 
-function mapArrivalToRole(
-  arrival: ArrivalForTeams,
-  desiredRole: PreferredPosition,
-) {
-  const exactMatch = arrival.preferredPosition === desiredRole;
-  const score = getRoleFitScore(arrival.preferredPosition, desiredRole);
-
-  if (score >= 6) {
+function getBestRoleOption(arrival: ArrivalForTeams, team: TeamState) {
+  if (team.remainingRoles.length === 0) {
     return {
-      assignedPosition: desiredRole,
-      isFallback: !exactMatch,
+      assignedPosition: arrival.preferredPosition,
+      fitScore: 5,
+      consumeRoleIndex: -1,
+    };
+  }
+
+  let bestIndex = 0;
+  let bestFitScore = Number.NEGATIVE_INFINITY;
+
+  team.remainingRoles.forEach((role, index) => {
+    const fitScore = getRoleFitScore(arrival.preferredPosition, role);
+    if (fitScore > bestFitScore) {
+      bestFitScore = fitScore;
+      bestIndex = index;
+    }
+  });
+
+  return {
+    assignedPosition: team.remainingRoles[bestIndex],
+    fitScore: bestFitScore,
+    consumeRoleIndex: bestIndex,
+  };
+}
+
+function mapArrivalToBestTeamRole(
+  arrival: ArrivalForTeams,
+  team: TeamState,
+) {
+  const roleOption = getBestRoleOption(arrival, team);
+
+  if (roleOption.fitScore < 6) {
+    return {
+      assignedPosition: arrival.preferredPosition,
+      isFallback: false,
+      consumeRoleIndex: -1,
     };
   }
 
   return {
-    assignedPosition: arrival.preferredPosition,
-    isFallback: false,
+    assignedPosition: roleOption.assignedPosition,
+    isFallback: arrival.preferredPosition !== roleOption.assignedPosition,
+    consumeRoleIndex: roleOption.consumeRoleIndex,
   };
 }
 

@@ -11,55 +11,42 @@ export function PeladasNavigation() {
   const pathname = usePathname();
 
   return (
-    <div style={wrapperStyle}>
-      <div style={containerStyle}>
-        <div style={headerStyle}>
-          <div>
-            <p style={eyebrowStyle}>Área administrativa</p>
-            <h2 style={titleStyle}>Peladas</h2>
+    <div className="xv-page-shell pb-0">
+      <div className="xv-page-container">
+        <div className="xv-card">
+          <div style={headerStyle}>
+            <div>
+              <p style={eyebrowStyle}>Área administrativa</p>
+              <h2 style={titleStyle}>Peladas</h2>
+            </div>
+
+            <form action={logout}>
+              <button type="submit" style={logoutButtonStyle}>
+                Sair
+              </button>
+            </form>
           </div>
 
-          <form action={logout}>
-            <button type="submit" style={logoutButtonStyle}>
-              Sair
-            </button>
-          </form>
+          <nav style={navStyle} aria-label="Navegação das peladas">
+            {links.map((link) => {
+              const isActive = pathname === link.href;
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={isActive ? activeLinkStyle : linkStyle}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-
-        <nav style={navStyle} aria-label="Navegação das peladas">
-          {links.map((link) => {
-            const isActive = pathname === link.href;
-
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={isActive ? activeLinkStyle : linkStyle}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
       </div>
     </div>
   );
 }
-
-const wrapperStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 0",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  background: "#FFFFFF",
-  borderRadius: 16,
-  padding: "18px 20px",
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-};
 
 const headerStyle: React.CSSProperties = {
   display: "flex",

@@ -39,8 +39,8 @@ export default async function PeladaChegadaPage({
   ]);
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell">
+      <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
             {resolvedSearchParams.success === "arrival-add" &&
@@ -60,7 +60,7 @@ export default async function PeladaChegadaPage({
           <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
         )}
 
-        <section style={sectionStyle}>
+        <section className="xv-card">
           <div style={sectionHeaderWithActionStyle}>
             <div>
               <h2 style={sectionTitleStyle}>Chegada no dia</h2>
@@ -106,7 +106,7 @@ export default async function PeladaChegadaPage({
             </div>
           </div>
 
-          <div style={subsectionCardStyle}>
+          <div className="xv-subcard">
             <h3 style={subsectionTitleStyle}>Registrar chegada dos confirmados</h3>
             <p style={subsectionDescriptionStyle}>
               Marque rapidamente quem confirmou antes e realmente chegou para jogar.
@@ -148,7 +148,7 @@ export default async function PeladaChegadaPage({
             </div>
           </div>
 
-          <div style={subsectionCardStyle}>
+          <div className="xv-subcard">
             <h3 style={subsectionTitleStyle}>Registrar chegada manual</h3>
             <p style={subsectionDescriptionStyle}>
               Inclua aqui quem apareceu no dia mesmo sem confirmar antes.
@@ -161,6 +161,8 @@ export default async function PeladaChegadaPage({
               returnTo={returnTo}
               initialValues={{
                 fullName: "",
+                isGuest: false,
+                guestInvitedBy: "",
                 preferredPosition: "",
                 age: "",
                 arrivalOrder:
@@ -175,13 +177,14 @@ export default async function PeladaChegadaPage({
             />
           </div>
 
-          <div style={tableWrapperStyle}>
+          <div className="xv-table-scroll">
             <table style={tableStyle}>
               <thead>
                 <tr>
                   <th style={thStyle}>Ordem</th>
                   <th style={thStyle}>Chegada</th>
                   <th style={thStyle}>Nome</th>
+                  <th style={thStyle}>Tipo</th>
                   <th style={thStyle}>Posição</th>
                   <th style={thStyle}>Idade</th>
                   <th style={thStyle}>Nível</th>
@@ -194,7 +197,7 @@ export default async function PeladaChegadaPage({
               <tbody>
                 {pelada.arrivals.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={emptyStyle}>
+                    <td colSpan={11} style={emptyStyle}>
                       Nenhuma chegada registrada ainda.
                     </td>
                   </tr>
@@ -204,6 +207,13 @@ export default async function PeladaChegadaPage({
                       <td style={tdStyle}>{arrival.arrivalOrder}</td>
                       <td style={tdStyle}>{formatPeladaDateTime(arrival.arrivedAt)}</td>
                       <td style={tdStyle}>{arrival.fullName}</td>
+                      <td style={tdStyle}>
+                        {arrival.isGuest
+                          ? arrival.guestInvitedBy
+                            ? `Convidado de ${arrival.guestInvitedBy}`
+                            : "Convidado avulso"
+                          : "Sócio"}
+                      </td>
                       <td style={tdStyle}>
                         {getPositionLabel(arrival.preferredPosition)}
                       </td>
@@ -233,6 +243,8 @@ export default async function PeladaChegadaPage({
                                 initialValues={{
                                   arrivalId: arrival.id,
                                   fullName: arrival.fullName,
+                                  isGuest: arrival.isGuest,
+                                  guestInvitedBy: arrival.guestInvitedBy || "",
                                   preferredPosition: arrival.preferredPosition,
                                   age: arrival.age ?? "",
                                   arrivalOrder: arrival.arrivalOrder,
@@ -267,18 +279,6 @@ export default async function PeladaChegadaPage({
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  display: "grid",
-  gap: 18,
-};
-
 const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: 12,
@@ -295,14 +295,6 @@ const errorBannerStyle: React.CSSProperties = {
   color: "#B91C1C",
   fontWeight: 700,
   border: "1px solid #FECACA",
-};
-
-const sectionStyle: React.CSSProperties = {
-  background: "#FFFFFF",
-  borderRadius: 16,
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-  padding: 24,
 };
 
 const sectionHeaderWithActionStyle: React.CSSProperties = {
@@ -354,14 +346,6 @@ const statValueStyle: React.CSSProperties = {
   color: "#101010",
 };
 
-const subsectionCardStyle: React.CSSProperties = {
-  borderRadius: 14,
-  background: "#FAFAFA",
-  border: "1px solid #E5E7EB",
-  padding: 18,
-  marginBottom: 18,
-};
-
 const subsectionTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
   fontSize: 20,
@@ -396,10 +380,6 @@ const chipButtonStyle: React.CSSProperties = {
   color: "#101010",
   padding: "10px 14px",
   fontWeight: 700,
-};
-
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
 };
 
 const tableStyle: React.CSSProperties = {

@@ -34,8 +34,8 @@ export default async function PeladasAdminPage({
   });
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell">
+      <div className="xv-page-container">
         {params.success && (
           <div style={successBannerStyle}>
             {params.success === "create" && "✅ Pelada criada com sucesso."}
@@ -51,7 +51,7 @@ export default async function PeladasAdminPage({
           action={createPelada}
         />
 
-        <section style={sectionStyle}>
+        <section className="xv-card">
           <div style={sectionHeaderStyle}>
             <div>
               <h2 style={sectionTitleStyle}>Peladas cadastradas</h2>
@@ -67,7 +67,7 @@ export default async function PeladasAdminPage({
             </div>
           </div>
 
-          <div style={tableWrapperStyle}>
+          <div className="xv-table-scroll">
             <table style={tableStyle}>
               <thead>
                 <tr>
@@ -160,18 +160,6 @@ function formatTime(date: Date) {
   }).format(date);
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  display: "grid",
-  gap: 20,
-};
-
 const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: 12,
@@ -179,14 +167,6 @@ const successBannerStyle: React.CSSProperties = {
   color: "#047857",
   fontWeight: 700,
   border: "1px solid #A7F3D0",
-};
-
-const sectionStyle: React.CSSProperties = {
-  background: "#FFFFFF",
-  borderRadius: 16,
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-  padding: 24,
 };
 
 const sectionHeaderStyle: React.CSSProperties = {
@@ -203,10 +183,6 @@ const sectionDescriptionStyle: React.CSSProperties = {
   margin: 0,
   color: "#4B5563",
   lineHeight: 1.6,
-};
-
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
 };
 
 const tableStyle: React.CSSProperties = {

@@ -9,6 +9,7 @@ type ResultPlayer = {
   id: string;
   queueOrder: number;
   sourceLabel: string;
+  teamColor: "PRETO" | "AMARELO" | null;
   arrival: {
     fullName: string;
     preferredPositionLabel: string;
@@ -59,14 +60,15 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
         </div>
       </div>
 
-      <div style={resultGridStyle}>
+      <div className="grid gap-4 p-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.8fr)]">
         <div style={sheetBlockStyle}>
-          <div style={tableWrapperStyle}>
+          <div className="xv-table-scroll" style={tableWrapperStyle}>
             <table style={sheetTableStyle}>
               <thead>
                 <tr>
                   <th style={thStyle}>Ordem</th>
                   <th style={thStyle}>Lista jogadores</th>
+                  <th style={thStyle}>Time</th>
                   <th style={thStyle}>Posição</th>
                   <th style={thStyle}>Nível</th>
                   <th style={thStyle}>Origem</th>
@@ -75,7 +77,7 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
               <tbody>
                 {round.players.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={emptyTdStyle}>
+                    <td colSpan={6} style={emptyTdStyle}>
                       Nenhum jogador registrado nesta pelada.
                     </td>
                   </tr>
@@ -84,6 +86,13 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
                     <tr key={player.id}>
                       <td style={numberTdStyle}>{player.queueOrder}</td>
                       <td style={nameTdStyle}>{player.arrival.fullName}</td>
+                      <td style={tdStyle}>
+                        {player.teamColor === "PRETO"
+                          ? "Preto"
+                          : player.teamColor === "AMARELO"
+                            ? "Amarelo"
+                            : "—"}
+                      </td>
                       <td style={tdStyle}>{player.arrival.preferredPositionLabel}</td>
                       <td style={tdStyle}>{player.arrival.levelLabel}</td>
                       <td style={tdStyle}>{player.sourceLabel}</td>
@@ -103,7 +112,7 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
 
             <h4 style={panelTitleStyle}>Resultado</h4>
 
-            <div style={scoreInputsGridStyle}>
+            <div className="grid gap-3 sm:grid-cols-2">
               <label style={fieldStyle}>
                 <span style={labelStyle}>Gols do Preto</span>
                 <input
@@ -181,26 +190,22 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
 
             <label style={fieldStyle}>
               <span style={labelStyle}>Jogador</span>
-              <input
-                name="scorerName"
-                type="text"
-                placeholder="Quem fez o gol"
-                style={inputStyle}
-              />
+              <select name="roundPlayerId" defaultValue="" style={inputStyle}>
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {round.players.map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.arrival.fullName}
+                    {player.teamColor
+                      ? ` • ${player.teamColor === "PRETO" ? "Preto" : "Amarelo"}`
+                      : " • sem time salvo"}
+                  </option>
+                ))}
+              </select>
             </label>
 
-            <div style={scoreInputsGridStyle}>
-              <label style={fieldStyle}>
-                <span style={labelStyle}>Time</span>
-                <select name="teamColor" defaultValue="" style={inputStyle}>
-                  <option value="" disabled>
-                    Selecione
-                  </option>
-                  <option value="PRETO">Preto</option>
-                  <option value="AMARELO">Amarelo</option>
-                </select>
-              </label>
-
+            <div className="grid gap-3">
               <label style={fieldStyle}>
                 <span style={labelStyle}>Minuto</span>
                 <input
@@ -283,25 +288,15 @@ const scoreDividerStyle: React.CSSProperties = {
   color: "#D1D5DB",
 };
 
-const resultGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1.3fr) minmax(320px, 0.8fr)",
-  gap: 16,
-  padding: 12,
-  alignItems: "start",
-};
-
 const sheetBlockStyle: React.CSSProperties = {
   border: "1px solid #D1D5DB",
 };
 
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
-};
+const tableWrapperStyle: React.CSSProperties = {};
 
 const sheetTableStyle: React.CSSProperties = {
   width: "100%",
-  minWidth: 720,
+  minWidth: 640,
   borderCollapse: "collapse",
 };
 
@@ -364,12 +359,6 @@ const panelTitleStyle: React.CSSProperties = {
   fontSize: 15,
   fontWeight: 800,
   color: "#111111",
-};
-
-const scoreInputsGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 10,
 };
 
 const fieldStyle: React.CSSProperties = {

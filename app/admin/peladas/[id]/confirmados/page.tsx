@@ -38,8 +38,8 @@ export default async function PeladaConfirmadosPage({
   );
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell">
+      <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
             {resolvedSearchParams.success === "confirmed-add" &&
@@ -55,7 +55,7 @@ export default async function PeladaConfirmadosPage({
           <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
         )}
 
-        <section style={sectionStyle}>
+        <section className="xv-card">
           <div style={sectionHeaderStyle}>
             <div>
               <h2 style={sectionTitleStyle}>Confirmados para a pelada</h2>
@@ -65,7 +65,7 @@ export default async function PeladaConfirmadosPage({
             </div>
           </div>
 
-          <div style={subsectionCardStyle}>
+          <div className="xv-subcard">
             <h3 style={subsectionTitleStyle}>Adicionar confirmado manualmente</h3>
             <p style={subsectionDescriptionStyle}>
               Use este formulário para consolidar quem confirmou por fora, como
@@ -80,7 +80,7 @@ export default async function PeladaConfirmadosPage({
             />
           </div>
 
-          <div style={tableWrapperStyle}>
+          <div className="xv-table-scroll">
             <table style={tableStyle}>
               <thead>
                 <tr>
@@ -221,18 +221,6 @@ export default async function PeladaConfirmadosPage({
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  display: "grid",
-  gap: 18,
-};
-
 const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: 12,
@@ -251,14 +239,6 @@ const errorBannerStyle: React.CSSProperties = {
   border: "1px solid #FECACA",
 };
 
-const sectionStyle: React.CSSProperties = {
-  background: "#FFFFFF",
-  borderRadius: 16,
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-  padding: 24,
-};
-
 const sectionHeaderStyle: React.CSSProperties = {
   marginBottom: 18,
 };
@@ -274,14 +254,6 @@ const sectionDescriptionStyle: React.CSSProperties = {
   color: "#4B5563",
 };
 
-const subsectionCardStyle: React.CSSProperties = {
-  borderRadius: 14,
-  background: "#FAFAFA",
-  border: "1px solid #E5E7EB",
-  padding: 18,
-  marginBottom: 18,
-};
-
 const subsectionTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
   fontSize: 20,
@@ -292,10 +264,6 @@ const subsectionDescriptionStyle: React.CSSProperties = {
   margin: "0 0 16px",
   color: "#4B5563",
   lineHeight: 1.6,
-};
-
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
 };
 
 const tableStyle: React.CSSProperties = {

@@ -10,6 +10,7 @@ type PeladaArrivalQueueItem = {
   id: string;
   arrivalOrder: number;
   availableForNextRound: boolean;
+  preferredPosition: string;
 };
 
 type PeladaLatestRound = {
@@ -46,7 +47,11 @@ export function getNextRoundPlayers(args: {
   );
 
   const queuePlayers = arrivals
-    .filter((arrival) => !lastRoundArrivalIds.has(arrival.id))
+    .filter(
+      (arrival) =>
+        arrival.preferredPosition !== "GOLEIRO" &&
+        !lastRoundArrivalIds.has(arrival.id),
+    )
     .sort((a, b) => a.arrivalOrder - b.arrivalOrder);
 
   selected.push(
@@ -60,15 +65,39 @@ export function getNextRoundPlayers(args: {
   if (selected.length < limit) {
     const selectedIds = new Set(selected.map((player) => player.arrivalId));
 
-    const replayCandidates = arrivals
+    const replayPriority = arrivals
       .filter(
         (arrival) =>
+          arrival.preferredPosition !== "GOLEIRO" &&
+          lastRoundArrivalIds.has(arrival.id) &&
           arrival.availableForNextRound &&
           !selectedIds.has(arrival.id),
       )
       .sort((a, b) => a.arrivalOrder - b.arrivalOrder);
 
-    for (const arrival of replayCandidates) {
+    for (const arrival of replayPriority) {
+      if (selected.length >= limit) {
+        break;
+      }
+
+      selected.push({
+        arrivalId: arrival.id,
+        source: "REPESCAGEM",
+        queueOrder: selected.length + 1,
+      });
+      selectedIds.add(arrival.id);
+    }
+
+    const replayFallback = arrivals
+      .filter(
+        (arrival) =>
+          arrival.preferredPosition !== "GOLEIRO" &&
+          lastRoundArrivalIds.has(arrival.id) &&
+          !selectedIds.has(arrival.id),
+      )
+      .sort((a, b) => a.arrivalOrder - b.arrivalOrder);
+
+    for (const arrival of replayFallback) {
       if (selected.length >= limit) {
         break;
       }

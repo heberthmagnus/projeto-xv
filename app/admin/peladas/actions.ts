@@ -8,7 +8,7 @@ import {
   buildPeladaTeams,
   buildPeladaTeamsWarningsSummary,
 } from "@/lib/pelada-teams";
-import { getFirstGamePlayersLimit } from "@/lib/peladas";
+import { getFirstGamePlayersLimit, isLinePlayerPosition } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
 import {
   ADMIN_PELADAS_PATH,
@@ -89,6 +89,8 @@ function buildRedirectPath(path: string, params?: Record<string, string>) {
 type ActionArrival = {
   id: string;
   fullName: string;
+  isGuest: boolean;
+  guestInvitedBy: string | null;
   preferredPosition: "GOLEIRO" | "LATERAL" | "ZAGUEIRO" | "VOLANTE" | "MEIA" | "ATACANTE";
   age: number | null;
   arrivalOrder: number;
@@ -386,6 +388,8 @@ async function getNextArrivalOrder(peladaId: string) {
 
 function parseArrivalFormData(formData: FormData) {
   const fullName = String(formData.get("fullName") || "").trim();
+  const isGuest = formData.get("isGuest") === "on";
+  const guestInvitedBy = String(formData.get("guestInvitedBy") || "").trim();
   const preferredPosition = String(
     formData.get("preferredPosition") || "",
   ).trim();
@@ -401,6 +405,10 @@ function parseArrivalFormData(formData: FormData) {
 
   if (!fullName) {
     throw new Error("Informe o nome do jogador que chegou.");
+  }
+
+  if (guestInvitedBy && !isGuest) {
+    throw new Error("Marque que o jogador é convidado para informar quem convidou.");
   }
 
   if (!preferredPosition) {
@@ -427,6 +435,8 @@ function parseArrivalFormData(formData: FormData) {
 
   return {
     fullName,
+    isGuest,
+    guestInvitedBy: isGuest ? guestInvitedBy || null : null,
     preferredPosition: preferredPosition as
       | "GOLEIRO"
       | "LATERAL"
@@ -475,6 +485,13 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
 
   const confirmation = await prisma.peladaConfirmation.findUnique({
     where: { id: confirmationId },
+    include: {
+      parentConfirmation: {
+        select: {
+          fullName: true,
+        },
+      },
+    },
   });
 
   if (!confirmation) {
@@ -496,6 +513,8 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
         },
       },
       fullName: confirmation.fullName,
+      isGuest: Boolean(confirmation.parentConfirmationId),
+      guestInvitedBy: confirmation.parentConfirmation?.fullName || null,
       preferredPosition: confirmation.preferredPosition,
       age: confirmation.age,
       arrivalOrder,
@@ -663,6 +682,7 @@ async function persistPeladaTeamsForArrivals(args: {
   peladaId: string;
   arrivals: ActionArrival[];
   linePlayersCount: number;
+  roundId?: string | null;
 }) {
   const result = buildPeladaTeams(args.arrivals, args.linePlayersCount);
 
@@ -675,16 +695,41 @@ async function persistPeladaTeamsForArrivals(args: {
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.peladaTeamAssignment.deleteMany({
+    const txWithRoundPlayers = tx as unknown as {
+      peladaTeamAssignment: {
+        deleteMany(args: unknown): Promise<unknown>;
+        createMany(args: unknown): Promise<unknown>;
+      };
+      peladaRoundPlayer: {
+        updateMany(args: unknown): Promise<unknown>;
+      };
+    };
+    await txWithRoundPlayers.peladaTeamAssignment.deleteMany({
       where: { peladaId: args.peladaId },
     });
 
-    await tx.peladaTeamAssignment.createMany({
+    await txWithRoundPlayers.peladaTeamAssignment.createMany({
       data: result.assignments.map((assignment) => ({
         ...assignment,
         peladaId: args.peladaId,
       })),
     });
+
+    if (args.roundId) {
+      await Promise.all(
+        result.assignments.map((assignment) =>
+          txWithRoundPlayers.peladaRoundPlayer.updateMany({
+            where: {
+              roundId: args.roundId ?? undefined,
+              arrivalId: assignment.arrivalId,
+            },
+            data: {
+              teamColor: assignment.teamColor,
+            },
+          }),
+        ),
+      );
+    }
   });
 
   return {
@@ -736,9 +781,11 @@ export async function defineFirstGame(formData: FormData) {
       pelada.arrivalCutoffTime
         ? buildCutoffDate(pelada.scheduledAt, pelada.arrivalCutoffTime)
         : null;
-    const eligibleArrivals = cutoff
+    const eligibleArrivals = (cutoff
       ? pelada.arrivals.filter((arrival) => arrival.arrivedAt <= cutoff)
-      : pelada.arrivals;
+      : pelada.arrivals).filter((arrival) =>
+      isLinePlayerPosition(arrival.preferredPosition),
+    );
 
     if (eligibleArrivals.length === 0) {
       redirect(
@@ -752,7 +799,10 @@ export async function defineFirstGame(formData: FormData) {
       .slice(0, limit)
       .map((arrival) => arrival.id);
   } else {
-    firstGameIds = pelada.arrivals.slice(0, limit).map((arrival) => arrival.id);
+    firstGameIds = pelada.arrivals
+      .filter((arrival) => isLinePlayerPosition(arrival.preferredPosition))
+      .slice(0, limit)
+      .map((arrival) => arrival.id);
   }
 
   await prisma.$transaction(
@@ -829,7 +879,9 @@ export async function generatePeladaTeams(formData: FormData) {
 
   const inferredFirstGameArrivals =
     pelada.type === "CAMPAO" && explicitFirstGameArrivals.length === 0
-      ? pelada.arrivals.slice(0, getFirstGamePlayersLimit(pelada))
+      ? pelada.arrivals
+          .filter((arrival) => isLinePlayerPosition(arrival.preferredPosition))
+          .slice(0, getFirstGamePlayersLimit(pelada))
       : explicitFirstGameArrivals;
 
   if (inferredFirstGameArrivals.length < 2) {
@@ -843,37 +895,20 @@ export async function generatePeladaTeams(formData: FormData) {
     );
   }
 
-  const result = buildPeladaTeams(
-    inferredFirstGameArrivals,
-    pelada.linePlayersCount,
-  );
-
-  if (result.assignments.length === 0) {
-    redirect(
-      buildRedirectPath(returnTo, {
-        error: result.warnings[0] || "Não foi possível gerar os times agora.",
-      }),
-    );
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.peladaTeamAssignment.deleteMany({
-      where: { peladaId },
-    });
-
-    await tx.peladaTeamAssignment.createMany({
-      data: result.assignments.map((assignment) => ({
-        ...assignment,
-        peladaId,
-      })),
-    });
+  const teamResult = await persistPeladaTeamsForArrivals({
+    peladaId,
+    arrivals: inferredFirstGameArrivals,
+    linePlayersCount: pelada.linePlayersCount,
+    roundId: activeRound?.id || null,
   });
 
   redirect(
     buildRedirectPath(returnTo, {
-      success: "teams-generated",
-      ...(buildPeladaTeamsWarningsSummary(result.warnings)
-        ? { error: buildPeladaTeamsWarningsSummary(result.warnings)! }
+      ...(teamResult.success
+        ? { success: "teams-generated" }
+        : { error: teamResult.warning }),
+      ...(teamResult.success && teamResult.warning
+        ? { error: teamResult.warning }
         : {}),
     }),
   );
@@ -925,7 +960,9 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
 
   const firstRoundArrivals =
     pelada.type === "CAMPAO" && explicitFirstGameArrivals.length === 0
-      ? pelada.arrivals.slice(0, getFirstGamePlayersLimit(pelada))
+      ? pelada.arrivals
+          .filter((arrival) => isLinePlayerPosition(arrival.preferredPosition))
+          .slice(0, getFirstGamePlayersLimit(pelada))
       : explicitFirstGameArrivals;
 
   if (firstRoundArrivals.length === 0) {
@@ -939,7 +976,7 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
     );
   }
 
-  await prisma.$transaction(async (tx) => {
+  const createdRoundId = await prisma.$transaction(async (tx) => {
     const txWithRounds = tx as unknown as {
       peladaRound: {
         create(args: unknown): Promise<{ id: string }>;
@@ -968,12 +1005,15 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
         queueOrder: index + 1,
       })),
     });
+    
+    return round.id;
   });
 
   const teamResult = await persistPeladaTeamsForArrivals({
     peladaId,
     arrivals: firstRoundArrivals,
     linePlayersCount: pelada.linePlayersCount,
+    roundId: createdRoundId,
   });
 
   redirect(
@@ -1030,7 +1070,9 @@ export async function openFirstPeladaRound(formData: FormData) {
 
   const firstRoundArrivals =
     pelada.type === "CAMPAO" && explicitFirstGameArrivals.length === 0
-      ? pelada.arrivals.slice(0, getFirstGamePlayersLimit(pelada))
+      ? pelada.arrivals
+          .filter((arrival) => isLinePlayerPosition(arrival.preferredPosition))
+          .slice(0, getFirstGamePlayersLimit(pelada))
       : explicitFirstGameArrivals;
 
   if (firstRoundArrivals.length === 0) {
@@ -1340,7 +1382,7 @@ export async function generateNextPeladaRoundAndGenerateTeams(
 
   const nextRoundNumber = latestRound.roundNumber + 1;
 
-  await prisma.$transaction(async (tx) => {
+  const createdRoundId = await prisma.$transaction(async (tx) => {
     const txWithRounds = tx as unknown as {
       peladaRound: {
         update(args: unknown): Promise<unknown>;
@@ -1396,6 +1438,8 @@ export async function generateNextPeladaRoundAndGenerateTeams(
     await txWithRounds.peladaTeamAssignment.deleteMany({
       where: { peladaId },
     });
+
+    return nextRound.id;
   });
 
   const selectedArrivals = selectedPlayers
@@ -1408,6 +1452,7 @@ export async function generateNextPeladaRoundAndGenerateTeams(
     peladaId,
     arrivals: selectedArrivals,
     linePlayersCount: pelada.linePlayersCount,
+    roundId: createdRoundId,
   });
 
   redirect(
@@ -1485,26 +1530,48 @@ export async function createPeladaRoundGoal(formData: FormData) {
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
-  const scorerName = String(formData.get("scorerName") || "").trim();
-  const teamColor = String(formData.get("teamColor") || "").trim();
+  const roundPlayerId = String(formData.get("roundPlayerId") || "").trim();
   const minuteRaw = String(formData.get("minute") || "").trim();
 
   if (!peladaId || !roundId) {
     throw new Error("Pelada não encontrada.");
   }
 
-  if (!scorerName) {
+  if (!roundPlayerId) {
     redirect(
       buildRedirectPath(returnTo, {
-        error: "Informe quem fez o gol.",
+        error: "Selecione o jogador que fez o gol.",
       }),
     );
   }
 
-  if (teamColor !== "PRETO" && teamColor !== "AMARELO") {
+  const roundPlayer = await prisma.peladaRoundPlayer.findUnique({
+    where: { id: roundPlayerId },
+    select: {
+      id: true,
+      roundId: true,
+      teamColor: true,
+      arrival: {
+        select: {
+          fullName: true,
+        },
+      },
+    },
+  });
+
+  if (!roundPlayer || roundPlayer.roundId !== roundId) {
     redirect(
       buildRedirectPath(returnTo, {
-        error: "Selecione o time do gol.",
+        error: "Não foi possível localizar o jogador dessa pelada.",
+      }),
+    );
+  }
+
+  if (!roundPlayer.teamColor) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error:
+          "Esta pelada ainda não tem os times salvos por jogador. Gere ou refaça a divisão antes de lançar os gols.",
       }),
     );
   }
@@ -1532,8 +1599,8 @@ export async function createPeladaRoundGoal(formData: FormData) {
           id: roundId,
         },
       },
-      scorerName,
-      teamColor,
+      scorerName: roundPlayer.arrival.fullName,
+      teamColor: roundPlayer.teamColor,
       minute,
     },
   });
@@ -1619,20 +1686,62 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
     );
   }
 
-  await prisma.$transaction([
-    prisma.peladaTeamAssignment.update({
+  const activeRound = await prisma.peladaRound.findFirst({
+    where: {
+      peladaId,
+      status: "ATIVA",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    const txWithRoundPlayers = tx as unknown as {
+      peladaTeamAssignment: {
+        update(args: unknown): Promise<unknown>;
+      };
+      peladaRoundPlayer: {
+        updateMany(args: unknown): Promise<unknown>;
+      };
+    };
+
+    await txWithRoundPlayers.peladaTeamAssignment.update({
       where: { id: yellow.id },
       data: {
         teamColor: "PRETO",
       },
-    }),
-    prisma.peladaTeamAssignment.update({
+    });
+
+    await txWithRoundPlayers.peladaTeamAssignment.update({
       where: { id: black.id },
       data: {
         teamColor: "AMARELO",
       },
-    }),
-  ]);
+    });
+
+    if (activeRound) {
+      await txWithRoundPlayers.peladaRoundPlayer.updateMany({
+        where: {
+          roundId: activeRound.id,
+          arrivalId: yellow.arrivalId,
+        },
+        data: {
+          teamColor: "PRETO",
+        },
+      });
+
+      await txWithRoundPlayers.peladaRoundPlayer.updateMany({
+        where: {
+          roundId: activeRound.id,
+          arrivalId: black.arrivalId,
+        },
+        data: {
+          teamColor: "AMARELO",
+        },
+      });
+    }
+  });
 
   redirect(
     buildRedirectPath(returnTo, {

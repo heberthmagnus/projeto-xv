@@ -25,49 +25,36 @@ export function AdminSectionsNavigation() {
   const pathname = usePathname();
 
   return (
-    <div style={wrapperStyle}>
-      <div style={containerStyle}>
-        <div style={headerStyle}>
-          <div>
-            <p style={eyebrowStyle}>Admin geral</p>
-            <h2 style={titleStyle}>Organização do clube</h2>
+    <div className="xv-page-shell pb-0">
+      <div className="xv-page-container">
+        <div className="xv-card">
+          <div style={headerStyle}>
+            <div>
+              <p style={eyebrowStyle}>Admin geral</p>
+              <h2 style={titleStyle}>Organização do clube</h2>
+            </div>
           </div>
+
+          <nav style={navStyle} aria-label="Seções administrativas">
+            {links.map((link) => {
+              const isActive = link.match(pathname);
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={isActive ? activeLinkStyle : linkStyle}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-
-        <nav style={navStyle} aria-label="Seções administrativas">
-          {links.map((link) => {
-            const isActive = link.match(pathname);
-
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={isActive ? activeLinkStyle : linkStyle}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
       </div>
     </div>
   );
 }
-
-const wrapperStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 0",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  background: "#FFFFFF",
-  borderRadius: 16,
-  padding: "18px 20px",
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-};
 
 const headerStyle: React.CSSProperties = {
   display: "flex",

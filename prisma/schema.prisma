@@ -231,6 +231,8 @@ model PeladaArrival {
   peladaId         String
   confirmationId   String?
   fullName         String
+  isGuest          Boolean           @default(false)
+  guestInvitedBy   String?
   preferredPosition PreferredPosition
   age              Int?
   arrivedAt        DateTime          @default(now())
@@ -294,6 +296,7 @@ model PeladaRoundPlayer {
   roundId          String
   arrivalId        String
   source           PeladaRoundPlayerSource
+  teamColor        PeladaTeamColor?
   queueOrder       Int
   createdAt        DateTime               @default(now())
 

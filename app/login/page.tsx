@@ -12,47 +12,20 @@ export default async function LoginPage() {
   }
 
   return (
-    <main
-      style={{
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "linear-gradient(180deg, #F4F4F4 0%, #EAEAEA 100%)",
-        padding: "24px 16px 40px",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          background: "#FFFFFF",
-          borderRadius: 18,
-          padding: 28,
-          boxShadow: "0 16px 40px rgba(16,16,16,0.08)",
-          border: "1px solid #E5E7EB",
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
+    <main className="flex flex-1 items-center justify-center bg-[linear-gradient(180deg,#F4F4F4_0%,#EAEAEA_100%)] px-4 py-6 sm:px-6 sm:py-10">
+      <div className="w-full max-w-[420px] rounded-[18px] border border-[#E5E7EB] bg-white p-5 shadow-[0_16px_40px_rgba(16,16,16,0.08)] sm:p-7">
+        <div className="mb-6 text-center">
           <Image
             src="/logo-clube-xv.png"
             alt="Logo Clube Quinze Veranistas"
             width={86}
             height={86}
-            style={{ margin: "0 auto 14px" }}
+            className="mx-auto mb-3 h-[74px] w-auto sm:mb-[14px] sm:h-[86px]"
           />
-          <h1
-            style={{
-              fontSize: 28,
-              fontWeight: 800,
-              color: "#101010",
-              marginBottom: 8,
-            }}
-          >
+          <h1 className="mb-2 text-[2rem] font-extrabold text-[#101010] sm:text-[28px]">
             Área administrativa
           </h1>
-          <p style={{ color: "#4B5563", lineHeight: 1.6 }}>
+          <p className="leading-7 text-[#4B5563]">
             Entre com um usuário já cadastrado manualmente para acessar as
             inscrições do campeonato.
           </p>

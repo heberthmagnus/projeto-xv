@@ -29,6 +29,8 @@ export type PageConfirmation = {
 export type PageArrival = {
   id: string;
   fullName: string;
+  isGuest: boolean;
+  guestInvitedBy: string | null;
   preferredPosition: string;
   age: number | null;
   level: "A" | "B" | "C" | "D" | "E" | null;
@@ -70,6 +72,7 @@ export type PageRound = {
     id: string;
     queueOrder: number;
     source: "FILA" | "REPESCAGEM";
+    teamColor: "AMARELO" | "PRETO" | null;
     arrivalId: string;
     arrival: PageArrival;
   }>;

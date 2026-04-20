@@ -24,8 +24,8 @@ export default async function PeladasPage() {
   });
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell-soft">
+      <div className="xv-page-container xv-page-container-medium">
         <section style={heroStyle}>
           <div style={badgeStyle}>Peladas do Clube</div>
           <h1 style={titleStyle}>Peladas abertas para confirmação</h1>
@@ -96,23 +96,11 @@ function formatTime(date: Date) {
   }).format(date);
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "linear-gradient(180deg, #f7f2e9 0%, #f4eee5 100%)",
-  padding: "24px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1120,
-  margin: "0 auto",
-  display: "grid",
-  gap: 20,
-};
-
 const heroStyle: React.CSSProperties = {
   background: "#1A1A1A",
   color: "#FFFFFF",
   borderRadius: 18,
-  padding: 28,
+  padding: 24,
   boxShadow: "0 18px 40px rgba(0,0,0,0.14)",
 };
 

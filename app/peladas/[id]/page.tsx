@@ -33,8 +33,8 @@ export default async function PeladaPublicPage({
     pelada.status !== "FINALIZADA" && pelada.status !== "CANCELADA";
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell-soft">
+      <div className="xv-page-container xv-page-container-narrow">
         <section style={infoCardStyle}>
           <div style={heroBadgeStyle}>Peladas do Clube Quinze Veranistas</div>
           <h1 style={titleStyle}>
@@ -116,23 +116,11 @@ function formatTime(date: Date) {
   }).format(date);
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "linear-gradient(180deg, #f7f2e9 0%, #f4eee5 100%)",
-  padding: "24px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1080,
-  margin: "0 auto",
-  display: "grid",
-  gap: 20,
-};
-
 const infoCardStyle: React.CSSProperties = {
   background: "#1A1A1A",
   color: "#FFFFFF",
   borderRadius: 18,
-  padding: 28,
+  padding: 24,
   boxShadow: "0 18px 40px rgba(0,0,0,0.14)",
 };
 

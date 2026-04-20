@@ -52,8 +52,10 @@ export default async function PeladaPeladasDoDiaPage({
   const teamAssignments = pelada.teamAssignments;
   const rounds = pelada.rounds;
   const arrivals = pelada.arrivals;
-  const activeRound = rounds.find((round) => round.status === "ATIVA") || null;
   const peladasDoDia = [...rounds].sort((a, b) => a.roundNumber - b.roundNumber);
+  const activeRound = peladasDoDia.find((round) => round.status === "ATIVA") || null;
+  const latestRound = peladasDoDia[peladasDoDia.length - 1] || null;
+  const roundBaseForNext = activeRound || latestRound;
   const teamAssignmentByArrivalId = new Map(
     teamAssignments.map((assignment) => [assignment.arrival.id, assignment]),
   );
@@ -64,7 +66,7 @@ export default async function PeladaPeladasDoDiaPage({
       }))
     : [];
 
-  const nextRoundPreview = activeRound
+  const nextRoundPreview = roundBaseForNext
     ? getNextRoundPlayers({
         pelada: {
           type: pelada.type,
@@ -75,11 +77,12 @@ export default async function PeladaPeladasDoDiaPage({
           id: arrival.id,
           arrivalOrder: arrival.arrivalOrder,
           availableForNextRound: arrival.availableForNextRound,
+          preferredPosition: arrival.preferredPosition,
         })),
         latestRound: {
-          id: activeRound.id,
-          roundNumber: activeRound.roundNumber,
-          players: activeRound.players.map(
+          id: roundBaseForNext.id,
+          roundNumber: roundBaseForNext.roundNumber,
+          players: roundBaseForNext.players.map(
             (player: PageRound["players"][number]) => ({
               arrivalId: player.arrivalId,
             }),
@@ -138,8 +141,8 @@ export default async function PeladaPeladasDoDiaPage({
   }));
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell">
+      <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
             {resolvedSearchParams.success === "teams-generated" &&
@@ -171,7 +174,7 @@ export default async function PeladaPeladasDoDiaPage({
           <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
         )}
 
-        <section style={sectionStyle}>
+        <section className="xv-card" style={sectionStyle}>
           <div style={sectionHeaderWithActionStyle}>
             <div>
               <h2 style={sectionTitleStyle}>Peladas do dia</h2>
@@ -183,7 +186,7 @@ export default async function PeladaPeladasDoDiaPage({
             </div>
 
             <div style={headerActionsWrapStyle}>
-              {!activeRound ? (
+              {peladasDoDia.length === 0 ? (
                 <>
                   <form action={openFirstPeladaRound}>
                     <input type="hidden" name="peladaId" value={pelada.id} />
@@ -201,7 +204,7 @@ export default async function PeladaPeladasDoDiaPage({
                     </button>
                   </form>
                 </>
-              ) : (
+              ) : activeRound ? (
                 <>
                   <form action={closeCurrentPeladaRound}>
                     <input type="hidden" name="peladaId" value={pelada.id} />
@@ -211,6 +214,24 @@ export default async function PeladaPeladasDoDiaPage({
                     </button>
                   </form>
 
+                  <form action={generateNextPeladaRound}>
+                    <input type="hidden" name="peladaId" value={pelada.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <button type="submit" style={secondaryActionButtonStyle}>
+                      Subir próxima pelada
+                    </button>
+                  </form>
+
+                  <form action={generateNextPeladaRoundAndGenerateTeams}>
+                    <input type="hidden" name="peladaId" value={pelada.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+                    <button type="submit" style={primaryActionButtonStyle}>
+                      Subir próxima pelada e dividir
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <>
                   <form action={generateNextPeladaRound}>
                     <input type="hidden" name="peladaId" value={pelada.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
@@ -272,7 +293,7 @@ export default async function PeladaPeladasDoDiaPage({
           </div>
 
           {peladasDoDia.length > 0 && (
-            <div style={subsectionCardStyle}>
+            <div className="xv-subcard">
               <h3 style={subsectionTitleStyle}>Resumo das peladas já criadas</h3>
               <div style={compactStatsGridStyle}>
                 {peladasDoDia.map((round) => (
@@ -308,8 +329,8 @@ export default async function PeladaPeladasDoDiaPage({
 
             <PeladaSheet
               title={
-                activeRound
-                  ? `Próxima pelada prevista: Pelada ${activeRound.roundNumber + 1}`
+                roundBaseForNext
+                  ? `Próxima pelada prevista: Pelada ${roundBaseForNext.roundNumber + 1}`
                   : "Próxima pelada prevista"
               }
               subtitle="Primeiro entram os que ficaram de fora; se faltar gente, a repescagem completa a lista respeitando a ordem de chegada."
@@ -319,7 +340,7 @@ export default async function PeladaPeladasDoDiaPage({
             />
           </div>
 
-          <div style={subsectionCardStyle}>
+          <div className="xv-subcard">
             <h3 style={subsectionTitleStyle}>Repescagem para a próxima pelada</h3>
             <p style={subsectionDescriptionStyle}>
               Quando faltar jogador para fechar a próxima pelada, marque aqui quem
@@ -327,7 +348,7 @@ export default async function PeladaPeladasDoDiaPage({
               original da lista do dia.
             </p>
 
-            <div style={tableWrapperStyle}>
+            <div className="xv-table-scroll">
               <table style={tableStyle}>
                 <thead>
                   <tr>
@@ -449,7 +470,7 @@ export default async function PeladaPeladasDoDiaPage({
             </div>
 
             {teamAssignments.length === 0 ? (
-              <div style={subsectionCardStyle}>
+              <div className="xv-subcard">
                 <p style={subsectionDescriptionStyle}>
                   Ainda não há divisão salva. Suba uma pelada e depois clique em
                   <strong> Dividir times</strong>, ou use o atalho de subir e dividir
@@ -483,7 +504,7 @@ export default async function PeladaPeladasDoDiaPage({
                         <strong style={teamScoreStyle}>{team.totalScore} pts</strong>
                       </div>
 
-                      <div style={tableWrapperStyle}>
+                      <div className="xv-table-scroll">
                         <table style={teamTableStyle}>
                           <thead>
                             <tr>
@@ -523,7 +544,7 @@ export default async function PeladaPeladasDoDiaPage({
                   ))}
                 </div>
 
-                <div style={subsectionCardStyle}>
+                <div className="xv-subcard">
                   <h3 style={subsectionTitleStyle}>Trocar jogadores</h3>
                   <p style={subsectionDescriptionStyle}>
                     Escolha um jogador do time Amarelo e outro do time Preto para
@@ -596,18 +617,6 @@ export default async function PeladaPeladasDoDiaPage({
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  display: "grid",
-  gap: 18,
-};
-
 const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: 12,
@@ -627,11 +636,8 @@ const errorBannerStyle: React.CSSProperties = {
 };
 
 const sectionStyle: React.CSSProperties = {
-  background: "#FFFFFF",
-  borderRadius: 16,
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-  padding: 24,
+  display: "grid",
+  gap: 18,
 };
 
 const divisionSectionStyle: React.CSSProperties = {
@@ -736,14 +742,6 @@ const statValueStyleSmall: React.CSSProperties = {
   lineHeight: 1.4,
 };
 
-const subsectionCardStyle: React.CSSProperties = {
-  borderRadius: 14,
-  background: "#FAFAFA",
-  border: "1px solid #E5E7EB",
-  padding: 18,
-  marginBottom: 18,
-};
-
 const subsectionTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
   fontSize: 20,
@@ -758,7 +756,7 @@ const subsectionDescriptionStyle: React.CSSProperties = {
 
 const sheetGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
   gap: 16,
   marginBottom: 18,
   alignItems: "start",
@@ -789,10 +787,6 @@ const sheetPlaceholderTextStyle: React.CSSProperties = {
 const inlineMutedStyle: React.CSSProperties = {
   margin: 0,
   color: "#6B7280",
-};
-
-const tableWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
 };
 
 const tableStyle: React.CSSProperties = {
@@ -905,6 +899,7 @@ const teamScoreStyle: React.CSSProperties = {
 const teamTableStyle: React.CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
+  borderTop: "1px solid #D1D5DB",
 };
 
 const teamThStyle: React.CSSProperties = {
@@ -914,12 +909,12 @@ const teamThStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 800,
   textAlign: "left",
-  borderBottom: "1px solid #D1D5DB",
+  border: "1px solid #D1D5DB",
 };
 
 const teamTdStyle: React.CSSProperties = {
   padding: "9px 10px",
-  borderBottom: "1px solid #E5E7EB",
+  border: "1px solid #D1D5DB",
   fontSize: 14,
   color: "#111827",
 };

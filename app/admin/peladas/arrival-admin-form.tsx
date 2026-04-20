@@ -17,6 +17,8 @@ type ArrivalAdminFormProps = {
   initialValues?: {
     arrivalId?: string;
     fullName: string;
+    isGuest?: boolean;
+    guestInvitedBy?: string;
     preferredPosition: string;
     age: number | string;
     arrivalOrder: number | string;
@@ -121,9 +123,28 @@ export function ArrivalAdminForm({
             ))}
           </select>
         </FormField>
+
+        <FormField label="Convidado de">
+          <input
+            name="guestInvitedBy"
+            type="text"
+            defaultValue={initialValues?.guestInvitedBy || ""}
+            placeholder="Opcional"
+            style={inputStyle}
+          />
+        </FormField>
       </div>
 
       <div style={checkboxRowStyle}>
+        <label style={checkboxLabelStyle}>
+          <input
+            type="checkbox"
+            name="isGuest"
+            defaultChecked={initialValues?.isGuest || false}
+          />
+          <span>É convidado</span>
+        </label>
+
         <label style={checkboxLabelStyle}>
           <input
             type="checkbox"

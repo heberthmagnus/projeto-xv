@@ -31,7 +31,7 @@ export function PeladaSheet({
         {subtitle ? <p style={sheetSubtitleStyle}>{subtitle}</p> : null}
       </div>
 
-      <div style={sheetWrapperStyle}>
+      <div className="xv-table-scroll" style={sheetWrapperStyle}>
         <table style={sheetTableStyle}>
           <thead>
             <tr>
@@ -99,13 +99,11 @@ const sheetSubtitleStyle: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
-const sheetWrapperStyle: React.CSSProperties = {
-  overflowX: "auto",
-};
+const sheetWrapperStyle: React.CSSProperties = {};
 
 const sheetTableStyle: React.CSSProperties = {
   width: "100%",
-  minWidth: 760,
+  minWidth: 640,
   borderCollapse: "collapse",
 };
 

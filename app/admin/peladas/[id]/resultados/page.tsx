@@ -27,8 +27,8 @@ export default async function PeladaResultadosPage({
   const rounds = [...pelada.rounds].sort((a, b) => a.roundNumber - b.roundNumber);
 
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
+    <main className="xv-page-shell">
+      <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
             {resolvedSearchParams.success === "round-result-update" &&
@@ -44,7 +44,7 @@ export default async function PeladaResultadosPage({
           <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
         )}
 
-        <section style={sectionStyle}>
+        <section className="xv-card">
           <div style={sectionHeaderStyle}>
             <div>
               <h2 style={sectionTitleStyle}>Resultados</h2>
@@ -94,6 +94,7 @@ export default async function PeladaResultadosPage({
                       id: player.id,
                       queueOrder: player.queueOrder,
                       sourceLabel: getPeladaRoundPlayerSourceLabel(player.source),
+                      teamColor: player.teamColor,
                       arrival: {
                         fullName: player.arrival.fullName,
                         preferredPositionLabel: getPositionLabel(
@@ -119,18 +120,6 @@ export default async function PeladaResultadosPage({
   );
 }
 
-const pageStyle: React.CSSProperties = {
-  background: "#F0F0F0",
-  padding: "16px 12px 40px",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 1440,
-  margin: "0 auto",
-  display: "grid",
-  gap: 18,
-};
-
 const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: 12,
@@ -147,14 +136,6 @@ const errorBannerStyle: React.CSSProperties = {
   color: "#B91C1C",
   fontWeight: 700,
   border: "1px solid #FECACA",
-};
-
-const sectionStyle: React.CSSProperties = {
-  background: "#FFFFFF",
-  borderRadius: 16,
-  border: "1px solid #E5E7EB",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-  padding: 24,
 };
 
 const sectionHeaderStyle: React.CSSProperties = {

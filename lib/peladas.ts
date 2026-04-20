@@ -110,6 +110,10 @@ export function getPlayerLevelLabel(level: string | null) {
   return level || "Sem nível";
 }
 
+export function isLinePlayerPosition(position: string) {
+  return position !== "GOLEIRO";
+}
+
 export function getFirstGamePlayersLimit(pelada: {
   maxFirstGamePlayers: number | null;
   linePlayersCount: number;
