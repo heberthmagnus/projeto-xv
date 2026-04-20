@@ -6,11 +6,14 @@ import {
   getPeladaTypeLabel,
 } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
-import { createPelada, deletePelada } from "./actions";
+import { ADMIN_PELADAS_PATH } from "@/lib/routes";
+import { createPelada, deletePelada, updatePelada } from "./actions";
 import { PeladaForm } from "./pelada-form";
+import { buildPeladaFormValues } from "./pelada-form-values";
 
 type SearchParams = Promise<{
   success?: string;
+  edit?: string;
 }>;
 
 export default async function PeladasAdminPage({
@@ -32,6 +35,7 @@ export default async function PeladasAdminPage({
     },
     orderBy: [{ scheduledAt: "desc" }, { createdAt: "desc" }],
   });
+  const editingPelada = peladas.find((pelada) => pelada.id === params.edit) || null;
 
   return (
     <main className="xv-page-shell">
@@ -50,6 +54,31 @@ export default async function PeladasAdminPage({
           submitLabel="Salvar pelada"
           action={createPelada}
         />
+
+        {editingPelada && (
+          <div className="xv-card">
+            <div style={editingHeaderStyle}>
+              <div>
+                <h2 style={sectionTitleStyle}>Editar informações da pelada</h2>
+                <p style={sectionDescriptionStyle}>
+                  Ajuste data, horário, status e regras da pelada mesmo depois da criação.
+                </p>
+              </div>
+
+              <Link href={ADMIN_PELADAS_PATH} style={cancelEditLinkStyle}>
+                Cancelar edição
+              </Link>
+            </div>
+
+            <PeladaForm
+              title={`Pelada de ${formatDate(editingPelada.scheduledAt)}`}
+              description="Atualize os dados principais da pelada e salve novamente."
+              submitLabel="Salvar alterações"
+              action={updatePelada}
+              initialValues={buildPeladaFormValues(editingPelada)}
+            />
+          </div>
+        )}
 
         <section className="xv-card">
           <div style={sectionHeaderStyle}>
@@ -110,7 +139,7 @@ export default async function PeladasAdminPage({
                       </td>
                       <td style={tdStyle}>{pelada.linePlayersCount} de linha</td>
                       <td style={tdStyle}>
-                        <span style={statusBadgeStyle}>
+                        <span style={getStatusBadgeStyle(pelada.status)}>
                           {getPeladaStatusLabel(pelada.status)}
                         </span>
                       </td>
@@ -122,7 +151,14 @@ export default async function PeladasAdminPage({
                             href={`/admin/peladas/${pelada.id}`}
                             style={editLinkStyle}
                           >
-                            Editar
+                            Abrir
+                          </Link>
+
+                          <Link
+                            href={`${ADMIN_PELADAS_PATH}?edit=${pelada.id}`}
+                            style={editSecondaryLinkStyle}
+                          >
+                            Editar dados
                           </Link>
 
                           <form action={deletePelada}>
@@ -160,6 +196,44 @@ function formatTime(date: Date) {
   }).format(date);
 }
 
+function getStatusBadgeStyle(
+  status: "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA",
+): React.CSSProperties {
+  if (status === "FINALIZADA") {
+    return {
+      ...statusBadgeBaseStyle,
+      background: "#ECFDF3",
+      border: "1px solid #A7F3D0",
+      color: "#047857",
+    };
+  }
+
+  if (status === "CANCELADA") {
+    return {
+      ...statusBadgeBaseStyle,
+      background: "#FEF2F2",
+      border: "1px solid #FECACA",
+      color: "#B91C1C",
+    };
+  }
+
+  if (status === "EM_ANDAMENTO") {
+    return {
+      ...statusBadgeBaseStyle,
+      background: "#FFFBEB",
+      border: "1px solid #FCD34D",
+      color: "#A16207",
+    };
+  }
+
+  return {
+    ...statusBadgeBaseStyle,
+    background: "#EFF6FF",
+    border: "1px solid #BFDBFE",
+    color: "#1D4ED8",
+  };
+}
+
 const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: 12,
@@ -170,6 +244,15 @@ const successBannerStyle: React.CSSProperties = {
 };
 
 const sectionHeaderStyle: React.CSSProperties = {
+  marginBottom: 18,
+};
+
+const editingHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 16,
+  flexWrap: "wrap",
   marginBottom: 18,
 };
 
@@ -215,13 +298,10 @@ const emptyStyle: React.CSSProperties = {
   color: "#6B7280",
 };
 
-const statusBadgeStyle: React.CSSProperties = {
+const statusBadgeBaseStyle: React.CSSProperties = {
   display: "inline-flex",
   padding: "6px 10px",
   borderRadius: 999,
-  background: "#FCF7E6",
-  border: "1px solid #F1D68A",
-  color: "#8B6914",
   fontWeight: 700,
   fontSize: 13,
 };
@@ -242,6 +322,20 @@ const actionButtonBaseStyle: React.CSSProperties = {
 };
 
 const editLinkStyle: React.CSSProperties = {
+  ...actionButtonBaseStyle,
+  border: "1px solid #D1D5DB",
+  background: "#FFFFFF",
+  color: "#101010",
+};
+
+const editSecondaryLinkStyle: React.CSSProperties = {
+  ...actionButtonBaseStyle,
+  border: "1px solid #D6B14B",
+  background: "#FFF8E8",
+  color: "#8B6914",
+};
+
+const cancelEditLinkStyle: React.CSSProperties = {
   ...actionButtonBaseStyle,
   border: "1px solid #D1D5DB",
   background: "#FFFFFF",
