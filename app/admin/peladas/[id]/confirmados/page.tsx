@@ -42,6 +42,8 @@ export default async function PeladaConfirmadosPage({
       <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
+            {resolvedSearchParams.success === "status-update" &&
+              "✅ Status da pelada atualizado com sucesso."}
             {resolvedSearchParams.success === "confirmed-add" &&
               "✅ Confirmado adicionado com sucesso."}
             {resolvedSearchParams.success === "confirmed-update" &&

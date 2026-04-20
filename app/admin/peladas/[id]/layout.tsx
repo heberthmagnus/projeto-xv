@@ -1,5 +1,6 @@
 import { getPeladaTypeLabel } from "@/lib/peladas";
 import { loadPeladaAdminData } from "./pelada-admin-data";
+import { PeladaStatusControls } from "./pelada-status-controls";
 import { PeladaSubnav } from "./pelada-subnav";
 
 type LayoutProps = {
@@ -30,6 +31,7 @@ export default async function PeladaDetailLayout({
                 year: "numeric",
               }).format(pelada.scheduledAt)}
             </h1>
+            <PeladaStatusControls peladaId={pelada.id} status={pelada.status} />
           </div>
         </div>
       </div>

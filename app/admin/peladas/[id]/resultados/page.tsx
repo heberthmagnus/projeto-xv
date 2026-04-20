@@ -31,6 +31,8 @@ export default async function PeladaResultadosPage({
       <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
+            {resolvedSearchParams.success === "status-update" &&
+              "✅ Status da pelada atualizado com sucesso."}
             {resolvedSearchParams.success === "round-result-update" &&
               "✅ Resultado da pelada atualizado com sucesso."}
             {resolvedSearchParams.success === "round-goal-add" &&

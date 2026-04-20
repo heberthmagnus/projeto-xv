@@ -50,6 +50,35 @@ export async function updatePelada(formData: FormData) {
   redirect(`${ADMIN_PELADAS_PATH}?success=update`);
 }
 
+export async function updatePeladaStatus(formData: FormData) {
+  await requireAdmin();
+
+  const id = String(formData.get("id") || "").trim();
+  const status = String(formData.get("status") || "").trim();
+  const returnTo = getSafeReturnTo(formData, ADMIN_PELADAS_PATH);
+
+  if (!id) {
+    throw new Error("Pelada não encontrada.");
+  }
+
+  if (!["ABERTA", "EM_ANDAMENTO", "FINALIZADA", "CANCELADA"].includes(status)) {
+    throw new Error("Status de pelada inválido.");
+  }
+
+  await prisma.pelada.update({
+    where: { id },
+    data: {
+      status: status as "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA",
+    },
+  });
+
+  redirect(
+    buildRedirectPath(returnTo, {
+      success: "status-update",
+    }),
+  );
+}
+
 export async function deletePelada(formData: FormData) {
   await requireAdmin();
 

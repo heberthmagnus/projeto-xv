@@ -43,6 +43,8 @@ export default async function PeladaChegadaPage({
       <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
+            {resolvedSearchParams.success === "status-update" &&
+              "✅ Status da pelada atualizado com sucesso."}
             {resolvedSearchParams.success === "arrival-add" &&
               "✅ Chegada registrada com sucesso."}
             {resolvedSearchParams.success === "arrival-update" &&

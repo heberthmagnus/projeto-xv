@@ -145,6 +145,8 @@ export default async function PeladaPeladasDoDiaPage({
       <div className="xv-page-container">
         {resolvedSearchParams.success && (
           <div style={successBannerStyle}>
+            {resolvedSearchParams.success === "status-update" &&
+              "✅ Status da pelada atualizado com sucesso."}
             {resolvedSearchParams.success === "teams-generated" &&
               "✅ Times Amarelo e Preto gerados com sucesso."}
             {resolvedSearchParams.success === "teams-swapped" &&
