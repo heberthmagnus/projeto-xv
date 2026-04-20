@@ -29,6 +29,7 @@ export default async function PeladaDetailLayout({
                 day: "2-digit",
                 month: "2-digit",
                 year: "numeric",
+                timeZone: "America/Sao_Paulo",
               }).format(pelada.scheduledAt)}
             </h1>
             <PeladaStatusControls peladaId={pelada.id} status={pelada.status} />

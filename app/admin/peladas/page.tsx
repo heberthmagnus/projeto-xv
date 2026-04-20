@@ -186,6 +186,7 @@ function formatDate(date: Date) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
 }
 
@@ -193,6 +194,7 @@ function formatTime(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
 }
 
