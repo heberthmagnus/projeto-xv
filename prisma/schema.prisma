@@ -302,6 +302,7 @@ model PeladaRoundPlayer {
 
   round            PeladaRound             @relation(fields: [roundId], references: [id], onDelete: Cascade)
   arrival          PeladaArrival           @relation(fields: [arrivalId], references: [id], onDelete: Cascade)
+  goals            PeladaRoundGoal[]
 
   @@unique([roundId, arrivalId])
   @@unique([roundId, queueOrder])
@@ -311,12 +312,15 @@ model PeladaRoundPlayer {
 model PeladaRoundGoal {
   id               String          @id @default(uuid())
   roundId          String
+  roundPlayerId    String?
   scorerName       String
   teamColor        PeladaTeamColor
   minute           Int?
   createdAt        DateTime        @default(now())
 
   round            PeladaRound     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundPlayer      PeladaRoundPlayer? @relation(fields: [roundPlayerId], references: [id])
 
+  @@index([roundPlayerId])
   @@index([roundId, teamColor])
 }

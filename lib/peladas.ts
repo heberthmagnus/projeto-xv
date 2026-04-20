@@ -121,6 +121,19 @@ export function getFirstGamePlayersLimit(pelada: {
   return pelada.maxFirstGamePlayers ?? pelada.linePlayersCount * 2;
 }
 
+export function getFormationSlotLabel(
+  linePlayersCount: number,
+  displayOrder: number,
+) {
+  if (linePlayersCount >= 8) {
+    const campaoSlots = ["L", "Z", "Z", "L", "V", "M", "M", "A"];
+    return campaoSlots[displayOrder - 1] || `${displayOrder}`;
+  }
+
+  const campinhoSlots = ["Z", "L", "L", "M", "M", "A"];
+  return campinhoSlots[displayOrder - 1] || `${displayOrder}`;
+}
+
 export function buildArrivalDateTimeInput(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");

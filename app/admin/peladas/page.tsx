@@ -14,6 +14,7 @@ import { buildPeladaFormValues } from "./pelada-form-values";
 type SearchParams = Promise<{
   success?: string;
   edit?: string;
+  error?: string;
 }>;
 
 export default async function PeladasAdminPage({
@@ -47,6 +48,8 @@ export default async function PeladasAdminPage({
             {params.success === "delete" && "✅ Pelada excluída com sucesso."}
           </div>
         )}
+
+        {params.error && <div style={errorBannerStyle}>{params.error}</div>}
 
         <PeladaForm
           title="Criar pelada"
@@ -243,6 +246,15 @@ const successBannerStyle: React.CSSProperties = {
   color: "#047857",
   fontWeight: 700,
   border: "1px solid #A7F3D0",
+};
+
+const errorBannerStyle: React.CSSProperties = {
+  padding: "14px 16px",
+  borderRadius: 12,
+  background: "#FEF2F2",
+  color: "#B91C1C",
+  fontWeight: 700,
+  border: "1px solid #FECACA",
 };
 
 const sectionHeaderStyle: React.CSSProperties = {

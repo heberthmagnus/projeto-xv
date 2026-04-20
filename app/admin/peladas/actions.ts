@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { AuthDatabaseUnavailableError, requireAdmin } from "@/lib/auth";
 import { syncGuestConfirmations } from "@/lib/pelada-confirmations";
 import { getNextRoundPlayers } from "@/lib/pelada-rounds";
 import {
@@ -20,7 +20,7 @@ import {
 import { parsePeladaFormData } from "./pelada-form-values";
 
 export async function createPelada(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForAction(ADMIN_PELADAS_PATH);
 
   const data = parsePeladaFormData(formData);
 
@@ -32,7 +32,7 @@ export async function createPelada(formData: FormData) {
 }
 
 export async function updatePelada(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForAction(ADMIN_PELADAS_PATH);
 
   const id = String(formData.get("id") || "").trim();
 
@@ -51,11 +51,11 @@ export async function updatePelada(formData: FormData) {
 }
 
 export async function updatePeladaStatus(formData: FormData) {
-  await requireAdmin();
-
   const id = String(formData.get("id") || "").trim();
   const status = String(formData.get("status") || "").trim();
   const returnTo = getSafeReturnTo(formData, ADMIN_PELADAS_PATH);
+
+  await requireAdminForAction(returnTo);
 
   if (!id) {
     throw new Error("Pelada não encontrada.");
@@ -65,11 +65,31 @@ export async function updatePeladaStatus(formData: FormData) {
     throw new Error("Status de pelada inválido.");
   }
 
-  await prisma.pelada.update({
-    where: { id },
-    data: {
-      status: status as "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA",
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.pelada.update({
+      where: { id },
+      data: {
+        status: status as "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA",
+      },
+    });
+
+    if (status === "FINALIZADA" || status === "CANCELADA") {
+      const txWithRounds = tx as unknown as {
+        peladaRound: {
+          updateMany(args: unknown): Promise<unknown>;
+        };
+      };
+
+      await txWithRounds.peladaRound.updateMany({
+        where: {
+          peladaId: id,
+          status: "ATIVA",
+        },
+        data: {
+          status: "FINALIZADA",
+        },
+      });
+    }
   });
 
   redirect(
@@ -80,7 +100,7 @@ export async function updatePeladaStatus(formData: FormData) {
 }
 
 export async function deletePelada(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForAction(ADMIN_PELADAS_PATH);
 
   const id = String(formData.get("id") || "").trim();
 
@@ -113,6 +133,246 @@ function buildRedirectPath(path: string, params?: Record<string, string>) {
   const query = search.toString();
 
   return `${path}${query ? `?${query}` : ""}`;
+}
+
+async function getPeladaConfirmationOrRedirect(args: {
+  peladaId: string;
+  confirmationId: string;
+  returnTo: string;
+}) {
+  const confirmation = await prisma.peladaConfirmation.findUnique({
+    where: { id: args.confirmationId },
+    select: {
+      id: true,
+      peladaId: true,
+      parentConfirmationId: true,
+      guestOrder: true,
+      fullName: true,
+      preferredPosition: true,
+      guestCount: true,
+      createdByAdmin: true,
+      parentConfirmation: {
+        select: {
+          id: true,
+          guestCount: true,
+        },
+      },
+    },
+  });
+
+  if (!confirmation || confirmation.peladaId !== args.peladaId) {
+    redirect(
+      buildRedirectPath(args.returnTo, {
+        error: "Confirmado não encontrado para esta pelada.",
+      }),
+    );
+  }
+
+  return confirmation;
+}
+
+async function getPeladaArrivalOrRedirect(args: {
+  peladaId: string;
+  arrivalId: string;
+  returnTo: string;
+}) {
+  const arrival = await prisma.peladaArrival.findUnique({
+    where: { id: args.arrivalId },
+    select: {
+      id: true,
+      peladaId: true,
+      confirmationId: true,
+    },
+  });
+
+  if (!arrival || arrival.peladaId !== args.peladaId) {
+    redirect(
+      buildRedirectPath(args.returnTo, {
+        error: "Chegada não encontrada para esta pelada.",
+      }),
+    );
+  }
+
+  return arrival;
+}
+
+async function getPeladaRoundOrRedirect(args: {
+  peladaId: string;
+  roundId: string;
+  returnTo: string;
+}) {
+  const prismaWithRounds = prisma as unknown as {
+    peladaRound: {
+      findUnique(args: unknown): Promise<{
+        id: string;
+        peladaId: string;
+      } | null>;
+    };
+  };
+
+  const round = await prismaWithRounds.peladaRound.findUnique({
+    where: { id: args.roundId },
+    select: {
+      id: true,
+      peladaId: true,
+    },
+  });
+
+  if (!round || round.peladaId !== args.peladaId) {
+    redirect(
+      buildRedirectPath(args.returnTo, {
+        error: "Pelada do dia não encontrada para este evento.",
+      }),
+    );
+  }
+
+  return round;
+}
+
+async function assertArrivalOrderAvailable(args: {
+  peladaId: string;
+  arrivalOrder: number;
+  returnTo: string;
+  arrivalId?: string;
+}) {
+  const conflict = await prisma.peladaArrival.findFirst({
+    where: {
+      peladaId: args.peladaId,
+      arrivalOrder: args.arrivalOrder,
+      ...(args.arrivalId
+        ? {
+            id: {
+              not: args.arrivalId,
+            },
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (conflict) {
+    redirect(
+      buildRedirectPath(args.returnTo, {
+        error: "Esta ordem de chegada já está sendo usada por outro jogador.",
+      }),
+    );
+  }
+}
+
+async function clearPeladaTeamsState(peladaId: string) {
+  await prisma.$transaction(async (tx) => {
+    const txWithRoundPlayers = tx as unknown as {
+      peladaTeamAssignment: {
+        deleteMany(args: unknown): Promise<unknown>;
+      };
+      peladaRoundPlayer: {
+        updateMany(args: unknown): Promise<unknown>;
+      };
+    };
+
+    await txWithRoundPlayers.peladaTeamAssignment.deleteMany({
+      where: { peladaId },
+    });
+
+    await txWithRoundPlayers.peladaRoundPlayer.updateMany({
+      where: {
+        round: {
+          peladaId,
+          status: "ATIVA",
+        },
+      },
+      data: {
+        teamColor: null,
+      },
+    });
+  });
+}
+
+async function syncPeladaRoundScoreWithGoals(roundId: string) {
+  const goals = await prisma.peladaRoundGoal.findMany({
+    where: {
+      roundId,
+    },
+    select: {
+      teamColor: true,
+    },
+  });
+
+  const blackScore = goals.filter((goal) => goal.teamColor === "PRETO").length;
+  const yellowScore = goals.filter((goal) => goal.teamColor === "AMARELO").length;
+
+  const prismaWithRoundResult = prisma as unknown as {
+    peladaRound: {
+      update(args: unknown): Promise<unknown>;
+    };
+  };
+
+  await prismaWithRoundResult.peladaRound.update({
+    where: { id: roundId },
+    data: {
+      blackScore,
+      yellowScore,
+    },
+  });
+}
+
+async function requireAdminForAction(returnTo: string) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    if (error instanceof AuthDatabaseUnavailableError) {
+      redirect(
+        buildRedirectPath(returnTo, {
+          error:
+            "Não foi possível conectar ao banco agora. Tente novamente em instantes.",
+        }),
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function getPeladaStatusOrRedirect(args: {
+  peladaId: string;
+  returnTo: string;
+}) {
+  const pelada = await prisma.pelada.findUnique({
+    where: { id: args.peladaId },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  if (!pelada) {
+    redirect(
+      buildRedirectPath(args.returnTo, {
+        error: "Pelada não encontrada.",
+      }),
+    );
+  }
+
+  return pelada;
+}
+
+function assertPeladaStatusAllowed(args: {
+  status: "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
+  allowed: Array<"ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA">;
+  returnTo: string;
+  customMessage?: string;
+}) {
+  if (args.allowed.includes(args.status)) {
+    return;
+  }
+
+  redirect(
+    buildRedirectPath(args.returnTo, {
+      error:
+        args.customMessage ||
+        `Esta ação não está disponível quando a pelada está ${args.status.toLowerCase().replace("_", " ")}.`,
+    }),
+  );
 }
 
 type ActionArrival = {
@@ -148,6 +408,9 @@ type ActionPeladaForTeams = {
   scheduledAt: Date;
   arrivals: ActionArrival[];
   rounds: ActionRound[];
+  teamAssignments?: Array<{
+    id: string;
+  }>;
 };
 
 const peladaDelegate = prisma.pelada as unknown as {
@@ -226,17 +489,30 @@ function parseConfirmationFormData(formData: FormData) {
 }
 
 export async function createAdminPeladaConfirmation(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível mexer nos confirmados quando a pelada está finalizada ou cancelada.",
+  });
 
   let data;
 
@@ -281,8 +557,6 @@ export async function createAdminPeladaConfirmation(formData: FormData) {
 }
 
 export async function updateAdminPeladaConfirmation(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const confirmationId = String(formData.get("confirmationId") || "").trim();
   const returnTo = getSafeReturnTo(
@@ -290,9 +564,24 @@ export async function updateAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
   }
+
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível mexer nos confirmados quando a pelada está finalizada ou cancelada.",
+  });
 
   let data;
 
@@ -308,20 +597,58 @@ export async function updateAdminPeladaConfirmation(formData: FormData) {
     );
   }
 
+  const existingConfirmation = await getPeladaConfirmationOrRedirect({
+    peladaId,
+    confirmationId,
+    returnTo,
+  });
+
+  if (!existingConfirmation.parentConfirmationId) {
+    const guestsWithArrivalCount = await prisma.peladaConfirmation.count({
+      where: {
+        parentConfirmationId: confirmationId,
+        arrivals: {
+          some: {},
+        },
+      },
+    });
+
+    if (data.guestCount < guestsWithArrivalCount) {
+      redirect(
+        buildRedirectPath(returnTo, {
+          error:
+            "Não é possível reduzir a quantidade de convidados porque um dos convidados já foi marcado como chegada.",
+        }),
+      );
+    }
+  }
+
   const confirmation = await prisma.peladaConfirmation.update({
     where: { id: confirmationId },
     data,
   });
 
   if (!confirmation.parentConfirmationId) {
-    await syncGuestConfirmations({
-      confirmationId: confirmation.id,
-      peladaId,
-      hostFullName: confirmation.fullName,
-      preferredPosition: confirmation.preferredPosition,
-      guestCount: confirmation.guestCount,
-      createdByAdmin: confirmation.createdByAdmin,
-    });
+    try {
+      await syncGuestConfirmations({
+        confirmationId: confirmation.id,
+        peladaId,
+        hostFullName: confirmation.fullName,
+        preferredPosition: confirmation.preferredPosition,
+        guestCount: confirmation.guestCount,
+        createdByAdmin: confirmation.createdByAdmin,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar os convidados deste confirmado.";
+      redirect(
+        buildRedirectPath(returnTo, {
+          error: message,
+        }),
+      );
+    }
   }
 
   redirect(
@@ -332,8 +659,6 @@ export async function updateAdminPeladaConfirmation(formData: FormData) {
 }
 
 export async function addGuestToAdminPeladaConfirmation(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const confirmationId = String(formData.get("confirmationId") || "").trim();
   const returnTo = getSafeReturnTo(
@@ -341,23 +666,32 @@ export async function addGuestToAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
   }
 
-  const confirmation = await prisma.peladaConfirmation.findUnique({
-    where: { id: confirmationId },
-    select: {
-      id: true,
-      fullName: true,
-      preferredPosition: true,
-      guestCount: true,
-      createdByAdmin: true,
-      parentConfirmationId: true,
-    },
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
   });
 
-  if (!confirmation || confirmation.parentConfirmationId) {
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível adicionar convidado quando a pelada está finalizada ou cancelada.",
+  });
+
+  const confirmation = await getPeladaConfirmationOrRedirect({
+    peladaId,
+    confirmationId,
+    returnTo,
+  });
+
+  if (confirmation.parentConfirmationId) {
     redirect(
       buildRedirectPath(returnTo, {
         error: "Só é possível adicionar convidado a um confirmado principal.",
@@ -397,8 +731,6 @@ export async function addGuestToAdminPeladaConfirmation(formData: FormData) {
 }
 
 export async function deleteAdminPeladaConfirmation(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const confirmationId = String(formData.get("confirmationId") || "").trim();
   const returnTo = getSafeReturnTo(
@@ -406,27 +738,61 @@ export async function deleteAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
   }
 
-  const confirmation = await prisma.peladaConfirmation.findUnique({
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível mexer nos confirmados quando a pelada está finalizada ou cancelada.",
+  });
+
+  const confirmation = await getPeladaConfirmationOrRedirect({
+    peladaId,
+    confirmationId,
+    returnTo,
+  });
+
+  const confirmationWithDependencies = await prisma.peladaConfirmation.findUnique({
     where: { id: confirmationId },
     select: {
       id: true,
-      parentConfirmationId: true,
-      guestOrder: true,
-      parentConfirmation: {
+      arrivals: {
+        select: { id: true },
+      },
+      guests: {
         select: {
           id: true,
-          guestCount: true,
+          arrivals: {
+            select: { id: true },
+          },
         },
       },
     },
   });
 
-  if (!confirmation) {
-    throw new Error("Confirmado não encontrado.");
+  const hasArrivalDependencies =
+    (confirmationWithDependencies?.arrivals.length || 0) > 0 ||
+    (confirmationWithDependencies?.guests.some((guest) => guest.arrivals.length > 0) ||
+      false);
+
+  if (hasArrivalDependencies) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error:
+          "Não é possível excluir este confirmado porque ele ou um dos convidados já foi marcado como chegada.",
+      }),
+    );
   }
 
   await prisma.$transaction(async (tx) => {
@@ -548,8 +914,6 @@ function parseArrivalFormData(formData: FormData) {
 }
 
 export async function registerArrivalFromConfirmation(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const confirmationId = String(formData.get("confirmationId") || "").trim();
   const returnTo = getSafeReturnTo(
@@ -557,9 +921,24 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível registrar chegadas quando a pelada está finalizada ou cancelada.",
+  });
 
   const existingArrival = await prisma.peladaArrival.findFirst({
     where: {
@@ -588,8 +967,12 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
     },
   });
 
-  if (!confirmation) {
-    throw new Error("Confirmado não encontrado.");
+  if (!confirmation || confirmation.peladaId !== peladaId) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error: "Confirmado não encontrado para esta pelada.",
+      }),
+    );
   }
 
   const arrivalOrder = await getNextArrivalOrder(peladaId);
@@ -616,9 +999,7 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
     },
   });
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
-  });
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -628,17 +1009,30 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
 }
 
 export async function createManualPeladaArrival(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaChegadaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível registrar chegadas quando a pelada está finalizada ou cancelada.",
+  });
 
   let data;
 
@@ -654,6 +1048,12 @@ export async function createManualPeladaArrival(formData: FormData) {
     );
   }
 
+  await assertArrivalOrderAvailable({
+    peladaId,
+    arrivalOrder: data.arrivalOrder,
+    returnTo,
+  });
+
   await prisma.peladaArrival.create({
     data: {
       pelada: {
@@ -665,9 +1065,7 @@ export async function createManualPeladaArrival(formData: FormData) {
     },
   });
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
-  });
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -677,8 +1075,6 @@ export async function createManualPeladaArrival(formData: FormData) {
 }
 
 export async function updatePeladaArrival(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const arrivalId = String(formData.get("arrivalId") || "").trim();
   const returnTo = getSafeReturnTo(
@@ -686,9 +1082,24 @@ export async function updatePeladaArrival(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !arrivalId) {
     throw new Error("Chegada não encontrada.");
   }
+
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível editar chegadas quando a pelada está finalizada ou cancelada.",
+  });
 
   let data;
 
@@ -704,14 +1115,25 @@ export async function updatePeladaArrival(formData: FormData) {
     );
   }
 
+  await getPeladaArrivalOrRedirect({
+    peladaId,
+    arrivalId,
+    returnTo,
+  });
+
+  await assertArrivalOrderAvailable({
+    peladaId,
+    arrivalOrder: data.arrivalOrder,
+    arrivalId,
+    returnTo,
+  });
+
   await prisma.peladaArrival.update({
     where: { id: arrivalId },
     data,
   });
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
-  });
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -721,8 +1143,6 @@ export async function updatePeladaArrival(formData: FormData) {
 }
 
 export async function deletePeladaArrival(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const arrivalId = String(formData.get("arrivalId") || "").trim();
   const returnTo = getSafeReturnTo(
@@ -730,17 +1150,36 @@ export async function deletePeladaArrival(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !arrivalId) {
     throw new Error("Chegada não encontrada.");
   }
+
+  const pelada = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: pelada.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível editar chegadas quando a pelada está finalizada ou cancelada.",
+  });
+
+  await getPeladaArrivalOrRedirect({
+    peladaId,
+    arrivalId,
+    returnTo,
+  });
 
   await prisma.peladaArrival.delete({
     where: { id: arrivalId },
   });
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
-  });
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -777,8 +1216,11 @@ async function persistPeladaTeamsForArrivals(args: {
   arrivals: ActionArrival[];
   linePlayersCount: number;
   roundId?: string | null;
+  variationSeed?: number;
 }) {
-  const result = buildPeladaTeams(args.arrivals, args.linePlayersCount);
+  const result = buildPeladaTeams(args.arrivals, args.linePlayersCount, {
+    variationSeed: args.variationSeed,
+  });
 
   if (result.assignments.length === 0) {
     return {
@@ -833,17 +1275,30 @@ async function persistPeladaTeamsForArrivals(args: {
 }
 
 export async function defineFirstGame(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaChegadaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível definir a primeira pelada quando o evento está finalizado ou cancelado.",
+  });
 
   const pelada = await peladaDelegate.findUnique({
     where: { id: peladaId },
@@ -911,9 +1366,7 @@ export async function defineFirstGame(formData: FormData) {
     ),
   );
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
-  });
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -926,17 +1379,30 @@ export async function defineFirstGame(formData: FormData) {
 }
 
 export async function generatePeladaTeams(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível dividir times quando a pelada está finalizada ou cancelada.",
+  });
 
   const pelada = await peladaDelegate.findUnique({
     where: { id: peladaId },
@@ -954,6 +1420,11 @@ export async function generatePeladaTeams(formData: FormData) {
         take: 1,
         include: {
           players: true,
+        },
+      },
+      teamAssignments: {
+        select: {
+          id: true,
         },
       },
     },
@@ -994,6 +1465,7 @@ export async function generatePeladaTeams(formData: FormData) {
     arrivals: inferredFirstGameArrivals,
     linePlayersCount: pelada.linePlayersCount,
     roundId: activeRound?.id || null,
+    variationSeed: (pelada.teamAssignments?.length || 0) > 0 ? Date.now() : 0,
   });
 
   redirect(
@@ -1009,17 +1481,30 @@ export async function generatePeladaTeams(formData: FormData) {
 }
 
 export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível subir a pelada do dia quando o evento está finalizado ou cancelado.",
+  });
 
   const pelada = await prisma.pelada.findUnique({
     where: { id: peladaId },
@@ -1099,6 +1584,13 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
         queueOrder: index + 1,
       })),
     });
+
+    await tx.pelada.update({
+      where: { id: peladaId },
+      data: {
+        status: "EM_ANDAMENTO",
+      },
+    });
     
     return round.id;
   });
@@ -1119,17 +1611,30 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
 }
 
 export async function openFirstPeladaRound(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível subir a pelada do dia quando o evento está finalizado ou cancelado.",
+  });
 
   const pelada = await prisma.pelada.findUnique({
     where: { id: peladaId },
@@ -1209,6 +1714,13 @@ export async function openFirstPeladaRound(formData: FormData) {
         queueOrder: index + 1,
       })),
     });
+
+    await tx.pelada.update({
+      where: { id: peladaId },
+      data: {
+        status: "EM_ANDAMENTO",
+      },
+    });
   });
 
   redirect(
@@ -1219,8 +1731,6 @@ export async function openFirstPeladaRound(formData: FormData) {
 }
 
 export async function markArrivalAvailableForNextRound(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const arrivalId = String(formData.get("arrivalId") || "").trim();
   const available = String(formData.get("available") || "").trim() === "true";
@@ -1229,9 +1739,30 @@ export async function markArrivalAvailableForNextRound(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !arrivalId) {
     throw new Error("Jogador não encontrado.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível mexer na repescagem quando a pelada está finalizada ou cancelada.",
+  });
+
+  await getPeladaArrivalOrRedirect({
+    peladaId,
+    arrivalId,
+    returnTo,
+  });
 
   await peladaArrivalDelegate.update({
     where: { id: arrivalId },
@@ -1248,16 +1779,47 @@ export async function markArrivalAvailableForNextRound(formData: FormData) {
 }
 
 export async function closeCurrentPeladaRound(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
+  }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível encerrar pelada quando o evento está finalizado ou cancelado.",
+  });
+
+  const activeRound = await prisma.peladaRound.findFirst({
+    where: {
+      peladaId,
+      status: "ATIVA",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!activeRound) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error: "Não há pelada ativa para encerrar agora.",
+      }),
+    );
   }
 
   await prismaWithRounds.peladaRound.updateMany({
@@ -1270,9 +1832,7 @@ export async function closeCurrentPeladaRound(formData: FormData) {
     },
   });
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
-  });
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -1282,17 +1842,30 @@ export async function closeCurrentPeladaRound(formData: FormData) {
 }
 
 export async function generateNextPeladaRound(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível subir a próxima pelada quando o evento está finalizado ou cancelado.",
+  });
 
   const pelada = await peladaDelegate.findUnique({
     where: { id: peladaId },
@@ -1401,6 +1974,13 @@ export async function generateNextPeladaRound(formData: FormData) {
     await txWithRounds.peladaTeamAssignment.deleteMany({
       where: { peladaId },
     });
+
+    await tx.pelada.update({
+      where: { id: peladaId },
+      data: {
+        status: "EM_ANDAMENTO",
+      },
+    });
   });
 
   redirect(
@@ -1413,17 +1993,30 @@ export async function generateNextPeladaRound(formData: FormData) {
 export async function generateNextPeladaRoundAndGenerateTeams(
   formData: FormData,
 ) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível subir a próxima pelada quando o evento está finalizado ou cancelado.",
+  });
 
   const pelada = await peladaDelegate.findUnique({
     where: { id: peladaId },
@@ -1533,6 +2126,13 @@ export async function generateNextPeladaRoundAndGenerateTeams(
       where: { peladaId },
     });
 
+    await tx.pelada.update({
+      where: { id: peladaId },
+      data: {
+        status: "EM_ANDAMENTO",
+      },
+    });
+
     return nextRound.id;
   });
 
@@ -1558,14 +2158,13 @@ export async function generateNextPeladaRoundAndGenerateTeams(
 }
 
 export async function updatePeladaRoundResult(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const roundId = String(formData.get("roundId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
+  await requireAdminForAction(returnTo);
   const blackScore = Number.parseInt(
     String(formData.get("blackScore") || "0").trim(),
     10,
@@ -1579,6 +2178,25 @@ export async function updatePeladaRoundResult(formData: FormData) {
   if (!peladaId || !roundId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["EM_ANDAMENTO", "FINALIZADA"],
+    returnTo,
+    customMessage:
+      "Só é possível registrar resultado quando a pelada está em andamento ou finalizada.",
+  });
+
+  await getPeladaRoundOrRedirect({
+    peladaId,
+    roundId,
+    returnTo,
+  });
 
   if (
     !Number.isInteger(blackScore) ||
@@ -1616,20 +2234,39 @@ export async function updatePeladaRoundResult(formData: FormData) {
 }
 
 export async function createPeladaRoundGoal(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const roundId = String(formData.get("roundId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
+  await requireAdminForAction(returnTo);
   const roundPlayerId = String(formData.get("roundPlayerId") || "").trim();
+  const quantityRaw = String(formData.get("quantity") || "1").trim();
   const minuteRaw = String(formData.get("minute") || "").trim();
 
   if (!peladaId || !roundId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["EM_ANDAMENTO", "FINALIZADA"],
+    returnTo,
+    customMessage:
+      "Só é possível registrar gols quando a pelada está em andamento ou finalizada.",
+  });
+
+  await getPeladaRoundOrRedirect({
+    peladaId,
+    roundId,
+    returnTo,
+  });
 
   if (!roundPlayerId) {
     redirect(
@@ -1671,11 +2308,20 @@ export async function createPeladaRoundGoal(formData: FormData) {
   }
 
   const minute = minuteRaw ? Number.parseInt(minuteRaw, 10) : null;
+  const quantity = quantityRaw ? Number.parseInt(quantityRaw, 10) : 1;
 
   if (minuteRaw && (!Number.isInteger(minute) || minute! < 0 || minute! > 120)) {
     redirect(
       buildRedirectPath(returnTo, {
         error: "Informe um minuto válido para o gol.",
+      }),
+    );
+  }
+
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error: "Informe uma quantidade válida de gols para o jogador.",
       }),
     );
   }
@@ -1686,18 +2332,22 @@ export async function createPeladaRoundGoal(formData: FormData) {
     };
   };
 
-  await prismaWithRoundGoals.peladaRoundGoal.create({
-    data: {
-      round: {
-        connect: {
-          id: roundId,
+  for (let index = 0; index < quantity; index += 1) {
+    await prismaWithRoundGoals.peladaRoundGoal.create({
+      data: {
+        round: {
+          connect: {
+            id: roundId,
+          },
         },
+        scorerName: roundPlayer.arrival.fullName,
+        teamColor: roundPlayer.teamColor,
+        minute,
       },
-      scorerName: roundPlayer.arrival.fullName,
-      teamColor: roundPlayer.teamColor,
-      minute,
-    },
-  });
+    });
+  }
+
+  await syncPeladaRoundScoreWithGoals(roundId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -1707,17 +2357,50 @@ export async function createPeladaRoundGoal(formData: FormData) {
 }
 
 export async function deletePeladaRoundGoal(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const goalId = String(formData.get("goalId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
+  await requireAdminForAction(returnTo);
 
   if (!peladaId || !goalId) {
     throw new Error("Gol não encontrado.");
+  }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["EM_ANDAMENTO", "FINALIZADA"],
+    returnTo,
+    customMessage:
+      "Só é possível editar gols quando a pelada está em andamento ou finalizada.",
+  });
+
+  const goal = await prisma.peladaRoundGoal.findUnique({
+    where: { id: goalId },
+    select: {
+      id: true,
+      roundId: true,
+      round: {
+        select: {
+          peladaId: true,
+        },
+      },
+    },
+  });
+
+  if (!goal || goal.round.peladaId !== peladaId) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error: "Gol não encontrado para esta pelada.",
+      }),
+    );
   }
 
   const prismaWithRoundGoals = prisma as unknown as {
@@ -1730,6 +2413,8 @@ export async function deletePeladaRoundGoal(formData: FormData) {
     where: { id: goalId },
   });
 
+  await syncPeladaRoundScoreWithGoals(goal.roundId);
+
   redirect(
     buildRedirectPath(returnTo, {
       success: "round-goal-delete",
@@ -1738,8 +2423,6 @@ export async function deletePeladaRoundGoal(formData: FormData) {
 }
 
 export async function swapPeladaTeamPlayers(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const yellowAssignmentId = String(formData.get("yellowAssignmentId") || "").trim();
   const blackAssignmentId = String(formData.get("blackAssignmentId") || "").trim();
@@ -1748,9 +2431,24 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId || !yellowAssignmentId || !blackAssignmentId) {
     throw new Error("Selecione os dois jogadores para concluir a troca.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível trocar jogadores quando a pelada está finalizada ou cancelada.",
+  });
 
   const assignments = await prisma.peladaTeamAssignment.findMany({
     where: {
@@ -1790,6 +2488,20 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
     },
   });
 
+  const highestDisplayOrderAssignment = await prisma.peladaTeamAssignment.findFirst({
+    where: {
+      peladaId,
+    },
+    orderBy: {
+      displayOrder: "desc",
+    },
+    select: {
+      displayOrder: true,
+    },
+  });
+
+  const temporaryDisplayOrder = (highestDisplayOrderAssignment?.displayOrder || 0) + 100;
+
   await prisma.$transaction(async (tx) => {
     const txWithRoundPlayers = tx as unknown as {
       peladaTeamAssignment: {
@@ -1803,7 +2515,7 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
     await txWithRoundPlayers.peladaTeamAssignment.update({
       where: { id: yellow.id },
       data: {
-        teamColor: "PRETO",
+        displayOrder: temporaryDisplayOrder,
       },
     });
 
@@ -1811,6 +2523,15 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
       where: { id: black.id },
       data: {
         teamColor: "AMARELO",
+        displayOrder: yellow.displayOrder,
+      },
+    });
+
+    await txWithRoundPlayers.peladaTeamAssignment.update({
+      where: { id: yellow.id },
+      data: {
+        teamColor: "PRETO",
+        displayOrder: black.displayOrder,
       },
     });
 
@@ -1845,21 +2566,32 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
 }
 
 export async function clearPeladaTeams(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
 
-  await prisma.peladaTeamAssignment.deleteMany({
-    where: { peladaId },
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
   });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível limpar a divisão quando a pelada está finalizada ou cancelada.",
+  });
+
+  await clearPeladaTeamsState(peladaId);
 
   redirect(
     buildRedirectPath(returnTo, {
@@ -1869,17 +2601,30 @@ export async function clearPeladaTeams(formData: FormData) {
 }
 
 export async function resetPeladaProgress(formData: FormData) {
-  await requireAdmin();
-
   const peladaId = String(formData.get("peladaId") || "").trim();
   const returnTo = getSafeReturnTo(
     formData,
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
+  await requireAdminForAction(returnTo);
+
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
   }
+
+  const peladaStatus = await getPeladaStatusOrRedirect({
+    peladaId,
+    returnTo,
+  });
+
+  assertPeladaStatusAllowed({
+    status: peladaStatus.status,
+    allowed: ["ABERTA", "EM_ANDAMENTO"],
+    returnTo,
+    customMessage:
+      "Não é possível resetar o andamento quando a pelada está finalizada ou cancelada.",
+  });
 
   await prisma.$transaction(async (tx) => {
     const txWithRounds = tx as unknown as {

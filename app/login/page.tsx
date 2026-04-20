@@ -1,11 +1,25 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { getAuthenticatedAdmin } from "@/lib/auth";
+import {
+  AuthDatabaseUnavailableError,
+  getAuthenticatedAdmin,
+} from "@/lib/auth";
 import { ADMIN_REGISTRATIONS_PATH } from "@/lib/routes";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
-  const user = await getAuthenticatedAdmin();
+  let user = null;
+  let databaseUnavailable = false;
+
+  try {
+    user = await getAuthenticatedAdmin();
+  } catch (error) {
+    if (error instanceof AuthDatabaseUnavailableError) {
+      databaseUnavailable = true;
+    } else {
+      throw error;
+    }
+  }
 
   if (user) {
     redirect(ADMIN_REGISTRATIONS_PATH);
@@ -30,6 +44,13 @@ export default async function LoginPage() {
             inscrições do campeonato.
           </p>
         </div>
+
+        {databaseUnavailable && (
+          <div className="mb-5 rounded-[14px] border border-[#FDBA74] bg-[#FFF7ED] px-4 py-3 text-sm font-semibold leading-6 text-[#9A3412]">
+            Não foi possível conectar ao banco agora. O login pode falhar até a
+            conexão do Supabase ser restabelecida.
+          </div>
+        )}
 
         <LoginForm />
       </div>

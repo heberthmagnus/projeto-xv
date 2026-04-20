@@ -11,6 +11,30 @@ type SessionPayload = {
   expiresAt: number;
 };
 
+export class AuthDatabaseUnavailableError extends Error {
+  constructor() {
+    super("Banco de dados indisponível no momento.");
+    this.name = "AuthDatabaseUnavailableError";
+  }
+}
+
+function isDatabaseConnectionError(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P1001"
+  ) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    return error.message.includes("Can't reach database server");
+  }
+
+  return false;
+}
+
 function getSessionSecret() {
   return (
     process.env.AUTH_SECRET ||
@@ -122,10 +146,18 @@ export async function getAuthenticatedAdmin() {
     return null;
   }
 
-  return prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, email: true, role: true },
-  });
+  try {
+    return await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, email: true, role: true },
+    });
+  } catch (error) {
+    if (isDatabaseConnectionError(error)) {
+      throw new AuthDatabaseUnavailableError();
+    }
+
+    throw error;
+  }
 }
 
 export async function requireAdmin() {

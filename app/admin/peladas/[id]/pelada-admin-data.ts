@@ -64,6 +64,7 @@ export type PageRound = {
   notes: string | null;
   goals: Array<{
     id: string;
+    roundPlayerId: string | null;
     scorerName: string;
     teamColor: "AMARELO" | "PRETO";
     minute: number | null;

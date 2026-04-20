@@ -27,7 +27,10 @@ export function PeladaSheet({
   return (
     <section style={sheetCardStyle}>
       <div style={sheetHeaderStyle}>
-        <h3 style={sheetTitleStyle}>{title}</h3>
+        <div style={sheetHeaderTopStyle}>
+          <h3 style={sheetTitleStyle}>{title}</h3>
+          <span style={sheetCountStyle}>{rows.length}</span>
+        </div>
         {subtitle ? <p style={sheetSubtitleStyle}>{subtitle}</p> : null}
       </div>
 
@@ -40,8 +43,8 @@ export function PeladaSheet({
               <th style={thStyle}>Posição</th>
               <th style={thStyle}>Nível</th>
               {showSource ? <th style={thStyle}>Origem</th> : null}
-              <th style={centeredThStyle}>Time Preto</th>
-              <th style={centeredThStyle}>Time Amarelo</th>
+              <th style={blackTeamThStyle}>Preto</th>
+              <th style={yellowTeamThStyle}>Amarelo</th>
             </tr>
           </thead>
           <tbody>
@@ -53,14 +56,34 @@ export function PeladaSheet({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.id}>
+                <tr key={row.id} style={row.blackMark || row.yellowMark ? activeRowStyle : undefined}>
                   <td style={numberTdStyle}>{row.queueOrder}</td>
                   <td style={nameTdStyle}>{row.fullName}</td>
                   <td style={tdStyle}>{row.preferredPositionLabel}</td>
                   <td style={tdStyle}>{row.levelLabel}</td>
-                  {showSource ? <td style={tdStyle}>{row.sourceLabel || "—"}</td> : null}
-                  <td style={markTdStyle}>{row.blackMark || ""}</td>
-                  <td style={markTdStyle}>{row.yellowMark || ""}</td>
+                  {showSource ? (
+                    <td style={tdStyle}>
+                      {row.sourceLabel ? (
+                        <span
+                          style={
+                            row.sourceLabel === "Repescagem"
+                              ? sourceRepescagemStyle
+                              : sourceFilaStyle
+                          }
+                        >
+                          {row.sourceLabel}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  ) : null}
+                  <td style={row.blackMark ? blackMarkActiveTdStyle : markTdStyle}>
+                    {row.blackMark || ""}
+                  </td>
+                  <td style={row.yellowMark ? yellowMarkActiveTdStyle : markTdStyle}>
+                    {row.yellowMark || ""}
+                  </td>
                 </tr>
               ))
             )}
@@ -80,23 +103,44 @@ const sheetCardStyle: React.CSSProperties = {
 };
 
 const sheetHeaderStyle: React.CSSProperties = {
-  padding: "10px 12px",
+  padding: "10px 12px 9px",
   background: "#F5F5F5",
   borderBottom: "1px solid #B6B6B6",
 };
 
+const sheetHeaderTopStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
 const sheetTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 18,
+  fontSize: 17,
   fontWeight: 800,
   color: "#111111",
 };
 
+const sheetCountStyle: React.CSSProperties = {
+  minWidth: 32,
+  height: 32,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "grid",
+  placeItems: "center",
+  background: "#FCF7E6",
+  border: "1px solid #F1D68A",
+  color: "#8B6914",
+  fontWeight: 800,
+  fontSize: 14,
+};
+
 const sheetSubtitleStyle: React.CSSProperties = {
   margin: "4px 0 0",
-  fontSize: 13,
+  fontSize: 12,
   color: "#5B6472",
-  lineHeight: 1.5,
+  lineHeight: 1.45,
 };
 
 const sheetWrapperStyle: React.CSSProperties = {};
@@ -108,10 +152,10 @@ const sheetTableStyle: React.CSSProperties = {
 };
 
 const thStyle: React.CSSProperties = {
-  padding: "8px 10px",
+  padding: "7px 9px",
   border: "1px solid #B6B6B6",
   background: "#D9D9D9",
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 800,
   color: "#1A1A1A",
   textAlign: "left",
@@ -123,10 +167,22 @@ const centeredThStyle: React.CSSProperties = {
   textAlign: "center",
 };
 
+const blackTeamThStyle: React.CSSProperties = {
+  ...centeredThStyle,
+  background: "#18181B",
+  color: "#FFFFFF",
+};
+
+const yellowTeamThStyle: React.CSSProperties = {
+  ...centeredThStyle,
+  background: "#FCF7E6",
+  color: "#8B6914",
+};
+
 const tdStyle: React.CSSProperties = {
-  padding: "7px 10px",
+  padding: "6px 9px",
   border: "1px solid #D1D5DB",
-  fontSize: 14,
+  fontSize: 13,
   color: "#111111",
   background: "#FFFFFF",
 };
@@ -141,7 +197,7 @@ const numberTdStyle: React.CSSProperties = {
 
 const nameTdStyle: React.CSSProperties = {
   ...tdStyle,
-  minWidth: 220,
+  minWidth: 200,
   fontWeight: 600,
 };
 
@@ -152,9 +208,48 @@ const markTdStyle: React.CSSProperties = {
   fontWeight: 900,
 };
 
+const blackMarkActiveTdStyle: React.CSSProperties = {
+  ...markTdStyle,
+  background: "#18181B",
+  color: "#FFFFFF",
+};
+
+const yellowMarkActiveTdStyle: React.CSSProperties = {
+  ...markTdStyle,
+  background: "#FCF7E6",
+  color: "#8B6914",
+};
+
 const emptyTdStyle: React.CSSProperties = {
   ...tdStyle,
   padding: "18px 12px",
   textAlign: "center",
   color: "#6B7280",
+};
+
+const activeRowStyle: React.CSSProperties = {
+  background: "#FFFCF4",
+};
+
+const sourceBaseStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "2px 8px",
+  borderRadius: 999,
+  fontWeight: 700,
+  fontSize: 11,
+};
+
+const sourceFilaStyle: React.CSSProperties = {
+  ...sourceBaseStyle,
+  background: "#F3F4F6",
+  color: "#374151",
+  border: "1px solid #E5E7EB",
+};
+
+const sourceRepescagemStyle: React.CSSProperties = {
+  ...sourceBaseStyle,
+  background: "#FFF7ED",
+  color: "#9A3412",
+  border: "1px solid #FDBA74",
 };

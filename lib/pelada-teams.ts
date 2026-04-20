@@ -50,9 +50,9 @@ const CAMPINHO_ROLES: PreferredPosition[] = [
 ];
 
 const CAMPAO_ROLES: PreferredPosition[] = [
-  "ZAGUEIRO",
-  "ZAGUEIRO",
   "LATERAL",
+  "ZAGUEIRO",
+  "ZAGUEIRO",
   "LATERAL",
   "VOLANTE",
   "MEIA",
@@ -79,6 +79,9 @@ export function getLevelScore(level: PlayerLevel | null) {
 export function buildPeladaTeams(
   arrivals: ArrivalForTeams[],
   linePlayersCount: number,
+  options?: {
+    variationSeed?: number;
+  },
 ): TeamDraftResult {
   const lineArrivals = arrivals.filter(
     (arrival) => arrival.preferredPosition !== "GOLEIRO",
@@ -102,9 +105,16 @@ export function buildPeladaTeams(
     remainingRoles: [...roles],
   }));
 
-  distributeBalancedDraft(lineArrivals, teams, roles, targetSize);
+  distributeBalancedDraft(
+    lineArrivals,
+    teams,
+    roles,
+    targetSize,
+    options?.variationSeed ?? 0,
+  );
 
   for (const team of teams) {
+    team.players = orderTeamPlayersByFormation(team.players, roles);
     team.totalScore = team.players.reduce((sum, player) => {
       const arrival = lineArrivals.find((item) => item.id === player.arrivalId);
       return sum + getLevelScore(arrival?.level ?? null);
@@ -147,7 +157,9 @@ function distributeBalancedDraft(
   teams: TeamState[],
   roles: PreferredPosition[],
   targetSize: number,
+  variationSeed: number,
 ) {
+  const preferBlackOnTie = variationSeed % 2 === 1;
   const draftPool = [...arrivals].sort((a, b) => {
     const levelDifference = getLevelScore(b.level) - getLevelScore(a.level);
     if (levelDifference !== 0) {
@@ -160,7 +172,9 @@ function distributeBalancedDraft(
       return ageB - ageA;
     }
 
-    return a.fullName.localeCompare(b.fullName, "pt-BR");
+    return preferBlackOnTie
+      ? b.fullName.localeCompare(a.fullName, "pt-BR")
+      : a.fullName.localeCompare(b.fullName, "pt-BR");
   });
 
   for (const arrival of draftPool) {
@@ -184,7 +198,15 @@ function distributeBalancedDraft(
             return team.players.length < best.players.length ? team : best;
           }
 
-          return team.color < best.color ? team : best;
+          if (team.color !== best.color) {
+            if (preferBlackOnTie) {
+              return team.color === "PRETO" ? team : best;
+            }
+
+            return team.color === "AMARELO" ? team : best;
+          }
+
+          return best;
         }
 
         return teamScore > bestScore ? team : best;
@@ -249,15 +271,23 @@ function getRoleFitScore(
     return 10;
   }
 
-  if (desiredRole === "ATACANTE" && preferredPosition === "MEIA") {
-    return 7;
-  }
-
   if (desiredRole === "ZAGUEIRO" && preferredPosition === "VOLANTE") {
     return 8;
   }
 
   if (desiredRole === "ZAGUEIRO" && preferredPosition === "LATERAL") {
+    return 7;
+  }
+
+  if (desiredRole === "VOLANTE" && preferredPosition === "MEIA") {
+    return 7;
+  }
+
+  if (desiredRole === "VOLANTE" && preferredPosition === "LATERAL") {
+    return 5;
+  }
+
+  if (desiredRole === "ATACANTE" && preferredPosition === "MEIA") {
     return 7;
   }
 
@@ -271,6 +301,10 @@ function getRoleFitScore(
 
   if (desiredRole === "LATERAL" && preferredPosition === "MEIA") {
     return 6;
+  }
+
+  if (desiredRole === "LATERAL" && preferredPosition === "VOLANTE") {
+    return 5;
   }
 
   return 1;
@@ -308,14 +342,6 @@ function mapArrivalToBestTeamRole(
   team: TeamState,
 ) {
   const roleOption = getBestRoleOption(arrival, team);
-
-  if (roleOption.fitScore < 6) {
-    return {
-      assignedPosition: arrival.preferredPosition,
-      isFallback: false,
-      consumeRoleIndex: -1,
-    };
-  }
 
   return {
     assignedPosition: roleOption.assignedPosition,
@@ -356,6 +382,27 @@ function getMissingRoles(players: TeamDraftPlayer[], roles: PreferredPosition[])
   return Array.from(counts.entries())
     .filter(([, count]) => count > 0)
     .map(([role]) => role);
+}
+
+function orderTeamPlayersByFormation(
+  players: TeamDraftPlayer[],
+  roles: PreferredPosition[],
+) {
+  const remainingPlayers = [...players];
+  const orderedPlayers: TeamDraftPlayer[] = [];
+
+  for (const role of roles) {
+    const nextIndex = remainingPlayers.findIndex(
+      (player) => player.assignedPosition === role,
+    );
+
+    if (nextIndex >= 0) {
+      const [matchedPlayer] = remainingPlayers.splice(nextIndex, 1);
+      orderedPlayers.push(matchedPlayer);
+    }
+  }
+
+  return [...orderedPlayers, ...remainingPlayers];
 }
 
 function getPositionLabelShort(position: PreferredPosition) {
