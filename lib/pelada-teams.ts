@@ -113,6 +113,10 @@ export function buildPeladaTeams(
     options?.variationSeed ?? 0,
   );
 
+  if ((options?.variationSeed ?? 0) > 0) {
+    applyBalancedVariation(teams, lineArrivals, options?.variationSeed ?? 0);
+  }
+
   for (const team of teams) {
     team.players = orderTeamPlayersByFormation(team.players, roles);
     team.totalScore = team.players.reduce((sum, player) => {
@@ -403,6 +407,100 @@ function orderTeamPlayersByFormation(
   }
 
   return [...orderedPlayers, ...remainingPlayers];
+}
+
+function applyBalancedVariation(
+  teams: TeamState[],
+  arrivals: ArrivalForTeams[],
+  variationSeed: number,
+) {
+  if (teams.length !== 2) {
+    return;
+  }
+
+  const currentDifference = Math.abs(
+    calculateTeamLevelScore(teams[0], arrivals) - calculateTeamLevelScore(teams[1], arrivals),
+  );
+
+  const candidateSwaps: Array<{
+    leftIndex: number;
+    rightIndex: number;
+    resultingDifference: number;
+  }> = [];
+
+  teams[0].players.forEach((leftPlayer, leftIndex) => {
+    teams[1].players.forEach((rightPlayer, rightIndex) => {
+      if (leftPlayer.assignedPosition !== rightPlayer.assignedPosition) {
+        return;
+      }
+
+      const leftArrival = arrivals.find((arrival) => arrival.id === leftPlayer.arrivalId);
+      const rightArrival = arrivals.find((arrival) => arrival.id === rightPlayer.arrivalId);
+
+      if (!leftArrival || !rightArrival) {
+        return;
+      }
+
+      const nextLeftScore =
+        calculateTeamLevelScore(teams[0], arrivals) -
+        getLevelScore(leftArrival.level) +
+        getLevelScore(rightArrival.level);
+      const nextRightScore =
+        calculateTeamLevelScore(teams[1], arrivals) -
+        getLevelScore(rightArrival.level) +
+        getLevelScore(leftArrival.level);
+      const resultingDifference = Math.abs(nextLeftScore - nextRightScore);
+
+      if (resultingDifference <= currentDifference + 1) {
+        candidateSwaps.push({
+          leftIndex,
+          rightIndex,
+          resultingDifference,
+        });
+      }
+    });
+  });
+
+  if (candidateSwaps.length === 0) {
+    return;
+  }
+
+  candidateSwaps.sort((left, right) => {
+    if (left.resultingDifference !== right.resultingDifference) {
+      return left.resultingDifference - right.resultingDifference;
+    }
+
+    return left.leftIndex - right.leftIndex || left.rightIndex - right.rightIndex;
+  });
+
+  const topCandidates = candidateSwaps.slice(0, Math.min(candidateSwaps.length, 4));
+  const chosenCandidate = topCandidates[variationSeed % topCandidates.length];
+  const leftPlayer = teams[0].players[chosenCandidate.leftIndex];
+  const rightPlayer = teams[1].players[chosenCandidate.rightIndex];
+  const leftArrival = arrivals.find((arrival) => arrival.id === leftPlayer.arrivalId);
+  const rightArrival = arrivals.find((arrival) => arrival.id === rightPlayer.arrivalId);
+
+  if (!leftArrival || !rightArrival) {
+    return;
+  }
+
+  teams[0].players[chosenCandidate.leftIndex] = {
+    arrivalId: rightArrival.id,
+    assignedPosition: leftPlayer.assignedPosition,
+    isFallback: rightArrival.preferredPosition !== leftPlayer.assignedPosition,
+  };
+  teams[1].players[chosenCandidate.rightIndex] = {
+    arrivalId: leftArrival.id,
+    assignedPosition: rightPlayer.assignedPosition,
+    isFallback: leftArrival.preferredPosition !== rightPlayer.assignedPosition,
+  };
+}
+
+function calculateTeamLevelScore(team: TeamState, arrivals: ArrivalForTeams[]) {
+  return team.players.reduce((sum, player) => {
+    const arrival = arrivals.find((item) => item.id === player.arrivalId);
+    return sum + getLevelScore(arrival?.level ?? null);
+  }, 0);
 }
 
 function getPositionLabelShort(position: PreferredPosition) {
