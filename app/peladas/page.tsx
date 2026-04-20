@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import {
   getFirstGameRuleLabel,
   getPeladaStatusLabel,
@@ -7,6 +8,8 @@ import {
 import { prisma } from "@/lib/prisma";
 
 export default async function PeladasPage() {
+  await connection();
+
   const peladas = await prisma.pelada.findMany({
     where: {
       status: {

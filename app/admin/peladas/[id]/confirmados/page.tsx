@@ -3,6 +3,7 @@ import { getGoalkeeperSideLabel, getPositionLabel } from "@/lib/peladas";
 import { getAdminPeladaConfirmadosPath } from "@/lib/routes";
 import { ConfirmationAdminForm } from "../../confirmation-admin-form";
 import {
+  addGuestToAdminPeladaConfirmation,
   createAdminPeladaConfirmation,
   deleteAdminPeladaConfirmation,
   updateAdminPeladaConfirmation,
@@ -44,6 +45,8 @@ export default async function PeladaConfirmadosPage({
           <div style={successBannerStyle}>
             {resolvedSearchParams.success === "status-update" &&
               "✅ Status da pelada atualizado com sucesso."}
+            {resolvedSearchParams.success === "guest-add" &&
+              "✅ Convidado adicionado ao confirmado com sucesso."}
             {resolvedSearchParams.success === "confirmed-add" &&
               "✅ Confirmado adicionado com sucesso."}
             {resolvedSearchParams.success === "confirmed-update" &&
@@ -124,6 +127,24 @@ export default async function PeladaConfirmadosPage({
                         </td>
                         <td style={tdStyle}>
                           <div style={rowActionsStyle}>
+                            <form action={addGuestToAdminPeladaConfirmation}>
+                              <input type="hidden" name="peladaId" value={pelada.id} />
+                              <input type="hidden" name="confirmationId" value={confirmation.id} />
+                              <input type="hidden" name="returnTo" value={returnTo} />
+                              <button
+                                type="submit"
+                                disabled={confirmation.guestCount >= 5}
+                                style={{
+                                  ...secondaryButtonStyle,
+                                  opacity: confirmation.guestCount >= 5 ? 0.55 : 1,
+                                  cursor:
+                                    confirmation.guestCount >= 5 ? "default" : "pointer",
+                                }}
+                              >
+                                Adicionar convidado
+                              </button>
+                            </form>
+
                             <details style={detailsStyle}>
                               <summary style={summaryStyle}>Editar</summary>
                               <div style={editPanelStyle}>
@@ -350,5 +371,16 @@ const deleteButtonStyle: React.CSSProperties = {
   border: "1px solid #FCA5A5",
   background: "#FEF2F2",
   color: "#B91C1C",
+  cursor: "pointer",
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  borderRadius: 10,
+  padding: "9px 12px",
+  fontWeight: 700,
+  fontSize: 14,
+  border: "1px solid #D6B14B",
+  background: "#FFF8E8",
+  color: "#8B6914",
   cursor: "pointer",
 };

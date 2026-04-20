@@ -331,6 +331,71 @@ export async function updateAdminPeladaConfirmation(formData: FormData) {
   );
 }
 
+export async function addGuestToAdminPeladaConfirmation(formData: FormData) {
+  await requireAdmin();
+
+  const peladaId = String(formData.get("peladaId") || "").trim();
+  const confirmationId = String(formData.get("confirmationId") || "").trim();
+  const returnTo = getSafeReturnTo(
+    formData,
+    getAdminPeladaConfirmadosPath(peladaId),
+  );
+
+  if (!peladaId || !confirmationId) {
+    throw new Error("Confirmado não encontrado.");
+  }
+
+  const confirmation = await prisma.peladaConfirmation.findUnique({
+    where: { id: confirmationId },
+    select: {
+      id: true,
+      fullName: true,
+      preferredPosition: true,
+      guestCount: true,
+      createdByAdmin: true,
+      parentConfirmationId: true,
+    },
+  });
+
+  if (!confirmation || confirmation.parentConfirmationId) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error: "Só é possível adicionar convidado a um confirmado principal.",
+      }),
+    );
+  }
+
+  if (confirmation.guestCount >= 5) {
+    redirect(
+      buildRedirectPath(returnTo, {
+        error: "Cada confirmado pode ter no máximo 5 convidados.",
+      }),
+    );
+  }
+
+  const updatedConfirmation = await prisma.peladaConfirmation.update({
+    where: { id: confirmationId },
+    data: {
+      guestCount: confirmation.guestCount + 1,
+    },
+  });
+
+  await syncGuestConfirmations({
+    confirmationId: updatedConfirmation.id,
+    peladaId,
+    hostFullName: updatedConfirmation.fullName,
+    preferredPosition: updatedConfirmation.preferredPosition,
+    guestCount: updatedConfirmation.guestCount,
+    createdByAdmin: updatedConfirmation.createdByAdmin,
+  });
+
+  redirect(
+    buildRedirectPath(returnTo, {
+      success: "guest-add",
+    }),
+  );
+}
+
 export async function deleteAdminPeladaConfirmation(formData: FormData) {
   await requireAdmin();
 

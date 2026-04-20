@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { getFirstGameRuleLabel, getPeladaStatusLabel, getPeladaTypeLabel } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
 import { PeladaConfirmationForm } from "./confirmation-form";
@@ -12,6 +13,8 @@ export default async function PeladaPublicPage({
 }: {
   params: Params;
 }) {
+  await connection();
+
   const { id } = await params;
 
   const pelada = await prisma.pelada.findUnique({
