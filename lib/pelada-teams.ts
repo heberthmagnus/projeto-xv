@@ -60,6 +60,30 @@ const CAMPAO_ROLES: PreferredPosition[] = [
   "ATACANTE",
 ];
 
+const POSITION_FIT_SCORES: Partial<
+  Record<PreferredPosition, Partial<Record<PreferredPosition, number>>>
+> = {
+  ZAGUEIRO: {
+    VOLANTE: 8,
+    LATERAL: 7,
+  },
+  VOLANTE: {
+    MEIA: 7,
+    LATERAL: 5,
+  },
+  ATACANTE: {
+    MEIA: 7,
+  },
+  MEIA: {
+    VOLANTE: 8,
+    LATERAL: 6,
+  },
+  LATERAL: {
+    MEIA: 6,
+    VOLANTE: 5,
+  },
+};
+
 export function getPeladaTeamColorLabel(color: PeladaTeamColor) {
   return color === "AMARELO" ? "Amarelo" : "Preto";
 }
@@ -275,43 +299,7 @@ function getRoleFitScore(
     return 10;
   }
 
-  if (desiredRole === "ZAGUEIRO" && preferredPosition === "VOLANTE") {
-    return 8;
-  }
-
-  if (desiredRole === "ZAGUEIRO" && preferredPosition === "LATERAL") {
-    return 7;
-  }
-
-  if (desiredRole === "VOLANTE" && preferredPosition === "MEIA") {
-    return 7;
-  }
-
-  if (desiredRole === "VOLANTE" && preferredPosition === "LATERAL") {
-    return 5;
-  }
-
-  if (desiredRole === "ATACANTE" && preferredPosition === "MEIA") {
-    return 7;
-  }
-
-  if (desiredRole === "MEIA" && preferredPosition === "LATERAL") {
-    return 6;
-  }
-
-  if (desiredRole === "MEIA" && preferredPosition === "VOLANTE") {
-    return 8;
-  }
-
-  if (desiredRole === "LATERAL" && preferredPosition === "MEIA") {
-    return 6;
-  }
-
-  if (desiredRole === "LATERAL" && preferredPosition === "VOLANTE") {
-    return 5;
-  }
-
-  return 1;
+  return POSITION_FIT_SCORES[desiredRole]?.[preferredPosition] ?? Number.NEGATIVE_INFINITY;
 }
 
 function getBestRoleOption(arrival: ArrivalForTeams, team: TeamState) {
@@ -333,6 +321,14 @@ function getBestRoleOption(arrival: ArrivalForTeams, team: TeamState) {
       bestIndex = index;
     }
   });
+
+  if (!Number.isFinite(bestFitScore)) {
+    return {
+      assignedPosition: arrival.preferredPosition,
+      fitScore: 0,
+      consumeRoleIndex: -1,
+    };
+  }
 
   return {
     assignedPosition: team.remainingRoles[bestIndex],

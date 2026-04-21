@@ -1,3 +1,4 @@
+import { listAthleteProfilePrefillOptions } from "@/lib/athlete-profiles";
 import { Fragment } from "react";
 import { getGoalkeeperSideLabel, getPositionLabel } from "@/lib/peladas";
 import { getAdminPeladaConfirmadosPath } from "@/lib/routes";
@@ -33,6 +34,7 @@ export default async function PeladaConfirmadosPage({
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const pelada = await loadPeladaAdminData(id);
+  const athleteProfiles = await listAthleteProfilePrefillOptions();
   const returnTo = getAdminPeladaConfirmadosPath(pelada.id);
   const totalConfirmedPlayers = pelada.confirmations.reduce(
     (sum, confirmation) => sum + 1 + confirmation.guests.length,
@@ -67,6 +69,7 @@ export default async function PeladaConfirmadosPage({
 
             <ConfirmationAdminForm
               peladaId={pelada.id}
+              athleteProfiles={athleteProfiles}
               action={createAdminPeladaConfirmation}
               submitLabel="Adicionar confirmado"
               returnTo={returnTo}
@@ -138,11 +141,14 @@ export default async function PeladaConfirmadosPage({
                               <div style={editPanelStyle}>
                                 <ConfirmationAdminForm
                                   peladaId={pelada.id}
+                                  athleteProfiles={athleteProfiles}
                                   action={updateAdminPeladaConfirmation}
                                   submitLabel="Salvar confirmado"
                                   returnTo={returnTo}
                                   initialValues={{
                                     confirmationId: confirmation.id,
+                                    athleteProfileId:
+                                      confirmation.athleteProfile?.id,
                                     fullName: confirmation.fullName,
                                     preferredPosition:
                                       confirmation.preferredPosition,
@@ -192,11 +198,13 @@ export default async function PeladaConfirmadosPage({
                                   <ConfirmationAdminForm
                                     mode="guest"
                                     peladaId={pelada.id}
+                                    athleteProfiles={athleteProfiles}
                                     action={updateAdminPeladaConfirmation}
                                     submitLabel="Salvar convidado"
                                     returnTo={returnTo}
                                     initialValues={{
                                       confirmationId: guest.id,
+                                      athleteProfileId: guest.athleteProfile?.id,
                                       fullName: guest.fullName,
                                       preferredPosition: guest.preferredPosition,
                                       age: guest.age ?? "",

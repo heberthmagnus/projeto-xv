@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import {
   getTioHugoAdminAdvancedSimulationPath,
+  getTioHugoAdminMatchesPath,
   getTioHugoAdminRegistrationsPath,
   getTioHugoAdminSimulationPath,
   getTioHugoAdminTeamsPath,
@@ -13,6 +14,7 @@ import {
 const links = [
   { href: getTioHugoAdminRegistrationsPath(), label: "Inscrições" },
   { href: getTioHugoAdminTeamsPath(), label: "Times" },
+  { href: getTioHugoAdminMatchesPath(), label: "Jogos" },
   { href: getTioHugoAdminSimulationPath(), label: "Simulação" },
   {
     href: getTioHugoAdminAdvancedSimulationPath(),

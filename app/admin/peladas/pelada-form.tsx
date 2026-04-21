@@ -37,6 +37,9 @@ export function PeladaForm({
   const [maxFirstGamePlayers, setMaxFirstGamePlayers] = useState(
     initialValues.maxFirstGamePlayers,
   );
+  const [roundDurationMinutes, setRoundDurationMinutes] = useState(
+    initialValues.roundDurationMinutes,
+  );
   const [linePlayersCount, setLinePlayersCount] = useState(
     initialValues.linePlayersCount,
   );
@@ -48,6 +51,7 @@ export function PeladaForm({
     setFirstGameRule(defaults.firstGameRule);
     setArrivalCutoffTime(defaults.arrivalCutoffTime);
     setMaxFirstGamePlayers(defaults.maxFirstGamePlayers);
+    setRoundDurationMinutes(defaults.roundDurationMinutes);
     setLinePlayersCount(defaults.linePlayersCount);
   }
 
@@ -147,6 +151,20 @@ export function PeladaForm({
           </div>
 
           <div style={fieldStyle}>
+            <label style={labelStyle}>Duração da rodada (min)</label>
+            <input
+              type="number"
+              min={1}
+              name="roundDurationMinutes"
+              value={roundDurationMinutes}
+              onChange={(event) => setRoundDurationMinutes(event.target.value)}
+              placeholder="Ex.: 35"
+              style={inputStyle}
+              required
+            />
+          </div>
+
+          <div style={fieldStyle}>
             <label style={labelStyle}>Formação (linha)</label>
             <input
               type="number"
@@ -192,11 +210,11 @@ export function PeladaForm({
           <p style={helperTitleStyle}>Sugestões automáticas</p>
           <ul style={helperListStyle}>
             <li>
-              Campinho: sorteio, horário limite 19h15 e formação 6 de linha.
+              Campinho: sorteio, horário limite 19h15, duração de 20 min e formação 6 de linha.
             </li>
             <li>
-              Campão: ordem de chegada, limite de 16 jogadores na primeira e
-              formação 8 de linha.
+              Campão: ordem de chegada, limite de 16 jogadores na primeira, 35 min na Pelada 1,
+              30 min nas demais e formação 8 de linha.
             </li>
           </ul>
         </div>

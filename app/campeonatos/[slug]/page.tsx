@@ -4,7 +4,11 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import type { ChampionshipFormat, ChampionshipRegistrationMode, ChampionshipStatus, MatchStatus, StandingMovement } from "@prisma/client";
 import { getChampionshipPublicPageDataBySlug } from "@/lib/championships";
-import { getChampionshipRegistrationPath } from "@/lib/routes";
+import {
+  getChampionshipBasePath,
+  getChampionshipRegistrationPath,
+  getChampionshipTeamBasePath,
+} from "@/lib/routes";
 
 type Params = Promise<{
   slug: string;
@@ -34,12 +38,17 @@ export async function generateMetadata({
 
 export default async function ChampionshipPublicPage({
   params,
+  searchParams,
 }: {
   params: Params;
+  searchParams: Promise<{
+    view?: string;
+  }>;
 }) {
   await connection();
 
   const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
   const championship = await getChampionshipPublicPageDataBySlug(slug);
 
   if (!championship) {
@@ -53,6 +62,13 @@ export default async function ChampionshipPublicPage({
   const heroDescription =
     championship.description ||
     "Esta é a nova base pública do campeonato. Ela já nasce pronta para concentrar classificação, jogos e evolução do torneio sem quebrar o fluxo atual.";
+  const matchViews = buildMatchViews(championship.matches);
+  const requestedViewIndex = Number.parseInt(String(resolvedSearchParams.view || "1"), 10);
+  const currentViewIndex =
+    Number.isInteger(requestedViewIndex) && requestedViewIndex > 0
+      ? Math.min(requestedViewIndex, Math.max(matchViews.length, 1))
+      : 1;
+  const currentMatchView = matchViews[currentViewIndex - 1] || null;
 
   return (
     <main className="xv-page-shell-soft">
@@ -161,9 +177,15 @@ export default async function ChampionshipPublicPage({
                           </div>
                         </td>
                         <td className="border-b border-[#F1F5F9] px-3 py-3">
-                          <div className="font-semibold text-[#101010]">
+                          <Link
+                            href={getChampionshipTeamBasePath(
+                              championship.slug,
+                              standing.team.slug || "",
+                            )}
+                            className="font-semibold text-[#101010] transition hover:text-[#8B6914]"
+                          >
                             {standing.team.shortName || standing.team.name}
-                          </div>
+                          </Link>
                           <div className="text-xs text-[#6B7280]">
                             {standing.team.name}
                           </div>
@@ -223,8 +245,53 @@ export default async function ChampionshipPublicPage({
             </div>
 
             {championship.matches.length > 0 ? (
-              <div className="grid gap-3">
-                {championship.matches.map((match) => (
+              <div className="grid gap-4">
+                {currentMatchView ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-3">
+                    <div>
+                      <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
+                        Navegação
+                      </div>
+                      <div className="mt-1 text-lg font-black text-[#101010]">
+                        {currentMatchView.label}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {currentViewIndex > 1 ? (
+                        <Link
+                          href={buildMatchViewHref(championship.slug, currentViewIndex - 1)}
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
+                        >
+                          {"<"}
+                        </Link>
+                      ) : (
+                        <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
+                          {"<"}
+                        </span>
+                      )}
+
+                      <div className="rounded-full bg-[#171717] px-4 py-2.5 text-sm font-bold text-white">
+                        {currentViewIndex} / {matchViews.length}
+                      </div>
+
+                      {currentViewIndex < matchViews.length ? (
+                        <Link
+                          href={buildMatchViewHref(championship.slug, currentViewIndex + 1)}
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
+                        >
+                          {">"}
+                        </Link>
+                      ) : (
+                        <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
+                          {">"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                {(currentMatchView?.matches || []).map((match) => (
                   <article
                     key={match.id}
                     className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
@@ -288,6 +355,86 @@ export default async function ChampionshipPublicPage({
       </div>
     </main>
   );
+}
+
+function buildMatchViewHref(slug: string, view: number) {
+  return `${getChampionshipBasePath(slug)}?view=${view}`;
+}
+
+function buildMatchViews(
+  matches: Array<{
+    id: string;
+    round: number;
+    roundNumber: number | null;
+    scheduledAt: Date | null;
+    location: string | null;
+    status: MatchStatus;
+    notes: string | null;
+    homeScore: number;
+    awayScore: number;
+    homeTeam: {
+      id: string;
+      name: string;
+      slug: string | null;
+      shortName: string | null;
+      primaryColor: string | null;
+      secondaryColor: string | null;
+    };
+    awayTeam: {
+      id: string;
+      name: string;
+      shortName: string | null;
+      primaryColor: string | null;
+      secondaryColor: string | null;
+    };
+    stage: {
+      id: string;
+      name: string;
+      order: number;
+      stageType: string;
+    } | null;
+  }>,
+) {
+  const groups = new Map<
+    string,
+    {
+      label: string;
+      order: number;
+      matches: typeof matches;
+    }
+  >();
+
+  for (const match of matches) {
+    const isGroupRound = match.stage?.stageType === "GRUPO";
+    const key = isGroupRound
+      ? `grupo-${match.round}`
+      : `${match.stage?.stageType || "OUTRO"}-${match.round}`;
+    const label = isGroupRound
+      ? `Rodada ${match.round}`
+      : match.stage?.name || `Fase ${match.round}`;
+    const order = isGroupRound
+      ? match.round
+      : match.stage?.order
+        ? 100 + match.stage.order
+        : 999;
+    const current = groups.get(key) || {
+      label,
+      order,
+      matches: [],
+    };
+
+    current.matches.push(match);
+    groups.set(key, current);
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => a.order - b.order)
+    .map((group) => ({
+      ...group,
+      matches: group.matches.sort((a, b) => {
+        return (a.roundNumber || 0) - (b.roundNumber || 0);
+      }),
+    }));
 }
 
 function HeroStat({ label, value }: { label: string; value: string }) {

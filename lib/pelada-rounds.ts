@@ -10,6 +10,7 @@ type PeladaArrivalQueueItem = {
   id: string;
   arrivalOrder: number;
   availableForNextRound: boolean;
+  outForDay: boolean;
   preferredPosition: string;
 };
 
@@ -18,6 +19,7 @@ type PeladaLatestRound = {
   roundNumber: number;
   players: Array<{
     arrivalId: string;
+    queueOrder: number;
   }>;
 };
 
@@ -45,11 +47,15 @@ export function getNextRoundPlayers(args: {
   const lastRoundArrivalIds = new Set(
     latestRound?.players.map((player) => player.arrivalId) ?? [],
   );
+  const lastRoundQueueOrderByArrivalId = new Map(
+    latestRound?.players.map((player) => [player.arrivalId, player.queueOrder]) ?? [],
+  );
 
   const queuePlayers = arrivals
     .filter(
       (arrival) =>
         arrival.preferredPosition !== "GOLEIRO" &&
+        !arrival.outForDay &&
         !lastRoundArrivalIds.has(arrival.id),
     )
     .sort((a, b) => a.arrivalOrder - b.arrivalOrder);
@@ -69,11 +75,23 @@ export function getNextRoundPlayers(args: {
       .filter(
         (arrival) =>
           arrival.preferredPosition !== "GOLEIRO" &&
+          !arrival.outForDay &&
           lastRoundArrivalIds.has(arrival.id) &&
           arrival.availableForNextRound &&
           !selectedIds.has(arrival.id),
       )
-      .sort((a, b) => a.arrivalOrder - b.arrivalOrder);
+      .sort((a, b) => {
+        const leftQueueOrder =
+          lastRoundQueueOrderByArrivalId.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const rightQueueOrder =
+          lastRoundQueueOrderByArrivalId.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+
+        if (leftQueueOrder !== rightQueueOrder) {
+          return leftQueueOrder - rightQueueOrder;
+        }
+
+        return a.arrivalOrder - b.arrivalOrder;
+      });
 
     for (const arrival of replayPriority) {
       if (selected.length >= limit) {
@@ -86,27 +104,6 @@ export function getNextRoundPlayers(args: {
         queueOrder: selected.length + 1,
       });
       selectedIds.add(arrival.id);
-    }
-
-    const replayFallback = arrivals
-      .filter(
-        (arrival) =>
-          arrival.preferredPosition !== "GOLEIRO" &&
-          lastRoundArrivalIds.has(arrival.id) &&
-          !selectedIds.has(arrival.id),
-      )
-      .sort((a, b) => a.arrivalOrder - b.arrivalOrder);
-
-    for (const arrival of replayFallback) {
-      if (selected.length >= limit) {
-        break;
-      }
-
-      selected.push({
-        arrivalId: arrival.id,
-        source: "REPESCAGEM",
-        queueOrder: selected.length + 1,
-      });
     }
   }
 

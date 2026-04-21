@@ -8,8 +8,11 @@ import {
 } from "@/lib/championships";
 import {
   assignRegistrationToTeam,
+  createPlaceholderTeamsAndBaseTable,
   createChampionshipTeam,
+  generateBaseTableFromExistingTeams,
   unassignChampionshipPlayer,
+  updateChampionshipTeamSettings,
 } from "./actions";
 
 type SearchParams = Promise<{
@@ -78,6 +81,11 @@ export default async function TimesAdminPage({
         {params.success ? (
           <div className="xv-feedback-banner xv-feedback-banner-success">
             {params.success === "create-team" && "Time criado com sucesso."}
+            {params.success === "create-placeholder-base" &&
+              "Times-placeholder, fases e tabela base criados com sucesso."}
+            {params.success === "create-base-table" &&
+              "Fases, classificação base e tabela geradas com sucesso."}
+            {params.success === "update-team" && "Dados do time atualizados com sucesso."}
             {params.success === "assign-player" &&
               "Jogador alocado ou atualizado com sucesso."}
             {params.success === "unassign-player" &&
@@ -160,6 +168,56 @@ export default async function TimesAdminPage({
           </article>
 
           <article className="xv-card">
+            <div className="mb-5 rounded-[20px] border border-[#E5E7EB] bg-[#FAFAFA] p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3450A1]">
+                Atalho recomendado
+              </p>
+              <h2 className="mt-1 text-[1.35rem] font-black tracking-tight text-[#101010]">
+                Criar base padrão da Copa
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                Se você quiser acelerar, este botão cria os 5 times-placeholder
+                (`Time A` até `Time E`), prepara as fases e gera a tabela da
+                fase classificatória em todos contra todos. Depois você só troca
+                os nomes dos times reais e fecha os elencos.
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MiniInfo label="Times padrão" value="5" />
+                <MiniInfo label="Rodadas base" value="5" />
+                <MiniInfo label="Jogos gerados" value="10" />
+              </div>
+
+              <form action={createPlaceholderTeamsAndBaseTable} className="mt-4">
+                <button
+                  type="submit"
+                  disabled={teams.length > 0}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#3450A1] px-4 py-3 font-bold text-white transition hover:bg-[#263D7B] disabled:cursor-default disabled:bg-[#9CA3AF]"
+                >
+                  Criar base padrão da Copa
+                </button>
+              </form>
+
+              {teams.length > 0 ? (
+                <p className="mt-3 text-xs leading-5 text-[#6B7280]">
+                  Este atalho só fica disponível quando ainda não existem times no campeonato.
+                </p>
+              ) : null}
+
+              <form action={generateBaseTableFromExistingTeams} className="mt-3">
+                <button
+                  type="submit"
+                  disabled={teams.length !== 5 || championshipWithTeams.matches.length > 0}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#3450A1] bg-white px-4 py-3 font-bold text-[#3450A1] transition hover:bg-[#EFF4FF] disabled:cursor-default disabled:border-[#D1D5DB] disabled:text-[#9CA3AF]"
+                >
+                  Gerar tabela com os times atuais
+                </button>
+              </form>
+              <p className="mt-3 text-xs leading-5 text-[#6B7280]">
+                Use este segundo botão se você preferir criar os 5 times primeiro e só depois gerar a fase classificatória.
+              </p>
+            </div>
+
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3450A1]">
@@ -349,6 +407,80 @@ export default async function TimesAdminPage({
                       </div>
                     </div>
 
+                    <details className="mb-4 rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4">
+                      <summary className="cursor-pointer text-sm font-bold text-[#3450A1]">
+                        Ajustar dados do time
+                      </summary>
+
+                      <form
+                        action={updateChampionshipTeamSettings}
+                        className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_120px_110px_110px_120px_auto]"
+                      >
+                        <input type="hidden" name="teamId" value={team.id} />
+
+                        <label className="grid gap-1.5">
+                          <span className="text-sm font-semibold text-[#101010]">Nome</span>
+                          <input
+                            type="text"
+                            name="name"
+                            defaultValue={team.name}
+                            className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#B89020]"
+                            required
+                          />
+                        </label>
+
+                        <label className="grid gap-1.5">
+                          <span className="text-sm font-semibold text-[#101010]">Curto</span>
+                          <input
+                            type="text"
+                            name="shortName"
+                            defaultValue={team.shortName ?? ""}
+                            className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#B89020]"
+                          />
+                        </label>
+
+                        <label className="grid gap-1.5">
+                          <span className="text-sm font-semibold text-[#101010]">Ordem</span>
+                          <input
+                            type="number"
+                            min="1"
+                            name="displayOrder"
+                            defaultValue={championshipTeam.displayOrder ?? ""}
+                            className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#B89020]"
+                          />
+                        </label>
+
+                        <label className="grid gap-1.5">
+                          <span className="text-sm font-semibold text-[#101010]">Cor 1</span>
+                          <input
+                            type="color"
+                            name="primaryColor"
+                            defaultValue={team.primaryColor || "#101010"}
+                            className="h-11 w-full rounded-xl border border-[#D1D5DB] bg-white px-2"
+                          />
+                        </label>
+
+                        <label className="grid gap-1.5">
+                          <span className="text-sm font-semibold text-[#101010]">Cor 2</span>
+                          <input
+                            type="color"
+                            name="secondaryColor"
+                            defaultValue={team.secondaryColor || "#B89020"}
+                            className="h-11 w-full rounded-xl border border-[#D1D5DB] bg-white px-2"
+                          />
+                        </label>
+
+                        <div className="flex items-end">
+                          <button
+                            type="submit"
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#3450A1] px-4 py-3 font-bold text-white transition hover:bg-[#263D7B]"
+                          >
+                            Salvar time
+                          </button>
+                        </div>
+                      </form>
+                    </details>
+
                     {team.players.length === 0 ? (
                       <EmptyState
                         title="Time criado, elenco vazio"
@@ -496,6 +628,12 @@ export default async function TimesAdminPage({
         </section>
 
         <section className="xv-card">
+          <div className="mb-5 grid gap-3 sm:grid-cols-3">
+            <MiniInfo label="Fases preparadas" value={String(championshipWithTeams.stages.length)} />
+            <MiniInfo label="Jogos base" value={String(championshipWithTeams.matches.length)} />
+            <MiniInfo label="Linhas da tabela" value={String(championshipWithTeams.standings.length)} />
+          </div>
+
           <h2 className="text-[1.25rem] font-black tracking-tight text-[#101010]">
             Próximo efeito prático deste bloco
           </h2>
@@ -504,6 +642,36 @@ export default async function TimesAdminPage({
             mais simples: alimentar jogos, classificação e detalhes públicos do
             campeonato usando a mesma base genérica que já criamos.
           </p>
+          {championshipWithTeams.matches.length > 0 ? (
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {groupMatchesByRound(championshipWithTeams.matches).map(([round, matches]) => (
+                <div
+                  key={round}
+                  className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4"
+                >
+                  <div className="text-xs font-bold uppercase tracking-[0.14em] text-[#3450A1]">
+                    Rodada {round}
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {matches.map((match) => (
+                      <div
+                        key={match.id}
+                        className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#374151]"
+                      >
+                        <strong className="text-[#101010]">
+                          {match.homeTeam.shortName || match.homeTeam.name}
+                        </strong>{" "}
+                        x{" "}
+                        <strong className="text-[#101010]">
+                          {match.awayTeam.shortName || match.awayTeam.name}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <a
             href={getTioHugoAdminTeamsPath()}
             className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-[#D1D5DB] px-4 py-3 font-semibold text-[#101010] transition hover:border-[#B89020] hover:text-[#8B6914]"
@@ -527,6 +695,36 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       </div>
     </div>
   );
+}
+
+function MiniInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
+      <div className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-black text-[#101010]">{value}</div>
+    </div>
+  );
+}
+
+function groupMatchesByRound(
+  matches: Array<{
+    id: string;
+    round: number;
+    homeTeam: { name: string; shortName: string | null };
+    awayTeam: { name: string; shortName: string | null };
+  }>,
+) {
+  const grouped = new Map<number, typeof matches>();
+
+  for (const match of matches) {
+    const current = grouped.get(match.round) || [];
+    current.push(match);
+    grouped.set(match.round, current);
+  }
+
+  return Array.from(grouped.entries()).sort((a, b) => a[0] - b[0]);
 }
 
 function EmptyState({

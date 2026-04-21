@@ -36,12 +36,25 @@ export type FirstGameRuleValue =
 export type PeladaStatusValue =
   (typeof PELADA_STATUS_OPTIONS)[number]["value"];
 
+const CLUB_TIME_ZONE = "America/Sao_Paulo";
+const CLUB_UTC_OFFSET = "-03:00";
+const CLUB_DATE_TIME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: CLUB_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 export const DEFAULT_PELADA_RULES: Record<
   PeladaTypeValue,
   {
     firstGameRule: FirstGameRuleValue;
     arrivalCutoffTime: string;
     maxFirstGamePlayers: string;
+    roundDurationMinutes: string;
     linePlayersCount: string;
   }
 > = {
@@ -49,12 +62,14 @@ export const DEFAULT_PELADA_RULES: Record<
     firstGameRule: "SORTEIO",
     arrivalCutoffTime: "19:15",
     maxFirstGamePlayers: "",
+    roundDurationMinutes: "20",
     linePlayersCount: "6",
   },
   CAMPAO: {
     firstGameRule: "ORDEM_DE_CHEGADA",
     arrivalCutoffTime: "",
     maxFirstGamePlayers: "16",
+    roundDurationMinutes: "35",
     linePlayersCount: "8",
   },
 };
@@ -134,12 +149,59 @@ export function getFormationSlotLabel(
   return campinhoSlots[displayOrder - 1] || `${displayOrder}`;
 }
 
-export function buildArrivalDateTimeInput(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
+export function getPeladaRoundDurationMinutes(args: {
+  type: PeladaTypeValue;
+  roundNumber: number;
+}) {
+  if (args.type === "CAMPAO") {
+    return args.roundNumber <= 1 ? 35 : 30;
+  }
 
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return 20;
+}
+
+export function getPeladaDurationRuleLabel(type: PeladaTypeValue) {
+  return type === "CAMPAO" ? "35 / 30 min" : "20 min";
+}
+
+export function getClubDateInputValue(date: Date) {
+  const parts = getClubDateTimeParts(date);
+
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+export function getClubTimeInputValue(date: Date) {
+  const parts = getClubDateTimeParts(date);
+
+  return `${parts.hour}:${parts.minute}`;
+}
+
+export function parseClubDateTime(date: string, time: string) {
+  return new Date(`${date}T${time}:00${CLUB_UTC_OFFSET}`);
+}
+
+export function buildArrivalDateTimeInput(date: Date) {
+  const parts = getClubDateTimeParts(date);
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+export function parseClubDateTimeLocalInput(value: string) {
+  if (!value) {
+    return new Date(Number.NaN);
+  }
+
+  return new Date(`${value}:00${CLUB_UTC_OFFSET}`);
+}
+
+function getClubDateTimeParts(date: Date) {
+  const parts = CLUB_DATE_TIME_PARTS_FORMATTER.formatToParts(date);
+
+  return {
+    year: parts.find((part) => part.type === "year")?.value ?? "0000",
+    month: parts.find((part) => part.type === "month")?.value ?? "01",
+    day: parts.find((part) => part.type === "day")?.value ?? "01",
+    hour: parts.find((part) => part.type === "hour")?.value ?? "00",
+    minute: parts.find((part) => part.type === "minute")?.value ?? "00",
+  };
 }

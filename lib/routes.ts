@@ -7,6 +7,10 @@ export function getChampionshipBasePath(slug: string) {
   return `${CHAMPIONSHIPS_BASE_PATH}/${slug}`;
 }
 
+export function getChampionshipTeamBasePath(slug: string, teamSlug: string) {
+  return `${getChampionshipBasePath(slug)}/times/${teamSlug}`;
+}
+
 export function getChampionshipRegistrationPath(slug: string) {
   return `${getChampionshipBasePath(slug)}/inscricao`;
 }
@@ -23,6 +27,10 @@ export function getAdminChampionshipTeamsPath(slug: string) {
   return `${getAdminChampionshipBasePath(slug)}/times`;
 }
 
+export function getAdminChampionshipMatchesPath(slug: string) {
+  return `${getAdminChampionshipBasePath(slug)}/jogos`;
+}
+
 export function getAdminChampionshipSimulationPath(slug: string) {
   return `${getAdminChampionshipBasePath(slug)}/times/simulacao`;
 }
@@ -37,6 +45,8 @@ export const ADMIN_REGISTRATIONS_PATH =
   getAdminChampionshipRegistrationsPath("tio-hugo-2026");
 export const ADMIN_TEAMS_PATH =
   getAdminChampionshipTeamsPath("tio-hugo-2026");
+export const ADMIN_MATCHES_PATH =
+  getAdminChampionshipMatchesPath("tio-hugo-2026");
 export const ADMIN_SIMULATION_PATH =
   getAdminChampionshipSimulationPath("tio-hugo-2026");
 export const ADMIN_ADVANCED_SIMULATION_PATH =

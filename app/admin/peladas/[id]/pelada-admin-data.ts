@@ -8,6 +8,11 @@ export type PageGuestConfirmation = {
   preferredPosition: string;
   age: number | null;
   level: "A" | "B" | "C" | "D" | "E" | null;
+  athleteProfile: {
+    id: string;
+    nickname: string | null;
+    defaultLevel: "A" | "B" | "C" | "D" | "E" | null;
+  } | null;
   createdAt: Date;
   arrivals: Array<{ id: string }>;
 };
@@ -18,6 +23,11 @@ export type PageConfirmation = {
   preferredPosition: string;
   age: number | null;
   level: "A" | "B" | "C" | "D" | "E" | null;
+  athleteProfile: {
+    id: string;
+    nickname: string | null;
+    defaultLevel: "A" | "B" | "C" | "D" | "E" | null;
+  } | null;
   guestCount: number;
   goalkeeperSide: string | null;
   createdByAdmin: boolean;
@@ -34,11 +44,17 @@ export type PageArrival = {
   preferredPosition: string;
   age: number | null;
   level: "A" | "B" | "C" | "D" | "E" | null;
+  athleteProfile: {
+    id: string;
+    nickname: string | null;
+    defaultLevel: "A" | "B" | "C" | "D" | "E" | null;
+  } | null;
   arrivedAt: Date;
   arrivalOrder: number;
   playsFirstGame: boolean;
   playsSecondGame: boolean;
   availableForNextRound: boolean;
+  outForDay: boolean;
   confirmation: {
     id: string;
     createdByAdmin: boolean;
@@ -57,6 +73,7 @@ export type PageTeamAssignment = {
 export type PageRound = {
   id: string;
   roundNumber: number;
+  startedAt: Date | null;
   status: "ATIVA" | "FINALIZADA";
   createdAt: Date;
   blackScore: number;
@@ -86,6 +103,7 @@ export type PeladaAdminData = {
   firstGameRule: "SORTEIO" | "ORDEM_DE_CHEGADA";
   arrivalCutoffTime: string | null;
   maxFirstGamePlayers: number | null;
+  roundDurationMinutes: number;
   linePlayersCount: number;
   status: "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
   notes: string | null;
@@ -140,12 +158,26 @@ export async function loadPeladaAdminData(id: string) {
         },
         orderBy: { createdAt: "desc" },
         include: {
+          athleteProfile: {
+            select: {
+              id: true,
+              nickname: true,
+              defaultLevel: true,
+            },
+          },
           arrivals: {
             select: { id: true },
           },
           guests: {
             orderBy: { guestOrder: "asc" },
             include: {
+              athleteProfile: {
+                select: {
+                  id: true,
+                  nickname: true,
+                  defaultLevel: true,
+                },
+              },
               arrivals: {
                 select: { id: true },
               },
@@ -156,6 +188,13 @@ export async function loadPeladaAdminData(id: string) {
       arrivals: {
         orderBy: [{ arrivalOrder: "asc" }, { arrivedAt: "asc" }],
         include: {
+          athleteProfile: {
+            select: {
+              id: true,
+              nickname: true,
+              defaultLevel: true,
+            },
+          },
           confirmation: {
             select: {
               id: true,

@@ -1,4 +1,12 @@
-import { DEFAULT_PELADA_RULES, type FirstGameRuleValue, type PeladaStatusValue, type PeladaTypeValue } from "@/lib/peladas";
+import {
+  DEFAULT_PELADA_RULES,
+  getClubDateInputValue,
+  getClubTimeInputValue,
+  parseClubDateTime,
+  type FirstGameRuleValue,
+  type PeladaStatusValue,
+  type PeladaTypeValue,
+} from "@/lib/peladas";
 
 export type PeladaFormValues = {
   id?: string;
@@ -8,6 +16,7 @@ export type PeladaFormValues = {
   firstGameRule: FirstGameRuleValue;
   arrivalCutoffTime: string;
   maxFirstGamePlayers: string;
+  roundDurationMinutes: string;
   linePlayersCount: string;
   status: PeladaStatusValue;
   notes: string;
@@ -20,6 +29,7 @@ export const DEFAULT_PELADA_FORM_VALUES: PeladaFormValues = {
   firstGameRule: DEFAULT_PELADA_RULES.CAMPINHO.firstGameRule,
   arrivalCutoffTime: DEFAULT_PELADA_RULES.CAMPINHO.arrivalCutoffTime,
   maxFirstGamePlayers: DEFAULT_PELADA_RULES.CAMPINHO.maxFirstGamePlayers,
+  roundDurationMinutes: DEFAULT_PELADA_RULES.CAMPINHO.roundDurationMinutes,
   linePlayersCount: DEFAULT_PELADA_RULES.CAMPINHO.linePlayersCount,
   status: "ABERTA",
   notes: "",
@@ -32,38 +42,25 @@ export function buildPeladaFormValues(pelada: {
   firstGameRule: FirstGameRuleValue;
   arrivalCutoffTime: string | null;
   maxFirstGamePlayers: number | null;
+  roundDurationMinutes: number;
   linePlayersCount: number;
   status: PeladaStatusValue;
   notes: string | null;
 }): PeladaFormValues {
   return {
     id: pelada.id,
-    date: formatDateInput(pelada.scheduledAt),
-    time: formatTimeInput(pelada.scheduledAt),
+    date: getClubDateInputValue(pelada.scheduledAt),
+    time: getClubTimeInputValue(pelada.scheduledAt),
     type: pelada.type,
     firstGameRule: pelada.firstGameRule,
     arrivalCutoffTime: pelada.arrivalCutoffTime || "",
     maxFirstGamePlayers:
       pelada.maxFirstGamePlayers === null ? "" : String(pelada.maxFirstGamePlayers),
+    roundDurationMinutes: String(pelada.roundDurationMinutes),
     linePlayersCount: String(pelada.linePlayersCount),
     status: pelada.status,
     notes: pelada.notes || "",
   };
-}
-
-function formatDateInput(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function formatTimeInput(date: Date) {
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-
-  return `${hours}:${minutes}`;
 }
 
 export function parsePeladaFormData(formData: FormData) {
@@ -76,6 +73,9 @@ export function parsePeladaFormData(formData: FormData) {
   const arrivalCutoffTime = String(formData.get("arrivalCutoffTime") || "").trim();
   const maxFirstGamePlayers = String(
     formData.get("maxFirstGamePlayers") || "",
+  ).trim();
+  const roundDurationMinutes = String(
+    formData.get("roundDurationMinutes") || "",
   ).trim();
   const linePlayersCount = String(formData.get("linePlayersCount") || "").trim();
   const status = String(formData.get("status") || "").trim() as PeladaStatusValue;
@@ -106,7 +106,7 @@ export function parsePeladaFormData(formData: FormData) {
     throw new Error("Status da pelada inválido.");
   }
 
-  const scheduledAt = new Date(`${date}T${time}:00`);
+  const scheduledAt = parseClubDateTime(date, time);
 
   if (Number.isNaN(scheduledAt.getTime())) {
     throw new Error("Data ou horário inválidos.");
@@ -129,12 +129,22 @@ export function parsePeladaFormData(formData: FormData) {
     throw new Error("O limite da primeira precisa ser um número válido.");
   }
 
+  const parsedRoundDurationMinutes = Number.parseInt(roundDurationMinutes, 10);
+
+  if (
+    !Number.isInteger(parsedRoundDurationMinutes) ||
+    parsedRoundDurationMinutes <= 0
+  ) {
+    throw new Error("A duração da rodada precisa ser um número válido.");
+  }
+
   return {
     scheduledAt,
     type,
     firstGameRule,
     arrivalCutoffTime: arrivalCutoffTime || null,
     maxFirstGamePlayers: parsedMaxFirstGamePlayers,
+    roundDurationMinutes: parsedRoundDurationMinutes,
     linePlayersCount: parsedLinePlayersCount,
     status,
     notes: notes || null,

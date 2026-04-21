@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
 import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
@@ -21,9 +22,24 @@ export async function updateRegistrationLevel(formData: FormData) {
       ? (rawLevel as "A" | "B" | "C" | "D" | "E")
       : null;
 
-  await prisma.registration.update({
+  const registration = await prisma.registration.update({
     where: { id },
     data: { level },
+  });
+
+  const athleteProfileId = await syncAthleteProfileFromRegistration({
+    fullName: registration.fullName,
+    nickname: registration.nickname,
+    preferredPosition: registration.preferredPosition,
+    birthDate: registration.birthDate,
+    phone: registration.phone,
+    email: registration.email,
+    level: registration.level,
+  });
+
+  await prisma.registration.update({
+    where: { id },
+    data: { athleteProfileId },
   });
 
   redirect(`${getTioHugoAdminRegistrationsPath()}?success=level`);
@@ -46,13 +62,28 @@ export async function updateRegistrationQuickFields(formData: FormData) {
       : null;
   const paymentStatus = paymentPaid ? "PAGO" : "PENDENTE";
 
-  await prisma.registration.update({
+  const registration = await prisma.registration.update({
     where: { id },
     data: {
       level,
       paymentStatus,
       paidAt: paymentStatus === "PAGO" ? new Date() : null,
     },
+  });
+
+  const athleteProfileId = await syncAthleteProfileFromRegistration({
+    fullName: registration.fullName,
+    nickname: registration.nickname,
+    preferredPosition: registration.preferredPosition,
+    birthDate: registration.birthDate,
+    phone: registration.phone,
+    email: registration.email,
+    level: registration.level,
+  });
+
+  await prisma.registration.update({
+    where: { id },
+    data: { athleteProfileId },
   });
 
   redirect(`${getTioHugoAdminRegistrationsPath()}?success=quick-save`);
@@ -90,9 +121,26 @@ export async function updateRegistration(formData: FormData) {
       ? (rawLevel as "A" | "B" | "C" | "D" | "E")
       : null;
 
+  const athleteProfileId = await syncAthleteProfileFromRegistration({
+    fullName,
+    nickname: nickname || null,
+    preferredPosition: preferredPosition as
+      | "GOLEIRO"
+      | "LATERAL"
+      | "ZAGUEIRO"
+      | "VOLANTE"
+      | "MEIA"
+      | "ATACANTE",
+    birthDate: new Date(birthDate),
+    phone,
+    email: email || null,
+    level,
+  });
+
   await prisma.registration.update({
     where: { id },
     data: {
+      athleteProfileId,
       fullName,
       nickname: nickname || null,
       preferredPosition: preferredPosition as

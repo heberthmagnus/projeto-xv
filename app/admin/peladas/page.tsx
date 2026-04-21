@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAuthenticatedAdmin } from "@/lib/auth";
 import {
+  getPeladaDurationRuleLabel,
   getFirstGameRuleLabel,
   getPeladaStatusLabel,
   getPeladaTypeLabel,
@@ -106,6 +107,7 @@ export default async function PeladasAdminPage({
                   <th style={thStyle}>Regra da primeira</th>
                   <th style={thStyle}>Horário limite</th>
                   <th style={thStyle}>Limite da primeira</th>
+                  <th style={thStyle}>Duração</th>
                   <th style={thStyle}>Formação</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Confirmações</th>
@@ -116,7 +118,7 @@ export default async function PeladasAdminPage({
               <tbody>
                 {peladas.length === 0 ? (
                   <tr>
-                    <td colSpan={11} style={emptyStyle}>
+                    <td colSpan={12} style={emptyStyle}>
                       Nenhuma pelada cadastrada ainda.
                     </td>
                   </tr>
@@ -137,6 +139,7 @@ export default async function PeladasAdminPage({
                       <td style={tdStyle}>
                         {pelada.maxFirstGamePlayers ?? "—"}
                       </td>
+                      <td style={tdStyle}>{getPeladaDurationRuleLabel(pelada.type)}</td>
                       <td style={tdStyle}>{pelada.linePlayersCount} de linha</td>
                       <td style={tdStyle}>
                         <span style={getStatusBadgeStyle(pelada.status)}>

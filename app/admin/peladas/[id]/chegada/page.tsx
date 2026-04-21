@@ -1,3 +1,4 @@
+import { listAthleteProfilePrefillOptions } from "@/lib/athlete-profiles";
 import { getFirstGamePlayersLimit, getPlayerLevelLabel, getPositionLabel } from "@/lib/peladas";
 import { getAdminPeladaChegadaPath } from "@/lib/routes";
 import { ArrivalAdminForm } from "../../arrival-admin-form";
@@ -33,11 +34,17 @@ export default async function PeladaChegadaPage({
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const pelada = await loadPeladaAdminData(id);
+  const athleteProfiles = await listAthleteProfilePrefillOptions();
   const returnTo = getAdminPeladaChegadaPath(pelada.id);
-  const confirmationArrivalEntries = pelada.confirmations.flatMap((confirmation) => [
-    confirmation,
-    ...confirmation.guests,
-  ]);
+  const confirmationArrivalEntries = pelada.confirmations
+    .flatMap((confirmation) => [confirmation, ...confirmation.guests])
+    .map((confirmation) => ({
+      ...confirmation,
+      alreadyArrived: confirmation.arrivals.length > 0,
+    }));
+  const pendingArrivalEntries = confirmationArrivalEntries.filter(
+    (confirmation) => !confirmation.alreadyArrived,
+  );
 
   return (
     <main className="xv-page-shell">
@@ -53,8 +60,8 @@ export default async function PeladaChegadaPage({
             <div>
               <h2 style={sectionTitleStyle}>Chegada no dia</h2>
               <p style={sectionDescriptionStyle}>
-                Registre quem apareceu, controle a ordem de chegada e ajuste o
-                nível do jogador para melhorar a divisão futura.
+                Fluxo pensado para uso rápido no campo: marcar chegada primeiro,
+                corrigir detalhes depois.
               </p>
             </div>
 
@@ -94,173 +101,188 @@ export default async function PeladaChegadaPage({
             </div>
           </div>
 
-          <div className="xv-subcard">
-            <h3 style={subsectionTitleStyle}>Registrar chegada dos confirmados</h3>
-            <p style={subsectionDescriptionStyle}>
-              Marque rapidamente quem confirmou antes e realmente chegou para jogar.
-            </p>
-
-            <div style={chipsWrapStyle}>
-              {confirmationArrivalEntries.length === 0 ? (
-                <p style={inlineMutedStyle}>Nenhum confirmado disponível.</p>
-              ) : (
-                confirmationArrivalEntries.map((confirmation) => {
-                  const alreadyArrived = confirmation.arrivals.length > 0;
-
-                  return (
-                    <form
-                      key={confirmation.id}
-                      action={registerArrivalFromConfirmation}
-                      style={chipFormStyle}
-                    >
-                      <input type="hidden" name="peladaId" value={pelada.id} />
-                      <input type="hidden" name="confirmationId" value={confirmation.id} />
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <button
-                        type="submit"
-                        disabled={alreadyArrived}
-                        style={{
-                          ...chipButtonStyle,
-                          opacity: alreadyArrived ? 0.55 : 1,
-                          cursor: alreadyArrived ? "default" : "pointer",
-                        }}
-                      >
-                        {alreadyArrived
-                          ? `${confirmation.fullName} • já chegou`
-                          : `Registrar chegada • ${confirmation.fullName}`}
-                      </button>
-                    </form>
-                  );
-                })
-              )}
+          <div className="xv-subcard" style={subcardStackStyle}>
+            <div style={subsectionHeaderStyle}>
+              <div>
+                <h3 style={subsectionTitleStyle}>Chegada rápida</h3>
+                <p style={subsectionDescriptionStyle}>
+                  Mostra apenas quem ainda não chegou. Um toque registra a
+                  chegada e mantém a operação andando.
+                </p>
+              </div>
+              <div style={counterPillStyle}>
+                {pendingArrivalEntries.length} pendentes
+              </div>
             </div>
+
+            {confirmationArrivalEntries.length === 0 ? (
+              <p style={inlineMutedStyle}>Nenhum confirmado disponível.</p>
+            ) : pendingArrivalEntries.length === 0 ? (
+              <div style={emptyStateStyle}>
+                Todos os confirmados disponíveis já foram marcados como chegada.
+              </div>
+            ) : (
+              <div style={quickArrivalListStyle}>
+                {pendingArrivalEntries.map((confirmation) => (
+                  <form
+                    key={confirmation.id}
+                    action={registerArrivalFromConfirmation}
+                    style={quickArrivalCardStyle}
+                  >
+                    <input type="hidden" name="peladaId" value={pelada.id} />
+                    <input type="hidden" name="confirmationId" value={confirmation.id} />
+                    <input type="hidden" name="returnTo" value={returnTo} />
+
+                    <div style={quickArrivalInfoStyle}>
+                      <div style={quickArrivalNameStyle}>
+                        {confirmation.fullName}
+                      </div>
+                      <div style={quickArrivalMetaStyle}>
+                        <span>{getShortPositionLabel(confirmation.preferredPosition)}</span>
+                        <span>
+                          {getPlayerLevelLabel(
+                            confirmation.level ??
+                              confirmation.athleteProfile?.defaultLevel ??
+                              null,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button type="submit" style={quickArrivalButtonStyle}>
+                      Chegou
+                    </button>
+                  </form>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="xv-subcard">
-            <h3 style={subsectionTitleStyle}>Registrar chegada manual</h3>
-            <p style={subsectionDescriptionStyle}>
-              Inclua aqui quem apareceu no dia mesmo sem confirmar antes.
-            </p>
+          <div className="xv-subcard" style={subcardStackStyle}>
+            <div style={subsectionHeaderStyle}>
+              <div>
+                <h3 style={subsectionTitleStyle}>Chegados hoje</h3>
+                <p style={subsectionDescriptionStyle}>
+                  Lista compacta já ordenada. Use esta parte para corrigir ordem,
+                  nível, convidado ou qualquer detalhe do registro.
+                </p>
+              </div>
+              <div style={counterPillStyle}>{pelada.arrivals.length} chegadas</div>
+            </div>
 
-            <ArrivalAdminForm
-              peladaId={pelada.id}
-              action={createManualPeladaArrival}
-              submitLabel="Registrar chegada"
-              returnTo={returnTo}
-              initialValues={{
-                fullName: "",
-                isGuest: false,
-                guestInvitedBy: "",
-                preferredPosition: "",
-                age: "",
-                arrivalOrder:
-                  (pelada.arrivals.length
-                    ? Math.max(...pelada.arrivals.map((arrival) => arrival.arrivalOrder))
-                    : 0) + 1,
-                arrivedAt: new Date(),
-                level: "",
-                playsFirstGame: false,
-                playsSecondGame: false,
-              }}
-            />
-          </div>
-
-          <div className="xv-table-scroll">
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Ordem</th>
-                  <th style={thStyle}>Chegada</th>
-                  <th style={thStyle}>Nome</th>
-                  <th style={thStyle}>Tipo</th>
-                  <th style={thStyle}>Posição</th>
-                  <th style={thStyle}>Idade</th>
-                  <th style={thStyle}>Nível</th>
-                  <th style={thStyle}>Primeira</th>
-                  <th style={thStyle}>Segunda</th>
-                  <th style={thStyle}>Origem</th>
-                  <th style={thStyle}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pelada.arrivals.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} style={emptyStyle}>
-                      Nenhuma chegada registrada ainda.
-                    </td>
-                  </tr>
-                ) : (
-                  pelada.arrivals.map((arrival) => (
-                    <tr key={arrival.id}>
-                      <td style={tdStyle}>{arrival.arrivalOrder}</td>
-                      <td style={tdStyle}>{formatPeladaDateTime(arrival.arrivedAt)}</td>
-                      <td style={tdStyle}>{arrival.fullName}</td>
-                      <td style={tdStyle}>
-                        {arrival.isGuest
-                          ? arrival.guestInvitedBy
-                            ? `Convidado de ${arrival.guestInvitedBy}`
-                            : "Convidado avulso"
-                          : "Sócio"}
-                      </td>
-                      <td style={tdStyle}>
-                        {getPositionLabel(arrival.preferredPosition)}
-                      </td>
-                      <td style={tdStyle}>{arrival.age ?? "—"}</td>
-                      <td style={{ ...tdStyle, fontWeight: 800 }}>
-                        {getPlayerLevelLabel(arrival.level)}
-                      </td>
-                      <td style={tdStyle}>{arrival.playsFirstGame ? "Sim" : "Não"}</td>
-                      <td style={tdStyle}>{arrival.playsSecondGame ? "Sim" : "Não"}</td>
-                      <td style={tdStyle}>
-                        {arrival.confirmation
-                          ? arrival.confirmation.createdByAdmin
-                            ? "Confirmado pelo admin"
-                            : "Confirmado no público"
-                          : "Chegada manual"}
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={rowActionsStyle}>
-                          <details style={detailsStyle}>
-                            <summary style={summaryStyle}>Editar</summary>
-                            <div style={editPanelStyle}>
-                              <ArrivalAdminForm
-                                peladaId={pelada.id}
-                                action={updatePeladaArrival}
-                                submitLabel="Salvar chegada"
-                                returnTo={returnTo}
-                                initialValues={{
-                                  arrivalId: arrival.id,
-                                  fullName: arrival.fullName,
-                                  isGuest: arrival.isGuest,
-                                  guestInvitedBy: arrival.guestInvitedBy || "",
-                                  preferredPosition: arrival.preferredPosition,
-                                  age: arrival.age ?? "",
-                                  arrivalOrder: arrival.arrivalOrder,
-                                  arrivedAt: arrival.arrivedAt,
-                                  level: arrival.level,
-                                  playsFirstGame: arrival.playsFirstGame,
-                                  playsSecondGame: arrival.playsSecondGame,
-                                }}
-                              />
-                            </div>
-                          </details>
-
-                          <form action={deletePeladaArrival}>
-                            <input type="hidden" name="peladaId" value={pelada.id} />
-                            <input type="hidden" name="arrivalId" value={arrival.id} />
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <button type="submit" style={deleteButtonStyle}>
-                              Excluir
-                            </button>
-                          </form>
+            {pelada.arrivals.length === 0 ? (
+              <div style={emptyStateStyle}>Nenhuma chegada registrada ainda.</div>
+            ) : (
+              <div style={arrivedListStyle}>
+                {pelada.arrivals.map((arrival) => (
+                  <article key={arrival.id} style={arrivedCardStyle}>
+                    <div style={arrivedCardTopStyle}>
+                      <div>
+                        <div style={arrivedNameRowStyle}>
+                          <span style={arrivalOrderBadgeStyle}>#{arrival.arrivalOrder}</span>
+                          <strong style={arrivedNameStyle}>{arrival.fullName}</strong>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                        <div style={arrivedMetaStyle}>
+                          <span>{formatPeladaDateTime(arrival.arrivedAt)}</span>
+                          <span>{getShortPositionLabel(arrival.preferredPosition)}</span>
+                          <span>{getPlayerLevelLabel(arrival.level)}</span>
+                          <span>{getArrivalTypeLabel(arrival)}</span>
+                        </div>
+                      </div>
+
+                      <div style={arrivedFlagsStyle}>
+                        {arrival.playsFirstGame ? (
+                          <span style={flagChipPrimaryStyle}>Primeira</span>
+                        ) : null}
+                        {arrival.playsSecondGame ? (
+                          <span style={flagChipSecondaryStyle}>Segunda</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div style={arrivedActionsStyle}>
+                      <details style={detailsBlockStyle}>
+                        <summary style={summaryStyle}>Editar</summary>
+                        <div style={editPanelStyle}>
+                          <ArrivalAdminForm
+                            peladaId={pelada.id}
+                            athleteProfiles={athleteProfiles}
+                            action={updatePeladaArrival}
+                            submitLabel="Salvar chegada"
+                            returnTo={returnTo}
+                            initialValues={{
+                              arrivalId: arrival.id,
+                              athleteProfileId: arrival.athleteProfile?.id,
+                              fullName: arrival.fullName,
+                              isGuest: arrival.isGuest,
+                              guestInvitedBy: arrival.guestInvitedBy || "",
+                              preferredPosition: arrival.preferredPosition,
+                              age: arrival.age ?? "",
+                              arrivalOrder: arrival.arrivalOrder,
+                              arrivedAt: arrival.arrivedAt,
+                              level: arrival.level,
+                              playsFirstGame: arrival.playsFirstGame,
+                              playsSecondGame: arrival.playsSecondGame,
+                            }}
+                          />
+                        </div>
+                      </details>
+
+                      <form action={deletePeladaArrival}>
+                        <input type="hidden" name="peladaId" value={pelada.id} />
+                        <input type="hidden" name="arrivalId" value={arrival.id} />
+                        <input type="hidden" name="returnTo" value={returnTo} />
+                        <button type="submit" style={deleteButtonStyle}>
+                          Excluir
+                        </button>
+                      </form>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
+
+          <details className="xv-subcard" style={manualDetailsStyle}>
+            <summary style={manualSummaryStyle}>
+              <span>
+                <strong>Chegada manual</strong>
+                <span style={manualSummaryHintStyle}>
+                  {" "}para convidado avulso ou quem apareceu sem confirmação
+                </span>
+              </span>
+            </summary>
+
+            <div style={manualPanelStyle}>
+              <p style={subsectionDescriptionStyle}>
+                Use só quando necessário. O fluxo principal da tela está no bloco
+                de chegada rápida acima.
+              </p>
+
+              <ArrivalAdminForm
+                peladaId={pelada.id}
+                athleteProfiles={athleteProfiles}
+                action={createManualPeladaArrival}
+                submitLabel="Registrar chegada"
+                returnTo={returnTo}
+                initialValues={{
+                  fullName: "",
+                  isGuest: false,
+                  guestInvitedBy: "",
+                  preferredPosition: "",
+                  age: "",
+                  arrivalOrder:
+                    (pelada.arrivals.length
+                      ? Math.max(...pelada.arrivals.map((arrival) => arrival.arrivalOrder))
+                      : 0) + 1,
+                  arrivedAt: new Date(),
+                  level: "",
+                  playsFirstGame: false,
+                  playsSecondGame: false,
+                }}
+              />
+            </div>
+          </details>
         </section>
       </div>
     </main>
@@ -328,10 +350,28 @@ const subsectionDescriptionStyle: React.CSSProperties = {
   lineHeight: 1.6,
 };
 
-const chipsWrapStyle: React.CSSProperties = {
+const subcardStackStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 16,
+  marginBottom: 18,
+};
+
+const subsectionHeaderStyle: React.CSSProperties = {
   display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
   flexWrap: "wrap",
-  gap: 10,
+};
+
+const counterPillStyle: React.CSSProperties = {
+  borderRadius: 999,
+  border: "1px solid #E5E7EB",
+  background: "#FFFFFF",
+  color: "#374151",
+  padding: "8px 12px",
+  fontSize: 13,
+  fontWeight: 800,
 };
 
 const inlineMutedStyle: React.CSSProperties = {
@@ -339,58 +379,154 @@ const inlineMutedStyle: React.CSSProperties = {
   color: "#6B7280",
 };
 
-const chipFormStyle: React.CSSProperties = {
-  margin: 0,
+const emptyStateStyle: React.CSSProperties = {
+  borderRadius: 14,
+  border: "1px dashed #D1D5DB",
+  background: "#FFFFFF",
+  padding: "16px 18px",
+  color: "#6B7280",
+  lineHeight: 1.6,
 };
 
-const chipButtonStyle: React.CSSProperties = {
-  borderRadius: 999,
-  border: "1px solid #D1D5DB",
+const quickArrivalListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+};
+
+const quickArrivalCardStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  borderRadius: 14,
+  border: "1px solid #E5E7EB",
   background: "#FFFFFF",
+  padding: "12px 14px",
+};
+
+const quickArrivalInfoStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 6,
+};
+
+const quickArrivalNameStyle: React.CSSProperties = {
+  fontSize: 17,
+  fontWeight: 800,
   color: "#101010",
-  padding: "10px 14px",
+};
+
+const quickArrivalMetaStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  fontSize: 13,
+  color: "#6B7280",
   fontWeight: 700,
 };
 
-const tableStyle: React.CSSProperties = {
-  width: "100%",
-  minWidth: 1180,
-  borderCollapse: "collapse",
+const quickArrivalButtonStyle: React.CSSProperties = {
+  border: "none",
+  borderRadius: 12,
+  background: "#101010",
+  color: "#FFFFFF",
+  padding: "10px 14px",
+  fontWeight: 800,
+  fontSize: 14,
+  cursor: "pointer",
+  minWidth: 88,
+  minHeight: 42,
 };
 
-const thStyle: React.CSSProperties = {
-  padding: "12px 14px",
-  textAlign: "left",
-  fontSize: 13,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  color: "#6B7280",
-  borderBottom: "1px solid #E5E7EB",
-  background: "#FAFAFA",
+const arrivedListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 12,
 };
 
-const tdStyle: React.CSSProperties = {
-  padding: "14px",
-  borderBottom: "1px solid #F3F4F6",
+const arrivedCardStyle: React.CSSProperties = {
+  borderRadius: 16,
+  border: "1px solid #E5E7EB",
+  background: "#FFFFFF",
+  padding: 16,
+  display: "grid",
+  gap: 14,
+};
+
+const arrivedCardTopStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const arrivedNameRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const arrivalOrderBadgeStyle: React.CSSProperties = {
+  borderRadius: 999,
+  background: "#FCF7E6",
+  border: "1px solid #F1D68A",
+  color: "#8B6914",
+  padding: "4px 9px",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const arrivedNameStyle: React.CSSProperties = {
+  fontSize: 17,
   color: "#101010",
-  verticalAlign: "middle",
 };
 
-const emptyStyle: React.CSSProperties = {
-  padding: "20px 16px",
-  textAlign: "center",
+const arrivedMetaStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 6,
+  fontSize: 13,
   color: "#6B7280",
+  fontWeight: 700,
 };
 
-const rowActionsStyle: React.CSSProperties = {
+const arrivedFlagsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const flagChipPrimaryStyle: React.CSSProperties = {
+  borderRadius: 999,
+  background: "#ECFDF3",
+  border: "1px solid #A7F3D0",
+  color: "#047857",
+  padding: "6px 10px",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const flagChipSecondaryStyle: React.CSSProperties = {
+  borderRadius: 999,
+  background: "#EEF2FF",
+  border: "1px solid #C7D2FE",
+  color: "#4338CA",
+  padding: "6px 10px",
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const arrivedActionsStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   gap: 10,
   flexWrap: "wrap",
 };
 
-const detailsStyle: React.CSSProperties = {
-  minWidth: 260,
+const detailsBlockStyle: React.CSSProperties = {
+  width: "100%",
 };
 
 const summaryStyle: React.CSSProperties = {
@@ -408,10 +544,9 @@ const summaryStyle: React.CSSProperties = {
 
 const editPanelStyle: React.CSSProperties = {
   marginTop: 12,
-  minWidth: 320,
   borderRadius: 12,
   border: "1px solid #E5E7EB",
-  background: "#FFFFFF",
+  background: "#FAFAFA",
   padding: 14,
 };
 
@@ -424,6 +559,7 @@ const deleteButtonStyle: React.CSSProperties = {
   background: "#FEF2F2",
   color: "#B91C1C",
   cursor: "pointer",
+  minHeight: 40,
 };
 
 const primaryActionButtonStyle: React.CSSProperties = {
@@ -436,3 +572,65 @@ const primaryActionButtonStyle: React.CSSProperties = {
   padding: "11px 16px",
   cursor: "pointer",
 };
+
+const manualDetailsStyle: React.CSSProperties = {
+  marginTop: 0,
+};
+
+const manualSummaryStyle: React.CSSProperties = {
+  listStyle: "none",
+  cursor: "pointer",
+  fontSize: 16,
+  color: "#101010",
+};
+
+const manualSummaryHintStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 500,
+  color: "#6B7280",
+};
+
+const manualPanelStyle: React.CSSProperties = {
+  marginTop: 16,
+};
+
+function getShortPositionLabel(position: string) {
+  switch (position) {
+    case "GOLEIRO":
+      return "GOL";
+    case "LATERAL":
+      return "LAT";
+    case "ZAGUEIRO":
+      return "ZAG";
+    case "VOLANTE":
+      return "VOL";
+    case "MEIA":
+      return "MEI";
+    case "ATACANTE":
+      return "ATA";
+    default:
+      return getPositionLabel(position);
+  }
+}
+
+function getArrivalTypeLabel(arrival: {
+  isGuest: boolean;
+  guestInvitedBy: string | null;
+  confirmation: {
+    createdByAdmin: boolean;
+  } | null;
+}) {
+  if (arrival.isGuest) {
+    return arrival.guestInvitedBy
+      ? `Convidado de ${arrival.guestInvitedBy}`
+      : "Convidado avulso";
+  }
+
+  if (!arrival.confirmation) {
+    return "Chegada manual";
+  }
+
+  return arrival.confirmation.createdByAdmin
+    ? "Confirmado pelo admin"
+    : "Confirmado no público";
+}

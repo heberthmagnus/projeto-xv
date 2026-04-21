@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import {
   getAdminChampionshipAdvancedSimulationPath,
   getAdminChampionshipBasePath,
+  getAdminChampionshipMatchesPath,
   getAdminChampionshipRegistrationsPath,
   getAdminChampionshipSimulationPath,
   getAdminChampionshipTeamsPath,
   getChampionshipBasePath,
   getChampionshipRegistrationPath,
+  getChampionshipTeamBasePath,
 } from "@/lib/routes";
 
 export const TIO_HUGO_2026_SLUG = "tio-hugo-2026";
@@ -46,6 +48,55 @@ export const getChampionshipTeamsWithPlayersBySlug = cache(async (slug: string) 
       id: true,
       name: true,
       slug: true,
+      stages: {
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          order: true,
+          stageType: true,
+        },
+      },
+      matches: {
+        orderBy: [{ stage: { order: "asc" } }, { round: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          round: true,
+          roundNumber: true,
+          status: true,
+          stage: {
+            select: {
+              id: true,
+              name: true,
+              order: true,
+              stageType: true,
+            },
+          },
+          homeTeam: {
+            select: {
+              id: true,
+              name: true,
+              shortName: true,
+            },
+          },
+          awayTeam: {
+            select: {
+              id: true,
+              name: true,
+              shortName: true,
+            },
+          },
+        },
+      },
+      standings: {
+        orderBy: [{ rank: "asc" }, { team: { name: "asc" } }],
+        select: {
+          id: true,
+          rank: true,
+          points: true,
+          teamId: true,
+        },
+      },
       teams: {
         orderBy: [{ displayOrder: "asc" }, { seed: "asc" }, { id: "asc" }],
         select: {
@@ -163,6 +214,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
             select: {
               id: true,
               name: true,
+              slug: true,
               shortName: true,
               primaryColor: true,
               secondaryColor: true,
@@ -191,6 +243,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
             select: {
               id: true,
               name: true,
+              slug: true,
               shortName: true,
               primaryColor: true,
               secondaryColor: true,
@@ -200,6 +253,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
             select: {
               id: true,
               name: true,
+              slug: true,
               shortName: true,
               primaryColor: true,
               secondaryColor: true,
@@ -219,12 +273,163 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
   });
 });
 
+export const getChampionshipTeamPublicPageData = cache(
+  async (championshipSlug: string, teamSlug: string) => {
+    return prisma.championship.findUnique({
+      where: { slug: championshipSlug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        seasonLabel: true,
+        teams: {
+          where: {
+            team: {
+              slug: teamSlug,
+            },
+          },
+          select: {
+            id: true,
+            seed: true,
+            displayOrder: true,
+            team: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                shortName: true,
+                crestUrl: true,
+                primaryColor: true,
+                secondaryColor: true,
+                players: {
+                  where: {
+                    championship: {
+                      slug: championshipSlug,
+                    },
+                  },
+                  orderBy: [
+                    { rosterOrder: "asc" },
+                    { squadNumber: "asc" },
+                    { createdAt: "asc" },
+                  ],
+                  select: {
+                    id: true,
+                    squadNumber: true,
+                    rosterOrder: true,
+                    status: true,
+                    registration: {
+                      select: {
+                        id: true,
+                        fullName: true,
+                        nickname: true,
+                        preferredPosition: true,
+                        level: true,
+                      },
+                    },
+                  },
+                },
+                standings: {
+                  where: {
+                    championship: {
+                      slug: championshipSlug,
+                    },
+                  },
+                  select: {
+                    id: true,
+                    rank: true,
+                    points: true,
+                    gamesPlayed: true,
+                    wins: true,
+                    draws: true,
+                    losses: true,
+                    goalsFor: true,
+                    goalsAgainst: true,
+                    goalDifference: true,
+                  },
+                },
+                homeMatches: {
+                  where: {
+                    championship: {
+                      slug: championshipSlug,
+                    },
+                  },
+                  orderBy: [{ round: "asc" }, { createdAt: "asc" }],
+                  select: {
+                    id: true,
+                    round: true,
+                    roundNumber: true,
+                    status: true,
+                    scheduledAt: true,
+                    homeScore: true,
+                    awayScore: true,
+                    stage: {
+                      select: {
+                        id: true,
+                        name: true,
+                        stageType: true,
+                      },
+                    },
+                    awayTeam: {
+                      select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        shortName: true,
+                      },
+                    },
+                  },
+                },
+                awayMatches: {
+                  where: {
+                    championship: {
+                      slug: championshipSlug,
+                    },
+                  },
+                  orderBy: [{ round: "asc" }, { createdAt: "asc" }],
+                  select: {
+                    id: true,
+                    round: true,
+                    roundNumber: true,
+                    status: true,
+                    scheduledAt: true,
+                    homeScore: true,
+                    awayScore: true,
+                    stage: {
+                      select: {
+                        id: true,
+                        name: true,
+                        stageType: true,
+                      },
+                    },
+                    homeTeam: {
+                      select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        shortName: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  },
+);
+
 export function getTioHugoRegistrationPath() {
   return getChampionshipRegistrationPath(TIO_HUGO_2026_SLUG);
 }
 
 export function getTioHugoBasePath() {
   return getChampionshipBasePath(TIO_HUGO_2026_SLUG);
+}
+
+export function getTioHugoTeamBasePath(teamSlug: string) {
+  return getChampionshipTeamBasePath(TIO_HUGO_2026_SLUG, teamSlug);
 }
 
 export function getTioHugoAdminBasePath() {
@@ -237,6 +442,10 @@ export function getTioHugoAdminRegistrationsPath() {
 
 export function getTioHugoAdminTeamsPath() {
   return getAdminChampionshipTeamsPath(TIO_HUGO_2026_SLUG);
+}
+
+export function getTioHugoAdminMatchesPath() {
+  return getAdminChampionshipMatchesPath(TIO_HUGO_2026_SLUG);
 }
 
 export function getTioHugoAdminSimulationPath() {

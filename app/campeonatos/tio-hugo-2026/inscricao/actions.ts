@@ -6,6 +6,7 @@ import {
   TIO_HUGO_2026_SLUG,
   getTioHugoRegistrationPath,
 } from "@/lib/championships";
+import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { prisma } from "@/lib/prisma";
 import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { RegistrationFormState } from "./form-state";
@@ -45,10 +46,26 @@ export async function createRegistration(
   }
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const athleteProfileId = await syncAthleteProfileFromRegistration({
+    fullName,
+    nickname: nickname || null,
+    preferredPosition: preferredPosition as
+      | "GOLEIRO"
+      | "LATERAL"
+      | "ZAGUEIRO"
+      | "VOLANTE"
+      | "MEIA"
+      | "ATACANTE",
+    birthDate: new Date(birthDate),
+    phone,
+    email: email || null,
+    level: null,
+  });
 
   await prisma.registration.create({
     data: {
       championshipId: championship.id,
+      athleteProfileId,
       fullName,
       nickname: nickname || null,
       preferredPosition: preferredPosition as

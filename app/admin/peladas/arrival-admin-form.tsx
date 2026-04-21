@@ -1,21 +1,16 @@
-import { PLAYER_LEVEL_OPTIONS, getPositionLabel, buildArrivalDateTimeInput } from "@/lib/peladas";
-
-const POSITION_OPTIONS = [
-  { value: "GOLEIRO", label: "Goleiro" },
-  { value: "LATERAL", label: "Lateral" },
-  { value: "ZAGUEIRO", label: "Zagueiro" },
-  { value: "VOLANTE", label: "Volante" },
-  { value: "MEIA", label: "Meia" },
-  { value: "ATACANTE", label: "Atacante" },
-] as const;
+import type { AthleteProfilePrefillOption } from "@/lib/athlete-profiles";
+import { buildArrivalDateTimeInput } from "@/lib/peladas";
+import { AthleteProfilePrefillFields } from "./athlete-profile-prefill-fields";
 
 type ArrivalAdminFormProps = {
   peladaId: string;
+  athleteProfiles?: AthleteProfilePrefillOption[];
   action: (formData: FormData) => void | Promise<void>;
   submitLabel: string;
   returnTo?: string;
   initialValues?: {
     arrivalId?: string;
+    athleteProfileId?: string;
     fullName: string;
     isGuest?: boolean;
     guestInvitedBy?: string;
@@ -31,6 +26,7 @@ type ArrivalAdminFormProps = {
 
 export function ArrivalAdminForm({
   peladaId,
+  athleteProfiles = [],
   action,
   submitLabel,
   returnTo,
@@ -45,45 +41,12 @@ export function ArrivalAdminForm({
       )}
 
       <div style={gridStyle}>
-        <FormField label="Nome ou apelido">
-          <input
-            name="fullName"
-            type="text"
-            defaultValue={initialValues?.fullName || ""}
-            required
-            style={inputStyle}
-          />
-        </FormField>
-
-        <FormField label="Posição">
-          <select
-            name="preferredPosition"
-            defaultValue={initialValues?.preferredPosition || ""}
-            required
-            style={inputStyle}
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
-            {POSITION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {getPositionLabel(option.value)}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Idade">
-          <input
-            name="age"
-            type="number"
-            min={1}
-            max={99}
-            defaultValue={initialValues?.age || ""}
-            required
-            style={inputStyle}
-          />
-        </FormField>
+        <AthleteProfilePrefillFields
+          athleteProfiles={athleteProfiles}
+          initialValues={initialValues}
+          includeLevel
+          ageRequired
+        />
 
         <FormField label="Ordem de chegada">
           <input
@@ -108,20 +71,6 @@ export function ArrivalAdminForm({
             required
             style={inputStyle}
           />
-        </FormField>
-
-        <FormField label="Nível">
-          <select
-            name="level"
-            defaultValue={initialValues?.level || ""}
-            style={inputStyle}
-          >
-            {PLAYER_LEVEL_OPTIONS.map((option) => (
-              <option key={option.value || "NONE"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
         </FormField>
 
         <FormField label="Convidado de">

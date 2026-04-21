@@ -1,13 +1,17 @@
-import { GOALKEEPER_SIDE_OPTIONS, PLAYER_LEVEL_OPTIONS } from "@/lib/peladas";
+import type { AthleteProfilePrefillOption } from "@/lib/athlete-profiles";
+import { GOALKEEPER_SIDE_OPTIONS } from "@/lib/peladas";
+import { AthleteProfilePrefillFields } from "./athlete-profile-prefill-fields";
 
 type ConfirmationAdminFormProps = {
   peladaId: string;
+  athleteProfiles?: AthleteProfilePrefillOption[];
   action: (formData: FormData) => void | Promise<void>;
   submitLabel: string;
   returnTo?: string;
   mode?: "host" | "guest";
   initialValues?: {
     confirmationId?: string;
+    athleteProfileId?: string;
     fullName: string;
     preferredPosition: string;
     age: number | string;
@@ -17,17 +21,9 @@ type ConfirmationAdminFormProps = {
   };
 };
 
-const POSITION_OPTIONS = [
-  { value: "GOLEIRO", label: "Goleiro" },
-  { value: "LATERAL", label: "Lateral" },
-  { value: "ZAGUEIRO", label: "Zagueiro" },
-  { value: "VOLANTE", label: "Volante" },
-  { value: "MEIA", label: "Meia" },
-  { value: "ATACANTE", label: "Atacante" },
-] as const;
-
 export function ConfirmationAdminForm({
   peladaId,
+  athleteProfiles = [],
   action,
   submitLabel,
   returnTo,
@@ -49,58 +45,11 @@ export function ConfirmationAdminForm({
       )}
 
       <div style={gridStyle}>
-        <FormField label="Nome ou apelido">
-          <input
-            name="fullName"
-            type="text"
-            defaultValue={initialValues?.fullName || ""}
-            required
-            style={inputStyle}
-          />
-        </FormField>
-
-        <FormField label="Posição">
-          <select
-            name="preferredPosition"
-            defaultValue={initialValues?.preferredPosition || ""}
-            required
-            style={inputStyle}
-          >
-            <option value="" disabled>
-              Selecione
-            </option>
-            {POSITION_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Idade">
-          <input
-            name="age"
-            type="number"
-            min={1}
-            max={99}
-            defaultValue={initialValues?.age || ""}
-            style={inputStyle}
-          />
-        </FormField>
-
-        <FormField label="Nível">
-          <select
-            name="level"
-            defaultValue={initialValues?.level || ""}
-            style={inputStyle}
-          >
-            {PLAYER_LEVEL_OPTIONS.map((option) => (
-              <option key={option.value || "NONE"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <AthleteProfilePrefillFields
+          athleteProfiles={athleteProfiles}
+          initialValues={initialValues}
+          includeLevel
+        />
 
         {!isGuest && (
           <FormField label="Convidados previstos">

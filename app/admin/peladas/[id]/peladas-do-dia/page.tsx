@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   getNextRoundPlayers,
   getPeladaRoundPlayerSourceLabel,
@@ -10,11 +11,13 @@ import {
 } from "@/lib/pelada-teams";
 import {
   getFormationSlotLabel,
+  getPeladaRoundDurationMinutes,
   getPlayerLevelLabel,
   getPositionLabel,
 } from "@/lib/peladas";
 import { getAdminPeladaPeladasDoDiaPath } from "@/lib/routes";
 import { PeladaSheet } from "./pelada-sheet";
+import { RoundTimer } from "./round-timer";
 import {
   clearPeladaTeams,
   closeCurrentPeladaRound,
@@ -22,9 +25,11 @@ import {
   generateNextPeladaRound,
   generateNextPeladaRoundAndGenerateTeams,
   markArrivalAvailableForNextRound,
+  markArrivalOutForDay,
   openFirstPeladaRound,
   openFirstPeladaRoundAndGenerateTeams,
   resetPeladaProgress,
+  startCurrentPeladaRound,
   swapPeladaTeamPlayers,
 } from "../../actions";
 import {
@@ -40,6 +45,7 @@ type Params = Promise<{
 type SearchParams = Promise<{
   success?: string;
   error?: string;
+  swap?: string;
 }>;
 
 export default async function PeladaPeladasDoDiaPage({
@@ -53,6 +59,7 @@ export default async function PeladaPeladasDoDiaPage({
   const resolvedSearchParams = await searchParams;
   const pelada = await loadPeladaAdminData(id);
   const returnTo = getAdminPeladaPeladasDoDiaPath(pelada.id);
+  const selectedSwapAssignmentId = String(resolvedSearchParams.swap || "").trim();
 
   const teamAssignments = pelada.teamAssignments;
   const rounds = pelada.rounds;
@@ -82,6 +89,7 @@ export default async function PeladaPeladasDoDiaPage({
           id: arrival.id,
           arrivalOrder: arrival.arrivalOrder,
           availableForNextRound: arrival.availableForNextRound,
+          outForDay: arrival.outForDay,
           preferredPosition: arrival.preferredPosition,
         })),
         latestRound: {
@@ -90,6 +98,7 @@ export default async function PeladaPeladasDoDiaPage({
           players: roundBaseForNext.players.map(
             (player: PageRound["players"][number]) => ({
               arrivalId: player.arrivalId,
+              queueOrder: player.queueOrder,
             }),
           ),
         },
@@ -125,6 +134,17 @@ export default async function PeladaPeladasDoDiaPage({
       ),
     };
   });
+  const allAssignments = teamsByColor.flatMap((team) => team.assignments);
+  const selectedSwapAssignment =
+    allAssignments.find((assignment) => assignment.id === selectedSwapAssignmentId) ||
+    null;
+  const swapCandidates = selectedSwapAssignment
+    ? allAssignments.filter(
+        (assignment) =>
+          assignment.id !== selectedSwapAssignment.id &&
+          assignment.teamColor !== selectedSwapAssignment.teamColor,
+      )
+    : [];
 
   const currentSheetRows = currentPeladaRows.map((player) => ({
     id: player.id,
@@ -145,12 +165,83 @@ export default async function PeladaPeladasDoDiaPage({
     sourceLabel: getPeladaRoundPlayerSourceLabel(player.source),
   }));
 
+  const activeRoundQueueOrderByArrivalId = new Map(
+    activeRound?.players.map((player) => [player.arrivalId, player.queueOrder]) || [],
+  );
+  const getRepescagemDisplayOrder = (arrival: (typeof arrivals)[number]) =>
+    activeRoundQueueOrderByArrivalId.get(arrival.id) ?? arrival.arrivalOrder;
+
   const repescagemRows = [...arrivals].sort((left, right) => {
-    if (left.availableForNextRound !== right.availableForNextRound) {
-      return left.availableForNextRound ? -1 : 1;
+    const getRepescagemPriority = (arrival: (typeof arrivals)[number]) => {
+      if (arrival.availableForNextRound) {
+        return 0;
+      }
+
+      if (arrival.outForDay) {
+        return 2;
+      }
+
+      return 1;
+    };
+
+    const priorityDifference =
+      getRepescagemPriority(left) - getRepescagemPriority(right);
+
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    const leftDisplayOrder = getRepescagemDisplayOrder(left);
+    const rightDisplayOrder = getRepescagemDisplayOrder(right);
+
+    if (leftDisplayOrder !== rightDisplayOrder) {
+      return leftDisplayOrder - rightDisplayOrder;
     }
 
     return left.arrivalOrder - right.arrivalOrder;
+  });
+  const activeRoundArrivalIds = new Set(
+    activeRound?.players.map((player) => player.arrivalId) || [],
+  );
+  const nextRoundArrivalIds = new Set(
+    nextRoundPreviewRows.map((player) => player.arrival.id),
+  );
+  const playedArrivalIds = new Set(
+    peladasDoDia.flatMap((round) => round.players.map((player) => player.arrivalId)),
+  );
+  const dayStatusRows = arrivals.map((arrival) => ({
+    id: arrival.id,
+    fullName: arrival.fullName,
+    levelLabel: getPlayerLevelLabel(arrival.level),
+    status: getDayStatus(arrival, {
+      activeRoundArrivalIds,
+      nextRoundArrivalIds,
+      playedArrivalIds,
+    }),
+  }));
+  const dayStatusCounts = dayStatusRows.reduce<Record<DayStatus, number>>(
+    (accumulator, row) => {
+      accumulator[row.status] += 1;
+      return accumulator;
+    },
+    {
+      JOGANDO_AGORA: 0,
+      PROXIMA: 0,
+      NAO_JOGA_MAIS: 0,
+      JA_JOGOU: 0,
+      REPETE: 0,
+      GOLEIRO: 0,
+      AGUARDANDO: 0,
+    },
+  );
+  const displayedRoundNumber = activeRound
+    ? activeRound.roundNumber
+    : roundBaseForNext
+      ? roundBaseForNext.roundNumber + 1
+      : 1;
+  const displayedDurationMinutes = getPeladaRoundDurationMinutes({
+    type: pelada.type,
+    roundNumber: displayedRoundNumber,
   });
 
   return (
@@ -198,7 +289,18 @@ export default async function PeladaPeladasDoDiaPage({
                     : "Sem pelada ativa"}
                 </strong>
               </div>
+              <div style={operationsMetricStyle}>
+                <span style={operationsMetricLabelStyle}>Duração</span>
+                <strong style={operationsMetricValueCompactStyle}>
+                  {displayedDurationMinutes} min
+                </strong>
+              </div>
             </div>
+
+            <RoundTimer
+              durationMinutes={displayedDurationMinutes}
+              startedAt={activeRound?.startedAt?.toISOString() || null}
+            />
 
             <div className="xv-mobile-button-grid" style={operationsActionsStyle}>
               {peladasDoDia.length === 0 ? (
@@ -221,6 +323,16 @@ export default async function PeladaPeladasDoDiaPage({
                 </>
               ) : activeRound ? (
                 <>
+                  {!activeRound.startedAt && teamAssignments.length > 0 ? (
+                    <form action={startCurrentPeladaRound}>
+                      <input type="hidden" name="peladaId" value={pelada.id} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <button type="submit" style={primaryActionButtonStyle}>
+                        Começar pelada
+                      </button>
+                    </form>
+                  ) : null}
+
                   <form action={closeCurrentPeladaRound}>
                     <input type="hidden" name="peladaId" value={pelada.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
@@ -312,52 +424,59 @@ export default async function PeladaPeladasDoDiaPage({
               emptyMessage="Ainda não há jogadores suficientes para montar a próxima pelada."
               showSource
             />
+          </div>
 
-            <div className="xv-subcard" style={repescagemCardStyle}>
-              <div style={repescagemHeaderStyle}>
-                <div>
-                  <h3 style={subsectionTitleStyle}>Repescagem</h3>
-                  <p style={subsectionDescriptionCompactStyle}>
-                    Marque rápido quem topa jogar outra se faltar gente.
-                  </p>
-                </div>
-                <div style={repescagemMetricStyle}>
-                  {arrivals.filter((arrival) => arrival.availableForNextRound).length}
-                </div>
+          <div className="xv-subcard" style={repescagemCardStyle}>
+            <div style={repescagemHeaderStyle}>
+              <div>
+                <h3 style={subsectionTitleStyle}>Repescagem</h3>
+                <p style={subsectionDescriptionCompactStyle}>
+                  Marque só quem realmente segue disponível. Quem não topar
+                  jogar outra sai da próxima e das futuras.
+                </p>
               </div>
+              <div style={repescagemMetricStyle}>
+                {arrivals.filter((arrival) => arrival.availableForNextRound).length}
+              </div>
+            </div>
 
-              <div className="xv-table-scroll xv-dense-table">
-                <table style={compactTableStyle}>
-                  <thead>
+            <div className="xv-table-scroll xv-dense-table">
+              <table style={compactTableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Ordem</th>
+                    <th style={thStyle}>Nome</th>
+                    <th style={thStyle}>Posição</th>
+                    <th style={thStyle}>Nível</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arrivals.length === 0 ? (
                     <tr>
-                      <th style={thStyle}>Ordem</th>
-                      <th style={thStyle}>Nome</th>
-                      <th style={thStyle}>Posição</th>
-                      <th style={thStyle}>Nível</th>
-                      <th style={thStyle}>Status</th>
-                      <th style={thStyle}>Ação</th>
+                      <td colSpan={6} style={emptyStyle}>
+                        Nenhuma chegada registrada ainda.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {arrivals.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} style={emptyStyle}>
-                          Nenhuma chegada registrada ainda.
+                  ) : (
+                    repescagemRows.map((arrival) => (
+                      <tr key={arrival.id}>
+                        <td style={tdStyle}>{getRepescagemDisplayOrder(arrival)}</td>
+                        <td style={tdStyle}>{arrival.fullName}</td>
+                        <td style={tdStyle}>
+                          {getPositionLabel(arrival.preferredPosition)}
                         </td>
-                      </tr>
-                    ) : (
-                      repescagemRows.map((arrival) => (
-                        <tr key={arrival.id}>
-                          <td style={tdStyle}>{arrival.arrivalOrder}</td>
-                          <td style={tdStyle}>{arrival.fullName}</td>
-                          <td style={tdStyle}>
-                            {getPositionLabel(arrival.preferredPosition)}
-                          </td>
-                          <td style={tdStyle}>{getPlayerLevelLabel(arrival.level)}</td>
-                          <td style={tdStyle}>
-                            {arrival.availableForNextRound ? "Vai jogar outra" : "Aguardando"}
-                          </td>
-                          <td style={tdStyle}>
+                        <td style={tdStyle}>{getPlayerLevelLabel(arrival.level)}</td>
+                        <td style={tdStyle}>
+                          {arrival.availableForNextRound
+                            ? "Segue disponivel"
+                            : arrival.outForDay
+                              ? "Nao joga mais"
+                              : "Aguardando fila"}
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={repescagemActionsStyle}>
                             <form
                               action={markArrivalAvailableForNextRound}
                               style={inlineFormStyle}
@@ -378,16 +497,44 @@ export default async function PeladaPeladasDoDiaPage({
                                     : miniPrimaryButtonStyle
                                 }
                               >
-                                {arrival.availableForNextRound ? "Remover" : "Vai jogar"}
+                                {arrival.availableForNextRound
+                                  ? "Tirar da repescagem"
+                                  : "Vou jogar mais"}
                               </button>
                             </form>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+
+                            <form
+                              action={markArrivalOutForDay}
+                              style={inlineFormStyle}
+                            >
+                              <input type="hidden" name="peladaId" value={pelada.id} />
+                              <input type="hidden" name="arrivalId" value={arrival.id} />
+                              <input type="hidden" name="returnTo" value={returnTo} />
+                              <input
+                                type="hidden"
+                                name="outForDay"
+                                value={arrival.outForDay ? "false" : "true"}
+                              />
+                              <button
+                                type="submit"
+                                style={
+                                  arrival.outForDay
+                                    ? secondaryActionButtonStyle
+                                    : dangerMiniButtonStyle
+                                }
+                              >
+                                {arrival.outForDay
+                                  ? "Voltar para o dia"
+                                  : "Nao vou jogar mais"}
+                              </button>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -409,6 +556,73 @@ export default async function PeladaPeladasDoDiaPage({
               </button>
             </form>
           </div>
+
+          <details className="xv-subcard" style={statusDayDetailsStyle}>
+            <summary style={statusDaySummaryStyle}>
+              <span>
+                <strong>Status do dia</strong>
+                <span style={statusDaySummaryHintStyle}>
+                  {" "}visão compacta dos participantes já presentes
+                </span>
+              </span>
+            </summary>
+
+            <div style={statusDayPanelStyle}>
+              <div style={statusDayChipsStyle}>
+                <span style={statusCountChipStyle}>
+                  Jogando agora: <strong>{dayStatusCounts.JOGANDO_AGORA}</strong>
+                </span>
+                <span style={statusCountChipStyle}>
+                  Próxima: <strong>{dayStatusCounts.PROXIMA}</strong>
+                </span>
+                <span style={statusCountChipStyle}>
+                  Não joga mais: <strong>{dayStatusCounts.NAO_JOGA_MAIS}</strong>
+                </span>
+                <span style={statusCountChipStyle}>
+                  Já jogou: <strong>{dayStatusCounts.JA_JOGOU}</strong>
+                </span>
+                <span style={statusCountChipStyle}>
+                  Repete: <strong>{dayStatusCounts.REPETE}</strong>
+                </span>
+                <span style={statusCountChipStyle}>
+                  Goleiro: <strong>{dayStatusCounts.GOLEIRO}</strong>
+                </span>
+              </div>
+
+              <div className="xv-table-scroll xv-dense-table">
+                <table style={compactTableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Nome</th>
+                      <th style={thStyle}>Nível</th>
+                      <th style={thStyle}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayStatusRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={emptyStyle}>
+                          Nenhum participante presente ainda.
+                        </td>
+                      </tr>
+                    ) : (
+                      dayStatusRows.map((row) => (
+                        <tr key={row.id}>
+                          <td style={tdStyle}>{row.fullName}</td>
+                          <td style={tdStyle}>{row.levelLabel}</td>
+                          <td style={tdStyle}>
+                            <span style={getDayStatusChipStyle(row.status)}>
+                              {getDayStatusLabel(row.status)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
 
           {peladasDoDia.length > 0 && (
             <div className="xv-subcard">
@@ -521,6 +735,7 @@ export default async function PeladaPeladasDoDiaPage({
                               <th style={teamThStyle}>Posição</th>
                               <th style={teamThStyle}>Nível</th>
                               <th style={teamThStyle}>Função</th>
+                              <th style={teamThStyle}>Ação</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -556,6 +771,20 @@ export default async function PeladaPeladasDoDiaPage({
                                     <span style={fallbackBadgeStyle}>Adaptação</span>
                                   ) : null}
                                 </td>
+                                <td style={teamTdStyle}>
+                                  <Link
+                                    href={buildSwapHref(returnTo, assignment.id)}
+                                    style={
+                                      selectedSwapAssignment?.id === assignment.id
+                                        ? selectedSwapLinkActiveStyle
+                                        : selectedSwapLinkStyle
+                                    }
+                                  >
+                                    {selectedSwapAssignment?.id === assignment.id
+                                      ? "Selecionado"
+                                      : "Trocar"}
+                                  </Link>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -568,66 +797,109 @@ export default async function PeladaPeladasDoDiaPage({
                 <div className="xv-subcard">
                   <h3 style={subsectionTitleStyle}>Trocar jogadores</h3>
                   <p style={subsectionDescriptionStyle}>
-                    Escolha um jogador do time Amarelo e outro do time Preto para
-                    ajustar a pelada manualmente.
+                    Selecione um jogador direto na tabela acima. Depois a tela
+                    mostra só as opções do time oposto para concluir a troca.
                   </p>
 
-                  <form action={swapPeladaTeamPlayers} style={swapFormStyle}>
-                    <input type="hidden" name="peladaId" value={pelada.id} />
-                    <input type="hidden" name="returnTo" value={returnTo} />
-
-                    <div style={swapGridStyle}>
-                      <div style={swapFieldStyle}>
-                        <label style={swapLabelStyle}>Jogador do time Amarelo</label>
-                        <select
-                          name="yellowAssignmentId"
-                          defaultValue=""
-                          required
-                          style={swapInputStyle}
-                        >
-                          <option value="" disabled>
-                            Selecione
-                          </option>
-                          {teamsByColor
-                            .find((team) => team.color === "AMARELO")
-                            ?.assignments.map((assignment) => (
-                              <option key={assignment.id} value={assignment.id}>
-                                {assignment.arrival.fullName} [
-                                {getPlayerLevelLabel(assignment.arrival.level)}] -{" "}
-                                {getPositionLabel(assignment.arrival.preferredPosition)}
-                              </option>
-                            ))}
-                        </select>
+                  {!selectedSwapAssignment ? (
+                    <div style={swapPlaceholderStyle}>
+                      Clique em <strong>Trocar</strong> no jogador que você quer
+                      usar como base da substituição.
+                    </div>
+                  ) : (
+                    <div style={swapPanelStyle}>
+                      <div style={swapSelectedCardStyle}>
+                        <div style={swapSelectedLabelStyle}>Selecionado</div>
+                        <div style={swapSelectedNameStyle}>
+                          {selectedSwapAssignment.arrival.fullName}
+                        </div>
+                        <div style={swapSelectedMetaStyle}>
+                          <span>
+                            {getPositionLabel(
+                              selectedSwapAssignment.arrival.preferredPosition,
+                            )}
+                          </span>
+                          <span>
+                            {getPlayerLevelLabel(selectedSwapAssignment.arrival.level)}
+                          </span>
+                          <span>
+                            {getPeladaTeamColorLabel(selectedSwapAssignment.teamColor)}
+                          </span>
+                        </div>
                       </div>
 
-                      <div style={swapFieldStyle}>
-                        <label style={swapLabelStyle}>Jogador do time Preto</label>
-                        <select
-                          name="blackAssignmentId"
-                          defaultValue=""
-                          required
-                          style={swapInputStyle}
-                        >
-                          <option value="" disabled>
-                            Selecione
-                          </option>
-                          {teamsByColor
-                            .find((team) => team.color === "PRETO")
-                            ?.assignments.map((assignment) => (
-                              <option key={assignment.id} value={assignment.id}>
-                                {assignment.arrival.fullName} [
-                                {getPlayerLevelLabel(assignment.arrival.level)}] -{" "}
-                                {getPositionLabel(assignment.arrival.preferredPosition)}
-                              </option>
-                            ))}
-                        </select>
+                      <div style={swapCandidatesHeaderStyle}>
+                        <div>
+                          <strong style={swapCandidatesTitleStyle}>
+                            Escolha quem entra no lugar
+                          </strong>
+                          <p style={swapCandidatesDescriptionStyle}>
+                            So aparecem jogadores do time{" "}
+                            {getPeladaTeamColorLabel(
+                              selectedSwapAssignment.teamColor === "AMARELO"
+                                ? "PRETO"
+                                : "AMARELO",
+                            )}
+                            .
+                          </p>
+                        </div>
+
+                        <Link href={returnTo} style={swapCancelLinkStyle}>
+                          Cancelar
+                        </Link>
+                      </div>
+
+                      <div style={swapCandidatesListStyle}>
+                        {swapCandidates.map((candidate) => (
+                          <form
+                            key={candidate.id}
+                            action={swapPeladaTeamPlayers}
+                            style={swapCandidateFormStyle}
+                          >
+                            <input type="hidden" name="peladaId" value={pelada.id} />
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <input
+                              type="hidden"
+                              name="yellowAssignmentId"
+                              value={
+                                selectedSwapAssignment.teamColor === "AMARELO"
+                                  ? selectedSwapAssignment.id
+                                  : candidate.id
+                              }
+                            />
+                            <input
+                              type="hidden"
+                              name="blackAssignmentId"
+                              value={
+                                selectedSwapAssignment.teamColor === "PRETO"
+                                  ? selectedSwapAssignment.id
+                                  : candidate.id
+                              }
+                            />
+
+                            <div style={swapCandidateInfoStyle}>
+                              <strong style={swapCandidateNameStyle}>
+                                {candidate.arrival.fullName}
+                              </strong>
+                              <div style={swapCandidateMetaStyle}>
+                                <span>
+                                  {getPositionLabel(candidate.arrival.preferredPosition)}
+                                </span>
+                                <span>
+                                  {getPlayerLevelLabel(candidate.arrival.level)}
+                                </span>
+                                <span>{getPeladaTeamColorLabel(candidate.teamColor)}</span>
+                              </div>
+                            </div>
+
+                            <button type="submit" style={miniPrimaryButtonStyle}>
+                              Trocar
+                            </button>
+                          </form>
+                        ))}
                       </div>
                     </div>
-
-                    <button type="submit" style={primaryActionButtonStyle}>
-                      Trocar jogadores
-                    </button>
-                  </form>
+                  )}
                 </div>
               </>
             )}
@@ -781,6 +1053,48 @@ const dangerButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const statusDayDetailsStyle: React.CSSProperties = {
+  marginTop: 0,
+};
+
+const statusDaySummaryStyle: React.CSSProperties = {
+  listStyle: "none",
+  cursor: "pointer",
+  fontSize: 16,
+  color: "#101010",
+};
+
+const statusDaySummaryHintStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 500,
+  color: "#6B7280",
+};
+
+const statusDayPanelStyle: React.CSSProperties = {
+  marginTop: 14,
+  display: "grid",
+  gap: 12,
+};
+
+const statusDayChipsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const statusCountChipStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "8px 12px",
+  borderRadius: 999,
+  border: "1px solid #E5E7EB",
+  background: "#FAFAFA",
+  color: "#374151",
+  fontSize: 13,
+  fontWeight: 600,
+};
+
 const compactStatsGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
@@ -912,6 +1226,12 @@ const inlineFormStyle: React.CSSProperties = {
   display: "inline-flex",
 };
 
+const repescagemActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
 const primaryActionButtonStyle: React.CSSProperties = {
   border: "none",
   borderRadius: 10,
@@ -952,6 +1272,17 @@ const miniPrimaryButtonStyle: React.CSSProperties = {
   fontSize: 13,
   padding: "9px 12px",
   cursor: "pointer",
+};
+
+const dangerMiniButtonStyle: React.CSSProperties = {
+  borderRadius: 10,
+  background: "#FEF2F2",
+  color: "#B91C1C",
+  fontWeight: 800,
+  fontSize: 13,
+  padding: "9px 12px",
+  cursor: "pointer",
+  border: "1px solid #FCA5A5",
 };
 
 const teamsGridStyle: React.CSSProperties = {
@@ -1043,36 +1374,121 @@ const teamTdStyle: React.CSSProperties = {
   verticalAlign: "middle",
 };
 
-const swapFormStyle: React.CSSProperties = {
+const swapPlaceholderStyle: React.CSSProperties = {
+  borderRadius: 12,
+  border: "1px dashed #D1D5DB",
+  background: "#FFFFFF",
+  padding: "14px 16px",
+  color: "#4B5563",
+  lineHeight: 1.6,
+};
+
+const swapPanelStyle: React.CSSProperties = {
   display: "grid",
   gap: 14,
 };
 
-const swapGridStyle: React.CSSProperties = {
+const swapSelectedCardStyle: React.CSSProperties = {
+  borderRadius: 14,
+  border: "1px solid #E5E7EB",
+  background: "#FAFAFA",
+  padding: 16,
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  gap: 14,
+  gap: 6,
 };
 
-const swapFieldStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 8,
+const swapSelectedLabelStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "#8B6914",
 };
 
-const swapLabelStyle: React.CSSProperties = {
-  fontSize: 14,
-  fontWeight: 700,
+const swapSelectedNameStyle: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 800,
   color: "#101010",
 };
 
-const swapInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 14px",
+const swapSelectedMetaStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  color: "#4B5563",
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const swapCandidatesHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const swapCandidatesTitleStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 15,
+  color: "#101010",
+};
+
+const swapCandidatesDescriptionStyle: React.CSSProperties = {
+  margin: "4px 0 0",
+  color: "#6B7280",
+  fontSize: 13,
+  lineHeight: 1.5,
+};
+
+const swapCancelLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 40,
   borderRadius: 10,
+  padding: "8px 12px",
   border: "1px solid #D1D5DB",
-  fontSize: 14,
   background: "#FFFFFF",
   color: "#111827",
+  fontWeight: 700,
+  textDecoration: "none",
+};
+
+const swapCandidatesListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+};
+
+const swapCandidateFormStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  borderRadius: 12,
+  border: "1px solid #E5E7EB",
+  background: "#FFFFFF",
+  padding: "12px 14px",
+};
+
+const swapCandidateInfoStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+};
+
+const swapCandidateNameStyle: React.CSSProperties = {
+  fontSize: 15,
+  color: "#101010",
+};
+
+const swapCandidateMetaStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  color: "#6B7280",
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 const roleTextStyle: React.CSSProperties = {
@@ -1096,4 +1512,166 @@ const fallbackBadgeStyle: React.CSSProperties = {
   color: "#9A3412",
   fontSize: 11,
   fontWeight: 700,
+};
+
+const selectedSwapLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 34,
+  borderRadius: 999,
+  padding: "6px 10px",
+  border: "1px solid #D1D5DB",
+  background: "#FFFFFF",
+  color: "#111827",
+  fontSize: 12,
+  fontWeight: 800,
+  textDecoration: "none",
+};
+
+const selectedSwapLinkActiveStyle: React.CSSProperties = {
+  ...selectedSwapLinkStyle,
+  border: "1px solid #B89020",
+  background: "#FCF7E6",
+  color: "#8B6914",
+};
+
+function buildSwapHref(returnTo: string, assignmentId: string) {
+  return `${returnTo}?swap=${encodeURIComponent(assignmentId)}`;
+}
+
+type DayStatus =
+  | "JOGANDO_AGORA"
+  | "PROXIMA"
+  | "NAO_JOGA_MAIS"
+  | "JA_JOGOU"
+  | "REPETE"
+  | "GOLEIRO"
+  | "AGUARDANDO";
+
+function getDayStatus(
+  arrival: {
+    id: string;
+    preferredPosition: string;
+    availableForNextRound: boolean;
+    outForDay: boolean;
+  },
+  context: {
+    activeRoundArrivalIds: Set<string>;
+    nextRoundArrivalIds: Set<string>;
+    playedArrivalIds: Set<string>;
+  },
+): DayStatus {
+  if (arrival.preferredPosition === "GOLEIRO") {
+    return "GOLEIRO";
+  }
+
+  if (context.activeRoundArrivalIds.has(arrival.id)) {
+    return "JOGANDO_AGORA";
+  }
+
+  if (context.nextRoundArrivalIds.has(arrival.id)) {
+    return "PROXIMA";
+  }
+
+  if (arrival.outForDay) {
+    return "NAO_JOGA_MAIS";
+  }
+
+  if (arrival.availableForNextRound) {
+    return "REPETE";
+  }
+
+  if (context.playedArrivalIds.has(arrival.id)) {
+    return "JA_JOGOU";
+  }
+
+  return "AGUARDANDO";
+}
+
+function getDayStatusLabel(status: DayStatus) {
+  switch (status) {
+    case "JOGANDO_AGORA":
+      return "Jogando agora";
+    case "PROXIMA":
+      return "Proxima";
+    case "NAO_JOGA_MAIS":
+      return "Nao joga mais";
+    case "JA_JOGOU":
+      return "Ja jogou";
+    case "REPETE":
+      return "Repete";
+    case "GOLEIRO":
+      return "Goleiro";
+    case "AGUARDANDO":
+    default:
+      return "Aguardando";
+  }
+}
+
+function getDayStatusChipStyle(status: DayStatus): React.CSSProperties {
+  switch (status) {
+    case "JOGANDO_AGORA":
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#ECFDF3",
+        borderColor: "#A7F3D0",
+        color: "#047857",
+      };
+    case "PROXIMA":
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#EEF2FF",
+        borderColor: "#C7D2FE",
+        color: "#4338CA",
+      };
+    case "NAO_JOGA_MAIS":
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#FEF2F2",
+        borderColor: "#FECACA",
+        color: "#B91C1C",
+      };
+    case "JA_JOGOU":
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#F3F4F6",
+        borderColor: "#D1D5DB",
+        color: "#374151",
+      };
+    case "REPETE":
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#FFF7ED",
+        borderColor: "#FDBA74",
+        color: "#9A3412",
+      };
+    case "GOLEIRO":
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#FDF2F8",
+        borderColor: "#F9A8D4",
+        color: "#BE185D",
+      };
+    case "AGUARDANDO":
+    default:
+      return {
+        ...dayStatusChipBaseStyle,
+        background: "#FAFAFA",
+        borderColor: "#E5E7EB",
+        color: "#6B7280",
+      };
+  }
+}
+
+const dayStatusChipBaseStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 28,
+  padding: "4px 10px",
+  borderRadius: 999,
+  border: "1px solid transparent",
+  fontSize: 12,
+  fontWeight: 800,
 };
