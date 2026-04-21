@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getTioHugoRegistrationPath } from "@/lib/championships";
 
 export default function SuccessPage() {
   return (
@@ -28,7 +29,7 @@ export default function SuccessPage() {
         </p>
 
         <a
-          href="/campeonatos/tio-hugo-2026/inscricao"
+          href={getTioHugoRegistrationPath()}
           className="inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[#B89020] px-4 py-3 text-sm font-bold text-white no-underline"
         >
           Voltar para inscrição

@@ -1,4 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
+import {
+  getRequiredChampionshipBySlug,
+  TIO_HUGO_2026_SLUG,
+} from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 
 function formatPosition(position: string) {
@@ -28,14 +32,7 @@ function escapeCsv(value: string | null | undefined) {
 export async function GET() {
   await requireAdmin();
 
-  const championship = await prisma.championship.findUnique({
-    where: { slug: "tio-hugo-2026" },
-    select: { id: true, name: true },
-  });
-
-  if (!championship) {
-    return new Response("Campeonato não encontrado.", { status: 404 });
-  }
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
 
   const registrations = await prisma.registration.findMany({
     where: { championshipId: championship.id },

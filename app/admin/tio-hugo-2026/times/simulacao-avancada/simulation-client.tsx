@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
 import {
   ADVANCED_DRAFT_LEVEL_ORDER,
   addAdvancedBondBetweenPlayers,
@@ -257,7 +258,7 @@ export function AdvancedSimulationClient({
               <Link href="/admin/tio-hugo-2026/times/simulacao" style={secondaryLinkStyle}>
                 Ver simulação atual
               </Link>
-              <Link href="/admin/tio-hugo-2026/inscricoes" style={backLinkStyle}>
+              <Link href={getTioHugoAdminRegistrationsPath()} style={backLinkStyle}>
                 Voltar para inscrições
               </Link>
             </div>

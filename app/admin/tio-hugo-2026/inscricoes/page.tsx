@@ -5,6 +5,11 @@ import {
   PreferredPosition,
 } from "@prisma/client";
 import { getAuthenticatedAdmin } from "@/lib/auth";
+import {
+  getRequiredChampionshipBySlug,
+  getTioHugoAdminRegistrationsPath,
+  TIO_HUGO_2026_SLUG,
+} from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { RegistrationRow } from "./registration-row";
 
@@ -32,20 +37,7 @@ export default async function InscricoesAdminPage({
   const payment = String(params.payment || "").trim();
   const error = String(params.error || "").trim();
 
-  const championship = await prisma.championship.findUnique({
-    where: { slug: "tio-hugo-2026" },
-    select: { id: true, name: true },
-  });
-
-  if (!championship) {
-    return (
-      <main style={pageStyle}>
-        <div style={cardStyle}>
-          <h1 style={titleStyle}>Campeonato não encontrado</h1>
-        </div>
-      </main>
-    );
-  }
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
 
   const registrations = await prisma.registration.findMany({
     where: {
@@ -111,7 +103,7 @@ export default async function InscricoesAdminPage({
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <a
-                href="/admin/tio-hugo-2026/inscricoes/export"
+                href={`${getTioHugoAdminRegistrationsPath()}/export`}
                 style={{
                   padding: "10px 14px",
                   borderRadius: 10,
@@ -203,7 +195,7 @@ export default async function InscricoesAdminPage({
               </button>
 
               <a
-                href="/admin/tio-hugo-2026/inscricoes"
+                href={getTioHugoAdminRegistrationsPath()}
                 style={clearButtonStyle}
               >
                 Limpar
@@ -359,15 +351,6 @@ const successBannerStyle: React.CSSProperties = {
   padding: "14px 16px",
   marginBottom: 16,
   fontWeight: 600,
-};
-
-const cardStyle: React.CSSProperties = {
-  maxWidth: 700,
-  margin: "0 auto",
-  background: "#FFFFFF",
-  borderRadius: 16,
-  padding: 24,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
 };
 
 const titleStyle: React.CSSProperties = {

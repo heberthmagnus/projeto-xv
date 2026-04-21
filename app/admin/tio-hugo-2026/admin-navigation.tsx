@@ -4,15 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import {
-  ADMIN_ADVANCED_SIMULATION_PATH,
-  ADMIN_REGISTRATIONS_PATH,
-  ADMIN_SIMULATION_PATH,
-} from "@/lib/routes";
+  getTioHugoAdminAdvancedSimulationPath,
+  getTioHugoAdminRegistrationsPath,
+  getTioHugoAdminSimulationPath,
+  getTioHugoAdminTeamsPath,
+} from "@/lib/championships";
 
 const links = [
-  { href: ADMIN_REGISTRATIONS_PATH, label: "Inscrições" },
-  { href: ADMIN_SIMULATION_PATH, label: "Simulação" },
-  { href: ADMIN_ADVANCED_SIMULATION_PATH, label: "Simulação avançada" },
+  { href: getTioHugoAdminRegistrationsPath(), label: "Inscrições" },
+  { href: getTioHugoAdminTeamsPath(), label: "Times" },
+  { href: getTioHugoAdminSimulationPath(), label: "Simulação" },
+  {
+    href: getTioHugoAdminAdvancedSimulationPath(),
+    label: "Simulação avançada",
+  },
 ];
 
 export function AdminChampionshipNavigation() {

@@ -6,8 +6,8 @@ import {
   createAdminSession,
   verifyStoredPassword,
 } from "@/lib/auth";
+import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_REGISTRATIONS_PATH } from "@/lib/routes";
 import { LoginFormState } from "./form-state";
 
 export async function login(
@@ -33,7 +33,7 @@ export async function login(
   }
 
   await createAdminSession(user.id);
-  redirect(ADMIN_REGISTRATIONS_PATH);
+  redirect(getTioHugoAdminRegistrationsPath());
 }
 
 export async function logout() {

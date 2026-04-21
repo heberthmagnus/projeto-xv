@@ -2,9 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
 import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_REGISTRATIONS_PATH } from "@/lib/routes";
 
 export async function updateRegistrationLevel(formData: FormData) {
   await requireAdmin();
@@ -26,7 +26,7 @@ export async function updateRegistrationLevel(formData: FormData) {
     data: { level },
   });
 
-  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=level`);
+  redirect(`${getTioHugoAdminRegistrationsPath()}?success=level`);
 }
 
 export async function updateRegistrationQuickFields(formData: FormData) {
@@ -55,7 +55,7 @@ export async function updateRegistrationQuickFields(formData: FormData) {
     },
   });
 
-  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=quick-save`);
+  redirect(`${getTioHugoAdminRegistrationsPath()}?success=quick-save`);
 }
 
 export async function updateRegistration(formData: FormData) {
@@ -79,7 +79,7 @@ export async function updateRegistration(formData: FormData) {
   if (!phone) throw new Error("Telefone é obrigatório.");
   if (!isValidBrazilPhone(phone)) {
     redirect(
-      `${ADMIN_REGISTRATIONS_PATH}?error=${encodeURIComponent(
+      `${getTioHugoAdminRegistrationsPath()}?error=${encodeURIComponent(
         PHONE_ERROR_MESSAGE,
       )}&open=${id}`,
     );
@@ -109,7 +109,7 @@ export async function updateRegistration(formData: FormData) {
     },
   });
 
-  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=edit&open=${id}`);
+  redirect(`${getTioHugoAdminRegistrationsPath()}?success=edit&open=${id}`);
 }
 
 export async function deleteRegistration(formData: FormData) {
@@ -125,5 +125,5 @@ export async function deleteRegistration(formData: FormData) {
     where: { id },
   });
 
-  redirect(`${ADMIN_REGISTRATIONS_PATH}?success=delete`);
+  redirect(`${getTioHugoAdminRegistrationsPath()}?success=delete`);
 }

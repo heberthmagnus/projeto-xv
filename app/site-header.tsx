@@ -3,12 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CALENDARIO_XV_PATH } from "@/lib/routes";
+import { CALENDARIO_XV_PATH, getChampionshipBasePath } from "@/lib/routes";
 
 const menuItems = [
   { href: "/", label: "Início" },
   {
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getChampionshipBasePath("tio-hugo-2026"),
     label: "Copa Tio Hugo 2026",
   },
   { href: "/peladas", label: "Peladas" },

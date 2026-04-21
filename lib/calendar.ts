@@ -1,3 +1,5 @@
+import { getTioHugoBasePath } from "@/lib/championships";
+
 export type CalendarEventType =
   | "PELADA"
   | "COPA_TIO_HUGO"
@@ -19,49 +21,49 @@ export const COPA_TIO_HUGO_2026_EVENTS: CalendarEventItem[] = [
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 1",
     startsAt: new Date("2026-05-07T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
   {
     id: "copa-tio-hugo-2026-r2",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 2",
     startsAt: new Date("2026-05-14T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
   {
     id: "copa-tio-hugo-2026-r3",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 3",
     startsAt: new Date("2026-05-21T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
   {
     id: "copa-tio-hugo-2026-r4",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 4",
     startsAt: new Date("2026-05-28T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
   {
     id: "copa-tio-hugo-2026-r5",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 5",
     startsAt: new Date("2026-06-11T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
   {
     id: "copa-tio-hugo-2026-semifinal",
     type: "COPA_TIO_HUGO",
     title: "Copa • Semifinal",
     startsAt: new Date("2026-06-18T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
   {
     id: "copa-tio-hugo-2026-final",
     type: "COPA_TIO_HUGO",
     title: "Copa • Final",
     startsAt: new Date("2026-06-25T19:00:00-03:00"),
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getTioHugoBasePath(),
   },
 ];
 
@@ -206,12 +208,12 @@ export function normalizeCalendarMonth(inputYear?: string, inputMonth?: string) 
 }
 
 export function getCalendarMonthLabel(year: number, month: number) {
-  const label = MONTH_FORMATTER.format(new Date(year, month - 1, 1));
+  const label = MONTH_FORMATTER.format(getCalendarMonthAnchorDate(year, month));
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function getCalendarMonthShortLabel(month: number) {
-  const label = MONTH_ONLY_FORMATTER.format(new Date(2026, month - 1, 1));
+  const label = MONTH_ONLY_FORMATTER.format(getCalendarMonthAnchorDate(2026, month));
   return label.charAt(0).toUpperCase() + label.slice(1, 3);
 }
 
@@ -304,4 +306,8 @@ export function getNextCalendarMonth(year: number, month: number) {
 
 function getMondayFirstIndex(date: Date) {
   return (date.getDay() + 6) % 7;
+}
+
+function getCalendarMonthAnchorDate(year: number, month: number) {
+  return new Date(`${year}-${String(month).padStart(2, "0")}-01T12:00:00-03:00`);
 }

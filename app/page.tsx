@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getChampionshipBasePath } from "@/lib/routes";
 
 const cards = [
   {
@@ -6,7 +7,7 @@ const cards = [
     title: "Copa Tio Hugo",
     text: "Saiba tudo sobre o campeonato, regulamento e inscrições.",
     buttonLabel: "Saiba mais",
-    href: "/campeonatos/tio-hugo-2026/inscricao",
+    href: getChampionshipBasePath("tio-hugo-2026"),
   },
   {
     id: "peladas",

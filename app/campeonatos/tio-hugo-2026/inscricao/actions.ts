@@ -1,6 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import {
+  getRequiredChampionshipBySlug,
+  TIO_HUGO_2026_SLUG,
+  getTioHugoRegistrationPath,
+} from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { RegistrationFormState } from "./form-state";
@@ -39,14 +44,7 @@ export async function createRegistration(
     return { error: "Confirme a leitura das regras para continuar." };
   }
 
-  const championship = await prisma.championship.findUnique({
-    where: { slug: "tio-hugo-2026" },
-    select: { id: true },
-  });
-
-  if (!championship) {
-    return { error: "Campeonato não encontrado." };
-  }
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
 
   await prisma.registration.create({
     data: {
@@ -67,5 +65,5 @@ export async function createRegistration(
     },
   });
 
-  redirect("/campeonatos/tio-hugo-2026/inscricao/sucesso");
+  redirect(`${getTioHugoRegistrationPath()}/sucesso`);
 }
