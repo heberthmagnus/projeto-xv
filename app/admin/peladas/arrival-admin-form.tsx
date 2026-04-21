@@ -45,7 +45,7 @@ export function ArrivalAdminForm({
       )}
 
       <div style={gridStyle}>
-        <FormField label="Nome">
+        <FormField label="Nome ou apelido">
           <input
             name="fullName"
             type="text"
@@ -129,7 +129,7 @@ export function ArrivalAdminForm({
             name="guestInvitedBy"
             type="text"
             defaultValue={initialValues?.guestInvitedBy || ""}
-            placeholder="Opcional"
+            placeholder="Opcional, se quiser identificar"
             style={inputStyle}
           />
         </FormField>
@@ -164,7 +164,7 @@ export function ArrivalAdminForm({
         </label>
       </div>
 
-      <div style={actionsStyle}>
+      <div className="xv-form-actions" style={actionsStyle}>
         <button type="submit" style={submitButtonStyle}>
           {submitLabel}
         </button>
@@ -242,10 +242,11 @@ const actionsStyle: React.CSSProperties = {
 const submitButtonStyle: React.CSSProperties = {
   border: "none",
   borderRadius: 10,
-  background: "#1A1A1A",
+  background: "#B89020",
   color: "#FFFFFF",
   fontWeight: 800,
   fontSize: 14,
   padding: "11px 16px",
   cursor: "pointer",
+  minHeight: 42,
 };

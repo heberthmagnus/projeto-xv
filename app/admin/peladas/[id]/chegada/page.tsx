@@ -12,6 +12,7 @@ import {
   formatPeladaDateTime,
   loadPeladaAdminData,
 } from "../pelada-admin-data";
+import { PeladaFeedbackBanner } from "../../pelada-feedback";
 
 type Params = Promise<{
   id: string;
@@ -41,26 +42,11 @@ export default async function PeladaChegadaPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container">
-        {resolvedSearchParams.success && (
-          <div style={successBannerStyle}>
-            {resolvedSearchParams.success === "status-update" &&
-              "✅ Status da pelada atualizado com sucesso."}
-            {resolvedSearchParams.success === "arrival-add" &&
-              "✅ Chegada registrada com sucesso."}
-            {resolvedSearchParams.success === "arrival-update" &&
-              "✅ Chegada atualizada com sucesso."}
-            {resolvedSearchParams.success === "arrival-delete" &&
-              "✅ Chegada excluída com sucesso."}
-            {resolvedSearchParams.success === "first-game-draw" &&
-              "✅ Sorteio da primeira pelada realizado com sucesso."}
-            {resolvedSearchParams.success === "first-game-order" &&
-              "✅ Primeira pelada definida pela ordem de chegada."}
-          </div>
-        )}
-
-        {resolvedSearchParams.error && (
-          <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
-        )}
+        <PeladaFeedbackBanner
+          scope="chegada"
+          success={resolvedSearchParams.success}
+          error={resolvedSearchParams.error}
+        />
 
         <section className="xv-card">
           <div style={sectionHeaderWithActionStyle}>
@@ -280,24 +266,6 @@ export default async function PeladaChegadaPage({
     </main>
   );
 }
-
-const successBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#ECFDF3",
-  color: "#047857",
-  fontWeight: 700,
-  border: "1px solid #A7F3D0",
-};
-
-const errorBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#FEF2F2",
-  color: "#B91C1C",
-  fontWeight: 700,
-  border: "1px solid #FECACA",
-};
 
 const sectionHeaderWithActionStyle: React.CSSProperties = {
   marginBottom: 18,

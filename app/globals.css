@@ -97,6 +97,92 @@ canvas {
   flex-wrap: wrap;
 }
 
+.xv-inline-scroll {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.xv-feedback-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.xv-feedback-banner {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.xv-feedback-banner-success {
+  background: #ECFDF3;
+  border-color: #A7F3D0;
+  color: #047857;
+}
+
+.xv-feedback-banner-error {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #B91C1C;
+}
+
+.xv-muted-text {
+  color: #4B5563;
+  line-height: 1.6;
+}
+
+.xv-form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.xv-mobile-button-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.xv-mobile-button-grid > form,
+.xv-mobile-button-grid > a,
+.xv-mobile-button-grid > button {
+  flex: 0 0 auto;
+}
+
+.xv-dense-table table {
+  min-width: max-content;
+}
+
+.xv-calendar-hero {
+  overflow: hidden;
+}
+
+.xv-calendar-header {
+  align-items: flex-start;
+}
+
+.xv-calendar-controls {
+  margin-left: auto;
+}
+
+.xv-calendar-view-switch a,
+.xv-calendar-nav a {
+  text-align: center;
+}
+
+.xv-calendar-day,
+.xv-calendar-mini-day,
+.xv-calendar-mini-month {
+  transition: 0.18s ease;
+}
+
+.xv-calendar-mini-month:hover {
+  border-color: #e7c96f;
+  box-shadow: 0 12px 24px rgba(184, 144, 32, 0.1);
+}
+
 @media (max-width: 767px) {
   .xv-page-shell,
   .xv-page-shell-soft {
@@ -109,5 +195,139 @@ canvas {
 
   .xv-card {
     border-radius: 14px;
+  }
+
+  .xv-feedback-banner {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  .xv-inline-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .xv-inline-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .xv-form-actions > * {
+    width: 100%;
+  }
+
+  .xv-form-actions button,
+  .xv-form-actions a {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .xv-mobile-button-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .xv-mobile-button-grid > form,
+  .xv-mobile-button-grid > a,
+  .xv-mobile-button-grid > button {
+    width: 100%;
+  }
+
+  .xv-mobile-button-grid button,
+  .xv-mobile-button-grid a {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .xv-dense-table table {
+    min-width: 560px !important;
+  }
+
+  .xv-calendar-header {
+    display: grid !important;
+    gap: 14px !important;
+  }
+
+  .xv-calendar-controls {
+    margin-left: 0;
+    max-width: none !important;
+    width: 100%;
+    justify-items: stretch !important;
+  }
+
+  .xv-calendar-view-switch {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .xv-calendar-nav {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
+  .xv-calendar-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .xv-calendar-note {
+    padding: 12px 14px !important;
+  }
+
+  .xv-calendar-month-frame {
+    min-width: 620px !important;
+    gap: 8px !important;
+  }
+
+  .xv-calendar-weekdays {
+    gap: 6px !important;
+  }
+
+  .xv-calendar-weekday-cell {
+    padding: 8px 0 !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+  }
+
+  .xv-calendar-day {
+    min-height: 92px !important;
+    padding: 8px !important;
+    gap: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .xv-calendar-year-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .xv-calendar-mini-month {
+    padding: 10px !important;
+    gap: 6px !important;
+    border-radius: 12px !important;
+  }
+
+  .xv-calendar-mini-day {
+    min-height: 28px !important;
+    padding: 3px 4px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .xv-calendar-summary {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xv-calendar-year-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xv-calendar-month-frame {
+    min-width: 560px !important;
   }
 }

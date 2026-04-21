@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { ADMIN_PELADAS_PATH } from "@/lib/routes";
 import { createPelada, deletePelada, updatePelada } from "./actions";
+import { PeladaFeedbackBanner } from "./pelada-feedback";
 import { PeladaForm } from "./pelada-form";
 import { buildPeladaFormValues } from "./pelada-form-values";
 
@@ -41,15 +42,11 @@ export default async function PeladasAdminPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container">
-        {params.success && (
-          <div style={successBannerStyle}>
-            {params.success === "create" && "✅ Pelada criada com sucesso."}
-            {params.success === "update" && "✅ Pelada atualizada com sucesso."}
-            {params.success === "delete" && "✅ Pelada excluída com sucesso."}
-          </div>
-        )}
-
-        {params.error && <div style={errorBannerStyle}>{params.error}</div>}
+        <PeladaFeedbackBanner
+          scope="admin-list"
+          success={params.success}
+          error={params.error}
+        />
 
         <PeladaForm
           title="Criar pelada"
@@ -238,24 +235,6 @@ function getStatusBadgeStyle(
     color: "#1D4ED8",
   };
 }
-
-const successBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#ECFDF3",
-  color: "#047857",
-  fontWeight: 700,
-  border: "1px solid #A7F3D0",
-};
-
-const errorBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#FEF2F2",
-  color: "#B91C1C",
-  fontWeight: 700,
-  border: "1px solid #FECACA",
-};
 
 const sectionHeaderStyle: React.CSSProperties = {
   marginBottom: 18,

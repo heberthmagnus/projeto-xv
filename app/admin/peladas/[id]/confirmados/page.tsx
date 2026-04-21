@@ -12,6 +12,7 @@ import {
   formatPeladaDateTime,
   loadPeladaAdminData,
 } from "../pelada-admin-data";
+import { PeladaFeedbackBanner } from "../../pelada-feedback";
 
 type Params = Promise<{
   id: string;
@@ -41,31 +42,18 @@ export default async function PeladaConfirmadosPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container">
-        {resolvedSearchParams.success && (
-          <div style={successBannerStyle}>
-            {resolvedSearchParams.success === "status-update" &&
-              "✅ Status da pelada atualizado com sucesso."}
-            {resolvedSearchParams.success === "guest-add" &&
-              "✅ Convidado adicionado ao confirmado com sucesso."}
-            {resolvedSearchParams.success === "confirmed-add" &&
-              "✅ Confirmado adicionado com sucesso."}
-            {resolvedSearchParams.success === "confirmed-update" &&
-              "✅ Confirmado atualizado com sucesso."}
-            {resolvedSearchParams.success === "confirmed-delete" &&
-              "✅ Confirmado excluído com sucesso."}
-          </div>
-        )}
-
-        {resolvedSearchParams.error && (
-          <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
-        )}
+        <PeladaFeedbackBanner
+          scope="confirmados"
+          success={resolvedSearchParams.success}
+          error={resolvedSearchParams.error}
+        />
 
         <section className="xv-card">
           <div style={sectionHeaderStyle}>
             <div>
               <h2 style={sectionTitleStyle}>Confirmados para a pelada</h2>
               <p style={sectionDescriptionStyle}>
-                Total de confirmados: <strong>{totalConfirmedPlayers}</strong>
+                Total previsto na lista: <strong>{totalConfirmedPlayers}</strong>
               </p>
             </div>
           </div>
@@ -243,24 +231,6 @@ export default async function PeladaConfirmadosPage({
     </main>
   );
 }
-
-const successBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#ECFDF3",
-  color: "#047857",
-  fontWeight: 700,
-  border: "1px solid #A7F3D0",
-};
-
-const errorBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#FEF2F2",
-  color: "#B91C1C",
-  fontWeight: 700,
-  border: "1px solid #FECACA",
-};
 
 const sectionHeaderStyle: React.CSSProperties = {
   marginBottom: 18,

@@ -31,6 +31,7 @@ import {
   loadPeladaAdminData,
   type PageRound,
 } from "../pelada-admin-data";
+import { PeladaFeedbackBanner } from "../../pelada-feedback";
 
 type Params = Promise<{
   id: string;
@@ -155,38 +156,11 @@ export default async function PeladaPeladasDoDiaPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container">
-        {resolvedSearchParams.success && (
-          <div style={successBannerStyle}>
-            {resolvedSearchParams.success === "status-update" &&
-              "✅ Status da pelada atualizado com sucesso."}
-            {resolvedSearchParams.success === "teams-generated" &&
-              "✅ Times Amarelo e Preto gerados com sucesso."}
-            {resolvedSearchParams.success === "teams-swapped" &&
-              "✅ Troca entre os times realizada com sucesso."}
-            {resolvedSearchParams.success === "teams-cleared" &&
-              "✅ Divisão dos times limpa com sucesso."}
-            {resolvedSearchParams.success === "round-opened" &&
-              "✅ Pelada 1 criada com sucesso."}
-            {resolvedSearchParams.success === "round-opened-teams" &&
-              "✅ Pelada 1 criada e times divididos com sucesso."}
-            {resolvedSearchParams.success === "round-next" &&
-              "✅ Próxima pelada criada com sucesso."}
-            {resolvedSearchParams.success === "round-next-teams" &&
-              "✅ Próxima pelada criada e times divididos com sucesso."}
-            {resolvedSearchParams.success === "round-closed" &&
-              "✅ Pelada atual encerrada com sucesso."}
-            {resolvedSearchParams.success === "round-availability-on" &&
-              "✅ Jogador marcado para poder jogar outra."}
-            {resolvedSearchParams.success === "round-availability-off" &&
-              "✅ Jogador removido da repescagem."}
-            {resolvedSearchParams.success === "pelada-progress-reset" &&
-              "✅ Andamento da pelada resetado com sucesso."}
-          </div>
-        )}
-
-        {resolvedSearchParams.error && (
-          <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
-        )}
+        <PeladaFeedbackBanner
+          scope="peladas-do-dia"
+          success={resolvedSearchParams.success}
+          error={resolvedSearchParams.error}
+        />
 
         <section className="xv-card" style={sectionStyle}>
           <div style={pageIntroStyle}>
@@ -226,7 +200,7 @@ export default async function PeladaPeladasDoDiaPage({
               </div>
             </div>
 
-            <div style={operationsActionsStyle}>
+            <div className="xv-mobile-button-grid" style={operationsActionsStyle}>
               {peladasDoDia.length === 0 ? (
                 <>
                   <form action={openFirstPeladaRound}>
@@ -352,7 +326,7 @@ export default async function PeladaPeladasDoDiaPage({
                 </div>
               </div>
 
-              <div className="xv-table-scroll">
+              <div className="xv-table-scroll xv-dense-table">
                 <table style={compactTableStyle}>
                   <thead>
                     <tr>
@@ -538,7 +512,7 @@ export default async function PeladaPeladasDoDiaPage({
                         <strong style={teamScoreStyle}>{team.totalScore} pts</strong>
                       </div>
 
-                      <div className="xv-table-scroll">
+                      <div className="xv-table-scroll xv-dense-table">
                         <table style={teamTableStyle}>
                           <thead>
                             <tr>
@@ -664,24 +638,6 @@ export default async function PeladaPeladasDoDiaPage({
   );
 }
 
-const successBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#ECFDF3",
-  color: "#047857",
-  fontWeight: 700,
-  border: "1px solid #A7F3D0",
-};
-
-const errorBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#FEF2F2",
-  color: "#B91C1C",
-  fontWeight: 700,
-  border: "1px solid #FECACA",
-};
-
 const sectionStyle: React.CSSProperties = {
   display: "grid",
   gap: 18,
@@ -698,11 +654,11 @@ const divisionSectionStyle: React.CSSProperties = {
 
 const operationsBarStyle: React.CSSProperties = {
   position: "sticky",
-  top: 12,
+  top: 8,
   zIndex: 2,
   display: "grid",
-  gap: 14,
-  padding: 14,
+  gap: 12,
+  padding: 12,
   borderRadius: 14,
   border: "1px solid #E5E7EB",
   background: "#FFFFFF",
@@ -745,10 +701,7 @@ const operationsMetricValueCompactStyle: React.CSSProperties = {
 };
 
 const operationsActionsStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  flexWrap: "wrap",
-  alignItems: "center",
+  width: "100%",
 };
 
 const operationsGridStyle: React.CSSProperties = {
@@ -775,13 +728,15 @@ const headerActionsWrapStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
-  fontSize: 24,
+  fontSize: "clamp(22px, 5vw, 24px)",
   color: "#101010",
 };
 
 const sectionDescriptionStyle: React.CSSProperties = {
   margin: 0,
   color: "#4B5563",
+  lineHeight: 1.55,
+  fontSize: 14,
 };
 
 const dangerCardStyle: React.CSSProperties = {
@@ -877,7 +832,7 @@ const statValueStyle: React.CSSProperties = {
 
 const subsectionTitleStyle: React.CSSProperties = {
   margin: "0 0 8px",
-  fontSize: 20,
+  fontSize: "clamp(18px, 4.5vw, 20px)",
   color: "#101010",
 };
 
@@ -923,7 +878,7 @@ const inlineMutedStyle: React.CSSProperties = {
 
 const compactTableStyle: React.CSSProperties = {
   width: "100%",
-  minWidth: 720,
+  minWidth: 640,
   borderCollapse: "collapse",
 };
 
@@ -963,15 +918,17 @@ const primaryActionButtonStyle: React.CSSProperties = {
   background: "#B89020",
   color: "#FFFFFF",
   fontWeight: 800,
-  fontSize: 14,
-  padding: "11px 16px",
+  fontSize: 13,
+  padding: "10px 14px",
   cursor: "pointer",
+  minHeight: 42,
 };
 
 const dangerButtonCompactStyle: React.CSSProperties = {
   ...dangerButtonStyle,
   minHeight: 42,
   padding: "10px 14px",
+  fontSize: 13,
 };
 
 const secondaryActionButtonStyle: React.CSSProperties = {
@@ -979,10 +936,11 @@ const secondaryActionButtonStyle: React.CSSProperties = {
   background: "#FFFFFF",
   color: "#101010",
   fontWeight: 800,
-  fontSize: 14,
-  padding: "11px 16px",
+  fontSize: 13,
+  padding: "10px 14px",
   cursor: "pointer",
   border: "1px solid #D1D5DB",
+  minHeight: 42,
 };
 
 const miniPrimaryButtonStyle: React.CSSProperties = {

@@ -44,7 +44,7 @@ export function PeladaSubnav({ peladaId }: PeladaSubnavProps) {
             ← Voltar para peladas
           </Link>
 
-          <nav style={navStyle} aria-label="Navegação da pelada">
+          <nav className="xv-inline-scroll" style={navStyle} aria-label="Navegação da pelada">
             {links.map((link) => {
               const isActive = pathname === link.href;
 
@@ -75,17 +75,19 @@ const backLinkStyle: React.CSSProperties = {
 };
 
 const navStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  flexWrap: "wrap",
+  marginTop: 12,
 };
 
 const baseLinkStyle: React.CSSProperties = {
-  display: "inline-block",
-  padding: "10px 14px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "9px 13px",
   borderRadius: 10,
   fontWeight: 700,
+  fontSize: 14,
   textDecoration: "none",
+  whiteSpace: "nowrap",
 };
 
 const linkStyle: React.CSSProperties = {

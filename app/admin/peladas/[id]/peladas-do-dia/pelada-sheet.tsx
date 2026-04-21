@@ -34,7 +34,7 @@ export function PeladaSheet({
         {subtitle ? <p style={sheetSubtitleStyle}>{subtitle}</p> : null}
       </div>
 
-      <div className="xv-table-scroll" style={sheetWrapperStyle}>
+      <div className="xv-table-scroll xv-dense-table" style={sheetWrapperStyle}>
         <table style={sheetTableStyle}>
           <thead>
             <tr>
@@ -103,7 +103,7 @@ const sheetCardStyle: React.CSSProperties = {
 };
 
 const sheetHeaderStyle: React.CSSProperties = {
-  padding: "10px 12px 9px",
+  padding: "9px 10px 8px",
   background: "#F5F5F5",
   borderBottom: "1px solid #B6B6B6",
 };
@@ -117,15 +117,15 @@ const sheetHeaderTopStyle: React.CSSProperties = {
 
 const sheetTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 17,
+  fontSize: 16,
   fontWeight: 800,
   color: "#111111",
 };
 
 const sheetCountStyle: React.CSSProperties = {
-  minWidth: 32,
-  height: 32,
-  padding: "0 10px",
+  minWidth: 28,
+  height: 28,
+  padding: "0 8px",
   borderRadius: 999,
   display: "grid",
   placeItems: "center",
@@ -147,7 +147,7 @@ const sheetWrapperStyle: React.CSSProperties = {};
 
 const sheetTableStyle: React.CSSProperties = {
   width: "100%",
-  minWidth: 640,
+  minWidth: 600,
   borderCollapse: "collapse",
 };
 
@@ -180,9 +180,9 @@ const yellowTeamThStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "6px 9px",
+  padding: "6px 8px",
   border: "1px solid #D1D5DB",
-  fontSize: 13,
+  fontSize: 12,
   color: "#111111",
   background: "#FFFFFF",
 };

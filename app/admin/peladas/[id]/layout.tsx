@@ -54,6 +54,7 @@ const eyebrowStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 24,
+  fontSize: "clamp(22px, 5vw, 24px)",
+  lineHeight: 1.15,
   color: "#101010",
 };

@@ -123,7 +123,7 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
 
       <div className="grid gap-4 p-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.8fr)]">
         <div style={sheetBlockStyle}>
-          <div className="xv-table-scroll" style={tableWrapperStyle}>
+          <div className="xv-table-scroll xv-dense-table" style={tableWrapperStyle}>
             <table style={sheetTableStyle}>
               <thead>
                 <tr>
@@ -248,9 +248,11 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
               />
             </label>
 
-            <button type="submit" style={secondaryActionButtonStyle}>
-              Salvar resultado
-            </button>
+            <div className="xv-form-actions">
+              <button type="submit" style={secondaryActionButtonStyle}>
+                Salvar resultado
+              </button>
+            </div>
           </form>
 
           <div style={sidePanelSectionStyle}>
@@ -355,9 +357,11 @@ export function ResultSheet({ peladaId, round, returnTo }: ResultSheetProps) {
               </label>
             </div>
 
-            <button type="submit" style={primaryActionButtonStyle}>
-              Adicionar gol
-            </button>
+            <div className="xv-form-actions">
+              <button type="submit" style={primaryActionButtonStyle}>
+                Adicionar gol
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -400,8 +404,8 @@ const sheetMetaStyle: React.CSSProperties = {
 const scoreBoxStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 10,
-  padding: "8px 12px",
+  gap: 8,
+  padding: "8px 10px",
   borderRadius: 999,
   background: "#111111",
   color: "#FFFFFF",
@@ -444,7 +448,7 @@ const tableWrapperStyle: React.CSSProperties = {};
 
 const sheetTableStyle: React.CSSProperties = {
   width: "100%",
-  minWidth: 640,
+  minWidth: 600,
   borderCollapse: "collapse",
 };
 
@@ -460,9 +464,9 @@ const thStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "7px 10px",
+  padding: "7px 8px",
   border: "1px solid #D1D5DB",
-  fontSize: 14,
+  fontSize: 13,
   color: "#111111",
   background: "#FFFFFF",
 };
@@ -597,10 +601,11 @@ const secondaryActionButtonStyle: React.CSSProperties = {
   background: "#FFFFFF",
   color: "#101010",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 13,
   padding: "10px 14px",
   cursor: "pointer",
   border: "1px solid #D1D5DB",
+  minHeight: 42,
 };
 
 const primaryActionButtonStyle: React.CSSProperties = {
@@ -609,9 +614,10 @@ const primaryActionButtonStyle: React.CSSProperties = {
   background: "#B89020",
   color: "#FFFFFF",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 13,
   padding: "10px 14px",
   cursor: "pointer",
+  minHeight: 42,
 };
 
 const mutedStyle: React.CSSProperties = {

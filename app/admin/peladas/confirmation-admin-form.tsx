@@ -49,7 +49,7 @@ export function ConfirmationAdminForm({
       )}
 
       <div style={gridStyle}>
-        <FormField label="Nome completo">
+        <FormField label="Nome ou apelido">
           <input
             name="fullName"
             type="text"
@@ -103,7 +103,7 @@ export function ConfirmationAdminForm({
         </FormField>
 
         {!isGuest && (
-          <FormField label="Convidados">
+          <FormField label="Convidados previstos">
             <select
               name="guestCount"
               defaultValue={String(initialValues?.guestCount ?? 0)}
@@ -139,7 +139,7 @@ export function ConfirmationAdminForm({
         {isGuest && <input type="hidden" name="goalkeeperSide" value="" />}
       </div>
 
-      <div style={actionsStyle}>
+      <div className="xv-form-actions" style={actionsStyle}>
         <button type="submit" style={submitButtonStyle}>
           {submitLabel}
         </button>
@@ -209,4 +209,5 @@ const submitButtonStyle: React.CSSProperties = {
   fontSize: 14,
   padding: "11px 16px",
   cursor: "pointer",
+  minHeight: 42,
 };

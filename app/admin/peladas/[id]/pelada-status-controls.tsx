@@ -21,7 +21,7 @@ export function PeladaStatusControls({
         Status: {getPeladaStatusLabel(status)}
       </span>
 
-      <div style={actionsStyle}>
+      <div className="xv-mobile-button-grid" style={actionsStyle}>
         {status !== "FINALIZADA" && (
           <form action={updatePeladaStatus}>
             <input type="hidden" name="id" value={peladaId} />
@@ -107,9 +107,7 @@ const wrapStyle: React.CSSProperties = {
 };
 
 const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  flexWrap: "wrap",
+  width: "100%",
 };
 
 const badgeBaseStyle: React.CSSProperties = {
@@ -126,8 +124,9 @@ const buttonBaseStyle: React.CSSProperties = {
   padding: "10px 14px",
   borderRadius: 10,
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 13,
   cursor: "pointer",
+  width: "100%",
 };
 
 const finalizeButtonStyle: React.CSSProperties = {

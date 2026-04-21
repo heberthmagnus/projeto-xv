@@ -4,6 +4,7 @@ export const ADMIN_SIMULATION_PATH = "/admin/tio-hugo-2026/times/simulacao";
 export const ADMIN_ADVANCED_SIMULATION_PATH =
   "/admin/tio-hugo-2026/times/simulacao-avancada";
 export const ADMIN_PELADAS_PATH = "/admin/peladas";
+export const CALENDARIO_XV_PATH = "/calendario";
 
 export function getAdminPeladaBasePath(peladaId: string) {
   return `${ADMIN_PELADAS_PATH}/${peladaId}`;

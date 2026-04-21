@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CALENDARIO_XV_PATH } from "@/lib/routes";
 
 const menuItems = [
   { href: "/", label: "Início" },
@@ -11,6 +12,7 @@ const menuItems = [
     label: "Copa Tio Hugo 2026",
   },
   { href: "/peladas", label: "Peladas" },
+  { href: CALENDARIO_XV_PATH, label: "Calendário do XV" },
 ];
 
 export function SiteHeader() {
@@ -61,7 +63,9 @@ export function SiteHeader() {
                   ? pathname.startsWith("/campeonatos/tio-hugo-2026")
                   : item.href.startsWith("/peladas")
                     ? pathname.startsWith("/peladas")
-                  : false;
+                    : item.href.startsWith(CALENDARIO_XV_PATH)
+                      ? pathname.startsWith(CALENDARIO_XV_PATH)
+                    : false;
 
             return (
               <Link

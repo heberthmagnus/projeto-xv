@@ -2,6 +2,7 @@ import { getPeladaRoundPlayerSourceLabel, getPeladaRoundStatusLabel } from "@/li
 import { getPlayerLevelLabel, getPositionLabel } from "@/lib/peladas";
 import { getAdminPeladaResultadosPath } from "@/lib/routes";
 import { loadPeladaAdminData } from "../pelada-admin-data";
+import { PeladaFeedbackBanner } from "../../pelada-feedback";
 import { ResultSheet } from "./result-sheet";
 
 type Params = Promise<{
@@ -114,22 +115,11 @@ export default async function PeladaResultadosPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container">
-        {resolvedSearchParams.success && (
-          <div style={successBannerStyle}>
-            {resolvedSearchParams.success === "status-update" &&
-              "✅ Status da pelada atualizado com sucesso."}
-            {resolvedSearchParams.success === "round-result-update" &&
-              "✅ Resultado da pelada atualizado com sucesso."}
-            {resolvedSearchParams.success === "round-goal-add" &&
-              "✅ Gol registrado com sucesso."}
-            {resolvedSearchParams.success === "round-goal-delete" &&
-              "✅ Gol removido com sucesso."}
-          </div>
-        )}
-
-        {resolvedSearchParams.error && (
-          <div style={errorBannerStyle}>{resolvedSearchParams.error}</div>
-        )}
+        <PeladaFeedbackBanner
+          scope="resultados"
+          success={resolvedSearchParams.success}
+          error={resolvedSearchParams.error}
+        />
 
         <section className="xv-card">
           <div style={sectionHeaderStyle}>
@@ -299,24 +289,6 @@ export default async function PeladaResultadosPage({
     </main>
   );
 }
-
-const successBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#ECFDF3",
-  color: "#047857",
-  fontWeight: 700,
-  border: "1px solid #A7F3D0",
-};
-
-const errorBannerStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#FEF2F2",
-  color: "#B91C1C",
-  fontWeight: 700,
-  border: "1px solid #FECACA",
-};
 
 const sectionHeaderStyle: React.CSSProperties = {
   marginBottom: 18,
