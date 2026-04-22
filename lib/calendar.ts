@@ -147,7 +147,7 @@ type CalendarDay = {
   inCurrentMonth: boolean;
 };
 
-export const CALENDAR_WEEKDAY_LABELS = ["S", "T", "Q", "Q", "S", "S", "D"];
+export const CALENDAR_WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
@@ -168,6 +168,11 @@ const DAY_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
 const TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "America/Sao_Paulo",
+});
+
+const WEEKDAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
   timeZone: "America/Sao_Paulo",
 });
 
@@ -260,22 +265,26 @@ export function filterCalendarEventsByYear(
 }
 
 export function getCalendarMonthGrid(year: number, month: number) {
-  const firstDayOfMonth = new Date(year, month - 1, 1);
-  const lastDayOfMonth = new Date(year, month, 0);
-  const leadingDays = getMondayFirstIndex(firstDayOfMonth);
-  const trailingDays = 6 - getMondayFirstIndex(lastDayOfMonth);
-
-  const startDate = new Date(year, month - 1, 1 - leadingDays);
-  const totalDays = leadingDays + lastDayOfMonth.getDate() + trailingDays;
+  const firstDayOfMonth = getCalendarMonthAnchorDate(year, month);
+  const lastDayOfMonth = buildClubDate(
+    year,
+    month,
+    getCalendarMonthDaysCount(year, month),
+  );
+  const leadingDays = getSundayFirstIndex(firstDayOfMonth);
+  const trailingDays = 6 - getSundayFirstIndex(lastDayOfMonth);
+  const startDate = addDays(firstDayOfMonth, -leadingDays);
+  const totalDays =
+    leadingDays + getCalendarMonthDaysCount(year, month) + trailingDays;
   const days: CalendarDay[] = [];
 
   for (let offset = 0; offset < totalDays; offset += 1) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + offset);
+    const date = addDays(startDate, offset);
+    const parts = getCalendarDateParts(date);
 
     days.push({
       date,
-      inCurrentMonth: date.getMonth() === month - 1,
+      inCurrentMonth: parts.year === year && parts.month === month,
     });
   }
 
@@ -304,10 +313,50 @@ export function getNextCalendarMonth(year: number, month: number) {
   return { year, month: month + 1 };
 }
 
-function getMondayFirstIndex(date: Date) {
-  return (date.getDay() + 6) % 7;
+function getSundayFirstIndex(date: Date) {
+  const weekday = WEEKDAY_FORMATTER.format(date);
+  const dayOfWeek =
+    weekday === "Sun"
+      ? 0
+      : weekday === "Mon"
+        ? 1
+        : weekday === "Tue"
+          ? 2
+          : weekday === "Wed"
+            ? 3
+            : weekday === "Thu"
+              ? 4
+              : weekday === "Fri"
+                ? 5
+                : 6;
+
+  return dayOfWeek;
 }
 
 function getCalendarMonthAnchorDate(year: number, month: number) {
-  return new Date(`${year}-${String(month).padStart(2, "0")}-01T12:00:00-03:00`);
+  return buildClubDate(year, month, 1);
+}
+
+function buildClubDate(year: number, month: number, day: number) {
+  return new Date(
+    `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T12:00:00-03:00`,
+  );
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function getCalendarMonthDaysCount(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
+}
+
+function getCalendarDateParts(date: Date) {
+  const parts = PARTS_FORMATTER.formatToParts(date);
+
+  return {
+    year: Number(parts.find((part) => part.type === "year")?.value ?? "0"),
+    month: Number(parts.find((part) => part.type === "month")?.value ?? "0"),
+    day: Number(parts.find((part) => part.type === "day")?.value ?? "0"),
+  };
 }

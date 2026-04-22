@@ -74,6 +74,36 @@ export default async function CalendarioPage({
   const view = params.view === "year" ? "year" : "month";
   const previousMonth = getPreviousCalendarMonth(year, month);
   const nextMonth = getNextCalendarMonth(year, month);
+  const todayReference = normalizeCalendarMonth();
+  const previousPeriodHref =
+    view === "month"
+      ? buildCalendarHref({
+          year: previousMonth.year,
+          month: previousMonth.month,
+          view,
+        })
+      : buildCalendarHref({
+          year: year - 1,
+          month,
+          view,
+        });
+  const nextPeriodHref =
+    view === "month"
+      ? buildCalendarHref({
+          year: nextMonth.year,
+          month: nextMonth.month,
+          view,
+        })
+      : buildCalendarHref({
+          year: year + 1,
+          month,
+          view,
+        });
+  const todayHref = buildCalendarHref({
+    year: todayReference.year,
+    month: todayReference.month,
+    view,
+  });
 
   const peladas = await prisma.pelada.findMany({
     where: {
@@ -142,57 +172,51 @@ export default async function CalendarioPage({
 
         <section className="xv-card" style={sectionStyle}>
           <div className="xv-calendar-header" style={headerStyle}>
-            <div>
-              <h2 style={sectionTitleStyle}>
-                {view === "month" ? getCalendarMonthLabel(year, month) : `Calendário ${year}`}
-              </h2>
-              <p style={sectionDescriptionStyle}>
-                Peladas, Copa Tio Hugo e Interclubes já aparecem no calendário.
-                O campão interno segue preparado para entrar quando as datas forem
-                fechadas.
-              </p>
-            </div>
-
             <div className="xv-calendar-controls" style={headerControlsStyle}>
+              <div style={timelineBarStyle}>
+                <div style={timelineMainRowStyle}>
+                  <div style={timelineNavGroupStyle}>
+                    <Link href={previousPeriodHref} style={timelineArrowButtonStyle}>
+                      {"<"}
+                    </Link>
+                    <div style={timelineLabelStyle}>
+                      {view === "month"
+                        ? getCalendarMonthLabel(year, month)
+                        : `Calendário ${year}`}
+                    </div>
+                    <Link href={nextPeriodHref} style={timelineArrowButtonStyle}>
+                      {">"}
+                    </Link>
+                  </div>
+
+                  <Link href={todayHref} style={todayButtonStyle}>
+                    Hoje
+                  </Link>
+                </div>
+
+                <div style={timelineMetaRowStyle}>
+                  <div style={timelineMetaTextStyle}>
+                    {view === "month"
+                      ? "Navegue mês a mês e acompanhe a agenda do clube sem perder o contexto."
+                      : "Navegue ano a ano e veja a distribuição dos eventos no calendário inteiro."}
+                  </div>
+                </div>
+              </div>
+
               <div className="xv-calendar-view-switch" style={viewSwitchStyle}>
                 <Link
                   href={buildCalendarHref({ year, month, view: "month" })}
                   style={view === "month" ? activeViewButtonStyle : viewButtonStyle}
                 >
-                  Mensal
+                  Mês
                 </Link>
                 <Link
                   href={buildCalendarHref({ year, month, view: "year" })}
                   style={view === "year" ? activeViewButtonStyle : viewButtonStyle}
                 >
-                  Anual
+                  Ano
                 </Link>
               </div>
-
-              {view === "month" ? (
-                <div className="xv-calendar-nav" style={navigationStyle}>
-                  <Link
-                    href={buildCalendarHref({
-                      year: previousMonth.year,
-                      month: previousMonth.month,
-                      view,
-                    })}
-                    style={navButtonStyle}
-                  >
-                    Mês anterior
-                  </Link>
-                  <Link
-                    href={buildCalendarHref({
-                      year: nextMonth.year,
-                      month: nextMonth.month,
-                      view,
-                    })}
-                    style={navButtonStyle}
-                  >
-                    Próximo mês
-                  </Link>
-                </div>
-              ) : null}
             </div>
           </div>
 
@@ -639,42 +663,18 @@ const descriptionStyle: React.CSSProperties = {
 
 const sectionStyle: React.CSSProperties = {
   display: "grid",
-  gap: 18,
+  gap: 14,
 };
 
 const headerStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: 16,
-  flexWrap: "wrap",
+  display: "grid",
+  gap: 10,
 };
 
 const headerControlsStyle: React.CSSProperties = {
   display: "grid",
   gap: 10,
-  justifyItems: "end",
   width: "100%",
-  maxWidth: 360,
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-  margin: "0 0 8px",
-  fontSize: "clamp(24px, 4vw, 30px)",
-  color: "#101010",
-};
-
-const sectionDescriptionStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#4B5563",
-  lineHeight: 1.6,
-  maxWidth: 760,
-};
-
-const navigationStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  flexWrap: "wrap",
 };
 
 const viewSwitchStyle: React.CSSProperties = {
@@ -683,6 +683,7 @@ const viewSwitchStyle: React.CSSProperties = {
   background: "#F3F4F6",
   padding: 4,
   gap: 4,
+  justifySelf: "start",
 };
 
 const viewButtonStyle: React.CSSProperties = {
@@ -704,18 +705,87 @@ const activeViewButtonStyle: React.CSSProperties = {
   boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
 };
 
-const navButtonStyle: React.CSSProperties = {
+const timelineBarStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+  borderRadius: 18,
+  border: "1px solid #E5E7EB",
+  background: "#FAFAFA",
+  padding: "12px 14px",
+};
+
+const timelineMainRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+};
+
+const timelineNavGroupStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const timelineArrowButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 42,
+  minHeight: 42,
+  borderRadius: 999,
+  border: "1px solid #D1D5DB",
+  background: "#FFFFFF",
+  color: "#101010",
+  fontSize: 18,
+  fontWeight: 900,
+  textDecoration: "none",
+};
+
+const timelineLabelStyle: React.CSSProperties = {
+  minHeight: 42,
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 999,
+  background: "#FFFFFF",
+  border: "1px solid #E5E7EB",
+  padding: "10px 16px",
+  color: "#101010",
+  fontSize: "clamp(20px, 3vw, 28px)",
+  fontWeight: 900,
+  lineHeight: 1,
+  letterSpacing: "-0.03em",
+};
+
+const todayButtonStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   minHeight: 42,
-  padding: "10px 14px",
-  borderRadius: 10,
+  padding: "10px 16px",
+  borderRadius: 999,
   border: "1px solid #D1D5DB",
   background: "#FFFFFF",
   color: "#101010",
   fontWeight: 700,
   textDecoration: "none",
+};
+
+const timelineMetaRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const timelineMetaTextStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#4B5563",
+  lineHeight: 1.5,
+  fontSize: 14,
 };
 
 const legendStyle: React.CSSProperties = {
