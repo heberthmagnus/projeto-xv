@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
+import { GlobalFeedbackToast } from "./global-feedback-toast";
 import { ScrollRestoration } from "./scroll-restoration";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader } from "./site-header";
@@ -39,6 +40,9 @@ export default function RootLayout({
       <body className="min-h-full overflow-x-hidden flex flex-col">
         <Suspense fallback={null}>
           <ScrollRestoration />
+        </Suspense>
+        <Suspense fallback={null}>
+          <GlobalFeedbackToast />
         </Suspense>
         <SiteHeader />
         <div className="flex flex-1 flex-col">{children}</div>

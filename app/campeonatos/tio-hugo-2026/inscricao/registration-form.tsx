@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { dispatchGlobalFeedback } from "@/app/global-feedback-events";
 import { PhoneInput } from "@/app/components/phone-input";
 import { createRegistration } from "./actions";
 import { initialRegistrationFormState } from "./form-state";
@@ -10,6 +11,18 @@ export function RegistrationForm() {
     createRegistration,
     initialRegistrationFormState,
   );
+
+  useEffect(() => {
+    if (!state.error) {
+      return;
+    }
+
+    dispatchGlobalFeedback({
+      key: `championship-registration:${state.error}`,
+      tone: "error",
+      message: state.error,
+    });
+  }, [state.error]);
 
   return (
     <form

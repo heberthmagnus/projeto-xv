@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { dispatchGlobalFeedback } from "@/app/global-feedback-events";
 import { createPeladaConfirmation } from "./actions";
 import { initialPeladaConfirmationFormState } from "./form-state";
 
@@ -15,6 +16,18 @@ export function PeladaConfirmationForm({
     createPeladaConfirmation.bind(null, { peladaId }),
     initialPeladaConfirmationFormState,
   );
+
+  useEffect(() => {
+    if (!state.error) {
+      return;
+    }
+
+    dispatchGlobalFeedback({
+      key: `pelada-confirmation:${peladaId}:${state.error}`,
+      tone: "error",
+      message: state.error,
+    });
+  }, [peladaId, state.error]);
 
   return (
     <form action={formAction} style={formStyle}>

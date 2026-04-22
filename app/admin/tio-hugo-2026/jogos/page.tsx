@@ -1,4 +1,5 @@
 import { MatchStatus } from "@prisma/client";
+import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
 import { buildArrivalDateTimeInput } from "@/lib/peladas";
 import { getAuthenticatedAdmin } from "@/lib/auth";
 import {
@@ -7,6 +8,7 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_MATCHES_PATH } from "@/lib/routes";
 import {
   applyTioHugoBaseSchedule,
   createChampionshipMatch,
@@ -16,6 +18,7 @@ import {
 type SearchParams = Promise<{
   success?: string;
   error?: string;
+  warning?: string;
 }>;
 
 export default async function JogosAdminPage({
@@ -141,20 +144,7 @@ export default async function JogosAdminPage({
           </div>
         </section>
 
-        {params.success ? (
-          <div className="xv-feedback-banner xv-feedback-banner-success">
-            {params.success === "apply-base-schedule" &&
-              "Calendário base da Copa aplicado, com rodadas datadas e mata-mata placeholder criado."}
-            {params.success === "create-match" && "Jogo criado com sucesso."}
-            {params.success === "update-match" && "Jogo atualizado com sucesso."}
-          </div>
-        ) : null}
-
-        {params.error ? (
-          <div className="xv-feedback-banner xv-feedback-banner-error">
-            {params.error}
-          </div>
-        ) : null}
+        <PostActionFeedbackBanner pathname={ADMIN_MATCHES_PATH} searchParams={params} />
 
         <section className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
           <article className="xv-card">

@@ -1622,7 +1622,7 @@ export async function generatePeladaTeams(formData: FormData) {
   if (!teamPreparation.success) {
     redirect(
       buildRedirectPath(returnTo, {
-        error: teamPreparation.warning,
+        warning: teamPreparation.warning,
       }),
     );
   }
@@ -1637,7 +1637,7 @@ export async function generatePeladaTeams(formData: FormData) {
     buildRedirectPath(returnTo, {
       success: "teams-generated",
       ...(teamPreparation.warning
-        ? { error: teamPreparation.warning }
+        ? { warning: teamPreparation.warning }
         : {}),
     }),
   );
@@ -1727,7 +1727,7 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
   if (!preparedTeamResult.success) {
     redirect(
       buildRedirectPath(returnTo, {
-        error: preparedTeamResult.warning,
+        warning: preparedTeamResult.warning,
       }),
     );
   }
@@ -1785,7 +1785,7 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
   redirect(
     buildRedirectPath(returnTo, {
       success: "round-opened-teams",
-      ...(preparedTeamResult.warning ? { error: preparedTeamResult.warning } : {}),
+      ...(preparedTeamResult.warning ? { warning: preparedTeamResult.warning } : {}),
     }),
   );
 }
@@ -2465,7 +2465,7 @@ export async function generateNextPeladaRoundAndGenerateTeams(
   if (!teamPreparation.success) {
     redirect(
       buildRedirectPath(returnTo, {
-        error: teamPreparation.warning,
+        warning: teamPreparation.warning,
       }),
     );
   }
@@ -2479,7 +2479,7 @@ export async function generateNextPeladaRoundAndGenerateTeams(
   redirect(
     buildRedirectPath(returnTo, {
       success: "round-next-teams",
-      ...(teamPreparation.warning ? { error: teamPreparation.warning } : {}),
+      ...(teamPreparation.warning ? { warning: teamPreparation.warning } : {}),
     }),
   );
 }

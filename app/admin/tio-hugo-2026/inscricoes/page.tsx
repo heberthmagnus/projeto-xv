@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
 import {
   PaymentStatus,
   PlayerLevel,
@@ -11,12 +12,14 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_REGISTRATIONS_PATH } from "@/lib/routes";
 import { RegistrationRow } from "./registration-row";
 
 type SearchParams = Promise<{
   success?: string;
   open?: string;
   error?: string;
+  warning?: string;
   q?: string;
   position?: string;
   level?: string;
@@ -120,21 +123,14 @@ export default async function InscricoesAdminPage({
           </div>
         </div>
 
-        {params.success && (
-          <div style={successBannerStyle}>
-            {params.success === "level" && "✅ Nível atualizado com sucesso."}
-            {params.success === "edit" &&
-              "✅ Inscrição atualizada com sucesso."}
-            {params.success === "delete" &&
-              "✅ Inscrição excluída com sucesso."}
-            {params.success === "payment" &&
-              "✅ Pagamento atualizado com sucesso."}
-            {params.success === "quick-save" &&
-              "✅ Inscrição atualizada com sucesso."}
-          </div>
-        )}
-
-        {error && <div style={errorBannerStyle}>{error}</div>}
+        <PostActionFeedbackBanner
+          pathname={ADMIN_REGISTRATIONS_PATH}
+          searchParams={{
+            success: params.success,
+            error,
+            warning: params.warning,
+          }}
+        />
 
         <div style={filterCardStyle}>
           <form method="GET" style={filterFormStyle}>
@@ -287,16 +283,6 @@ const filterCardStyle: React.CSSProperties = {
   border: "1px solid #E5E7EB",
 };
 
-const errorBannerStyle: React.CSSProperties = {
-  marginBottom: 20,
-  padding: "14px 16px",
-  borderRadius: 12,
-  background: "#FEF2F2",
-  border: "1px solid #FECACA",
-  color: "#991B1B",
-  fontWeight: 600,
-};
-
 const filterFormStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(240px, 2.4fr) repeat(3, minmax(140px, 1fr)) auto",
@@ -341,16 +327,6 @@ const clearButtonStyle: React.CSSProperties = {
   color: "#101010",
   fontWeight: 600,
   textDecoration: "none",
-};
-
-const successBannerStyle: React.CSSProperties = {
-  background: "#ECFDF5",
-  border: "1px solid #A7F3D0",
-  color: "#065F46",
-  borderRadius: 12,
-  padding: "14px 16px",
-  marginBottom: 16,
-  fontWeight: 600,
 };
 
 const titleStyle: React.CSSProperties = {

@@ -17,6 +17,7 @@ type SearchParams = Promise<{
   success?: string;
   edit?: string;
   error?: string;
+  warning?: string;
 }>;
 
 export default async function PeladasAdminPage({
@@ -47,6 +48,7 @@ export default async function PeladasAdminPage({
           scope="admin-list"
           success={params.success}
           error={params.error}
+          warning={params.warning}
         />
 
         <PeladaForm

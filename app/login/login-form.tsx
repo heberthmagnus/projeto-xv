@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { dispatchGlobalFeedback } from "@/app/global-feedback-events";
 import { login } from "./actions";
 import { initialLoginFormState } from "./form-state";
 
@@ -9,6 +10,18 @@ export function LoginForm() {
     login,
     initialLoginFormState,
   );
+
+  useEffect(() => {
+    if (!state.error) {
+      return;
+    }
+
+    dispatchGlobalFeedback({
+      key: `login:error:${state.error}`,
+      tone: "error",
+      message: state.error,
+    });
+  }, [state.error]);
 
   return (
     <form

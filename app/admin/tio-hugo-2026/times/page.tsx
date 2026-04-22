@@ -1,4 +1,5 @@
 import { ChampionshipPlayerStatus } from "@prisma/client";
+import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
 import { requireAdmin } from "@/lib/auth";
 import {
   getChampionshipTeamsWithPlayersBySlug,
@@ -6,6 +7,7 @@ import {
   getTioHugoAdminTeamsPath,
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
+import { ADMIN_TEAMS_PATH } from "@/lib/routes";
 import {
   assignRegistrationToTeam,
   createPlaceholderTeamsAndBaseTable,
@@ -78,26 +80,7 @@ export default async function TimesAdminPage({
           </div>
         </section>
 
-        {params.success ? (
-          <div className="xv-feedback-banner xv-feedback-banner-success">
-            {params.success === "create-team" && "Time criado com sucesso."}
-            {params.success === "create-placeholder-base" &&
-              "Times-placeholder, fases e tabela base criados com sucesso."}
-            {params.success === "create-base-table" &&
-              "Fases, classificação base e tabela geradas com sucesso."}
-            {params.success === "update-team" && "Dados do time atualizados com sucesso."}
-            {params.success === "assign-player" &&
-              "Jogador alocado ou atualizado com sucesso."}
-            {params.success === "unassign-player" &&
-              "Jogador removido do time com sucesso."}
-          </div>
-        ) : null}
-
-        {params.error ? (
-          <div className="xv-feedback-banner xv-feedback-banner-error">
-            {params.error}
-          </div>
-        ) : null}
+        <PostActionFeedbackBanner pathname={ADMIN_TEAMS_PATH} searchParams={params} />
 
         <section className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
           <article className="xv-card">

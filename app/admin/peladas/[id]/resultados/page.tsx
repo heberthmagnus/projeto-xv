@@ -12,6 +12,7 @@ type Params = Promise<{
 type SearchParams = Promise<{
   success?: string;
   error?: string;
+  warning?: string;
 }>;
 
 export default async function PeladaResultadosPage({
@@ -117,8 +118,10 @@ export default async function PeladaResultadosPage({
       <div className="xv-page-container">
         <PeladaFeedbackBanner
           scope="resultados"
+          peladaId={pelada.id}
           success={resolvedSearchParams.success}
           error={resolvedSearchParams.error}
+          warning={resolvedSearchParams.warning}
         />
 
         <section className="xv-card">
