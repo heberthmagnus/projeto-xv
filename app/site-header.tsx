@@ -54,7 +54,10 @@ export function SiteHeader() {
       </header>
 
       <nav className="border-y border-[#B8960C] bg-[#1A1A1A]">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-6 overflow-x-auto px-4 py-3 md:px-6">
+        <div
+          data-scroll-preserve="site-header-nav"
+          className="mx-auto flex w-full max-w-6xl items-center gap-3 overflow-x-auto px-4 py-2.5 md:gap-4 md:px-6"
+        >
           {menuItems.map((item) => {
             const isActive =
               item.href === "/"
@@ -71,8 +74,10 @@ export function SiteHeader() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`shrink-0 whitespace-nowrap text-base font-semibold transition sm:text-[1.05rem] ${
-                  isActive ? "text-[#B8960C]" : "text-white hover:text-[#B8960C]"
+                className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3.5 py-2 whitespace-nowrap text-sm font-semibold transition sm:text-[1.02rem] ${
+                  isActive
+                    ? "bg-[#2A2A2A] text-[#B8960C]"
+                    : "text-white hover:bg-white/6 hover:text-[#B8960C]"
                 }`}
               >
                 {item.label}

@@ -132,6 +132,12 @@ export default async function CalendarioPage({
             Acompanhe o mês ou o ano em formato visual e veja os dias com
             peladas, Copa Tio Hugo, Interclubes e, em breve, o campão interno.
           </p>
+          <div className="mt-5 xv-quick-nav">
+            <Link href="/peladas">Ver peladas abertas</Link>
+            <Link href={buildCalendarHref({ year, month, view: "month" })}>
+              Ir para visão mensal
+            </Link>
+          </div>
         </section>
 
         <section className="xv-card" style={sectionStyle}>
@@ -254,11 +260,14 @@ export default async function CalendarioPage({
           </div>
 
           {view === "month" ? (
-            <MonthlyCalendarView
-              monthGrid={monthGrid}
-              eventsByDate={monthlyEventsByDate}
-              todayKey={todayKey}
-            />
+            <>
+              <MonthlyCalendarView
+                monthGrid={monthGrid}
+                eventsByDate={monthlyEventsByDate}
+                todayKey={todayKey}
+              />
+              <MobileAgendaList events={monthEvents} />
+            </>
           ) : (
             <YearCalendarView
               year={year}
@@ -385,6 +394,94 @@ function YearCalendarView({
   );
 }
 
+function MobileAgendaList({
+  events,
+}: {
+  events: CalendarEventItem[];
+}) {
+  return (
+    <div className="xv-mobile-card-grid md:hidden">
+      <div className="mt-1 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-4">
+        <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
+          Agenda rápida
+        </div>
+        <h3 className="mt-2 text-lg font-black tracking-tight text-[#101010]">
+          Eventos do mês
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-[#4B5563]">
+          No celular, esta lista reduz a necessidade de rolar o calendário inteiro.
+        </p>
+      </div>
+
+      {events.length === 0 ? (
+        <div className="rounded-[18px] border border-dashed border-[#D1D5DB] bg-[#FAFAFA] px-4 py-5">
+          <div className="text-base font-bold text-[#101010]">Mês sem eventos</div>
+          <div className="mt-1 text-sm leading-6 text-[#4B5563]">
+            Quando houver peladas ou competições nesse período, os itens aparecem aqui.
+          </div>
+        </div>
+      ) : (
+        events.map((event) => {
+          const eventStyle = {
+            background: EVENT_TYPE_META[event.type].background,
+            borderColor: EVENT_TYPE_META[event.type].border,
+            color: EVENT_TYPE_META[event.type].color,
+          };
+
+          const content = (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div
+                    className="inline-flex rounded-full border px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.12em]"
+                    style={eventStyle}
+                  >
+                    {EVENT_TYPE_META[event.type].label}
+                  </div>
+                  <div className="mt-2 text-base font-black leading-6 text-[#101010]">
+                    {event.title}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-[#F3F4F6] px-3 py-2 text-right">
+                  <div className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#6B7280]">
+                    Data
+                  </div>
+                  <div className="text-sm font-black text-[#101010]">
+                    {formatCalendarEventDate(event.startsAt)}
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+
+          if (event.href) {
+            return (
+              <Link
+                key={event.id}
+                href={event.href}
+                target={event.external ? "_blank" : undefined}
+                rel={event.external ? "noreferrer noopener" : undefined}
+                className="rounded-[18px] border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <div
+              key={event.id}
+              className="rounded-[18px] border border-[#E5E7EB] bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
+            >
+              {content}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 function CalendarDayCell({
   day,
   dateKey,
@@ -499,6 +596,16 @@ function buildCalendarHref(args: {
   view: "month" | "year";
 }) {
   return `${CALENDARIO_XV_PATH}?year=${args.year}&month=${args.month}&view=${args.view}`;
+}
+
+function formatCalendarEventDate(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
 }
 
 const heroStyle: React.CSSProperties = {

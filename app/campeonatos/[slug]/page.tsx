@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import type { ChampionshipFormat, ChampionshipRegistrationMode, ChampionshipStatus, MatchStatus, StandingMovement } from "@prisma/client";
 import { getChampionshipPublicPageDataBySlug } from "@/lib/championships";
 import {
+  CALENDARIO_XV_PATH,
   getChampionshipBasePath,
   getChampionshipRegistrationPath,
   getChampionshipTeamBasePath,
@@ -69,6 +70,11 @@ export default async function ChampionshipPublicPage({
       ? Math.min(requestedViewIndex, Math.max(matchViews.length, 1))
       : 1;
   const currentMatchView = matchViews[currentViewIndex - 1] || null;
+  const groupStandings = championship.standings.filter((standing) => standing.gamesPlayed > 0);
+  const qualifiedCutoff =
+    championship._count.teams >= 5 && championship.slug === "tio-hugo-2026" ? 4 : 0;
+  const currentViewFinishedMatches =
+    currentMatchView?.matches.filter((match) => match.status === "FINALIZADO").length || 0;
 
   return (
     <main className="xv-page-shell-soft">
@@ -115,6 +121,12 @@ export default async function ChampionshipPublicPage({
                     : "Acessar inscrição"}
                 </Link>
               ) : null}
+              <Link
+                href={CALENDARIO_XV_PATH}
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/16"
+              >
+                Ver calendário
+              </Link>
             </div>
           </div>
 
@@ -124,25 +136,30 @@ export default async function ChampionshipPublicPage({
             <HeroStat label="Jogos" value={String(championship._count.matches)} />
             <HeroStat label="Elencos montados" value={String(championship._count.players)} />
           </div>
+
+          <div className="mt-5 xv-quick-nav">
+            <Link href="#classificacao">Classificação</Link>
+            <Link href="#jogos">Jogos</Link>
+          </div>
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-          <article className="xv-card">
+          <article id="classificacao" className="xv-card overflow-hidden scroll-mt-28">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-                  Coluna esquerda
+                  Tabela real
                 </span>
                 <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
                   Classificação
                 </h2>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-[#4B5563]">
-                  A base já está preparada para receber a tabela definitiva do campeonato.
+                  Pontuação viva da fase classificatória, calculada a partir dos jogos finalizados.
                 </p>
               </div>
               <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
                 <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-                  Registros
+                  Times na tabela
                 </div>
                 <div className="text-xl font-black text-[#101010]">
                   {championship.standings.length}
@@ -151,7 +168,88 @@ export default async function ChampionshipPublicPage({
             </div>
 
             {championship.standings.length > 0 ? (
-              <div className="xv-table-scroll">
+              <div className="grid gap-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <TableStatCard
+                    label="Líder"
+                    value={
+                      championship.standings[0]
+                        ? championship.standings[0].team.shortName ||
+                          championship.standings[0].team.name
+                        : "-"
+                    }
+                    tone="gold"
+                  />
+                  <TableStatCard
+                    label="Jogos válidos"
+                    value={String(groupStandings.reduce((sum, standing) => sum + standing.gamesPlayed, 0) / 2)}
+                    tone="neutral"
+                  />
+                  <TableStatCard
+                    label="Zona de classificação"
+                    value={qualifiedCutoff ? `${qualifiedCutoff} times` : "—"}
+                    tone="blue"
+                  />
+                </div>
+
+                {qualifiedCutoff ? (
+                  <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-3 text-sm leading-6 text-[#4B5563]">
+                    Os <strong>{qualifiedCutoff} primeiros</strong> avançam para o mata-mata.
+                    Nesta edição da Copa Tio Hugo, a semifinal é montada com
+                    <strong> 1º x 4º</strong> e <strong>2º x 3º</strong>.
+                  </div>
+                ) : null}
+
+                <div className="xv-mobile-card-grid md:hidden">
+                  {championship.standings.map((standing) => (
+                    <article
+                      key={`${standing.id}-mobile`}
+                      className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4"
+                      style={{
+                        boxShadow:
+                          qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff
+                            ? "inset 4px 0 0 #B89020"
+                            : undefined,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
+                            {standing.rank ? `${standing.rank}º lugar` : "Posição"}
+                          </div>
+                          <Link
+                            href={getChampionshipTeamBasePath(
+                              championship.slug,
+                              standing.team.slug || "",
+                            )}
+                            className="mt-1 block text-lg font-black text-[#101010] transition hover:text-[#8B6914]"
+                          >
+                            {standing.team.shortName || standing.team.name}
+                          </Link>
+                          <div className="text-sm text-[#6B7280]">{standing.team.name}</div>
+                        </div>
+                        <div className="rounded-2xl bg-[#171717] px-3 py-2 text-center text-white">
+                          <div className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-white/60">
+                            Pontos
+                          </div>
+                          <div className="text-xl font-black">{standing.points}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+                        <MobileStandingStat label="J" value={String(standing.gamesPlayed)} />
+                        <MobileStandingStat label="V" value={String(standing.wins)} />
+                        <MobileStandingStat label="E" value={String(standing.draws)} />
+                        <MobileStandingStat
+                          label="SG"
+                          value={formatGoalDifference(standing.goalDifference)}
+                        />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="hidden md:block xv-table-scroll">
                 <table className="min-w-full border-separate border-spacing-0 text-sm">
                   <thead>
                     <tr className="text-left text-[0.74rem] uppercase tracking-[0.14em] text-[#6B7280]">
@@ -167,13 +265,28 @@ export default async function ChampionshipPublicPage({
                   </thead>
                   <tbody>
                     {championship.standings.map((standing) => (
-                      <tr key={standing.id} className="bg-white even:bg-[#FCFCFC]">
+                      <tr
+                        key={standing.id}
+                        className="bg-white even:bg-[#FCFCFC]"
+                        style={{
+                          boxShadow:
+                            qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff
+                              ? "inset 4px 0 0 #B89020"
+                              : undefined,
+                        }}
+                      >
                         <td className="border-b border-[#F1F5F9] px-3 py-3 font-black text-[#101010]">
                           <div className="flex items-center gap-2">
                             <span>{standing.rank ?? "-"}</span>
-                            <span className="text-xs">
-                              {getMovementIcon(standing.movement)}
-                            </span>
+                            {qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff ? (
+                              <span className="rounded-full bg-[#F6E8BD] px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[#8B6914]">
+                                Classifica
+                              </span>
+                            ) : (
+                              <span className="text-xs">
+                                {getMovementIcon(standing.movement)}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="border-b border-[#F1F5F9] px-3 py-3">
@@ -212,6 +325,7 @@ export default async function ChampionshipPublicPage({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ) : (
               <EmptyPanel
@@ -221,22 +335,22 @@ export default async function ChampionshipPublicPage({
             )}
           </article>
 
-          <article className="xv-card">
+          <article id="jogos" className="xv-card scroll-mt-28">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <span className="inline-flex rounded-full bg-[#E9EEF9] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
-                  Coluna direita
+                  Rodada ao vivo
                 </span>
                 <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
                   Jogos
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4B5563]">
-                  Aqui entram rodadas, mata-mata e o acompanhamento cronológico das partidas.
+                  Painel da rodada ou fase selecionada, usando os confrontos reais do campeonato.
                 </p>
               </div>
               <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
                 <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
-                  Partidas
+                  Jogos cadastrados
                 </div>
                 <div className="text-xl font-black text-[#101010]">
                   {championship.matches.length}
@@ -247,46 +361,67 @@ export default async function ChampionshipPublicPage({
             {championship.matches.length > 0 ? (
               <div className="grid gap-4">
                 {currentMatchView ? (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-3">
-                    <div>
-                      <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
-                        Navegação
+                  <div className="grid gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
+                          Navegação
+                        </div>
+                        <div className="mt-1 text-lg font-black text-[#101010]">
+                          {currentMatchView.label}
+                        </div>
                       </div>
-                      <div className="mt-1 text-lg font-black text-[#101010]">
-                        {currentMatchView.label}
+
+                      <div className="flex items-center gap-2">
+                        {currentViewIndex > 1 ? (
+                          <Link
+                            href={buildMatchViewHref(championship.slug, currentViewIndex - 1)}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
+                          >
+                            <span className="md:hidden text-sm">Anterior</span>
+                            <span className="hidden md:inline">{"<"}</span>
+                          </Link>
+                        ) : (
+                          <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
+                            <span className="md:hidden text-sm">Anterior</span>
+                            <span className="hidden md:inline">{"<"}</span>
+                          </span>
+                        )}
+
+                        <div className="rounded-full bg-[#171717] px-4 py-2.5 text-sm font-bold text-white">
+                          {currentViewIndex} / {matchViews.length}
+                        </div>
+
+                        {currentViewIndex < matchViews.length ? (
+                          <Link
+                            href={buildMatchViewHref(championship.slug, currentViewIndex + 1)}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
+                          >
+                            <span className="md:hidden text-sm">Próxima</span>
+                            <span className="hidden md:inline">{">"}</span>
+                          </Link>
+                        ) : (
+                          <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
+                            <span className="md:hidden text-sm">Próxima</span>
+                            <span className="hidden md:inline">{">"}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {currentViewIndex > 1 ? (
-                        <Link
-                          href={buildMatchViewHref(championship.slug, currentViewIndex - 1)}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
-                        >
-                          {"<"}
-                        </Link>
-                      ) : (
-                        <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
-                          {"<"}
-                        </span>
-                      )}
-
-                      <div className="rounded-full bg-[#171717] px-4 py-2.5 text-sm font-bold text-white">
-                        {currentViewIndex} / {matchViews.length}
-                      </div>
-
-                      {currentViewIndex < matchViews.length ? (
-                        <Link
-                          href={buildMatchViewHref(championship.slug, currentViewIndex + 1)}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
-                        >
-                          {">"}
-                        </Link>
-                      ) : (
-                        <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
-                          {">"}
-                        </span>
-                      )}
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <RoundStatCard
+                        label="Jogos nesta vista"
+                        value={String(currentMatchView.matches.length)}
+                      />
+                      <RoundStatCard
+                        label="Finalizados"
+                        value={String(currentViewFinishedMatches)}
+                      />
+                      <RoundStatCard
+                        label="Pendentes"
+                        value={String(currentMatchView.matches.length - currentViewFinishedMatches)}
+                      />
                     </div>
                   </div>
                 ) : null}
@@ -310,6 +445,14 @@ export default async function ChampionshipPublicPage({
                         align="right"
                         name={match.homeTeam.shortName || match.homeTeam.name}
                         fullName={match.homeTeam.name}
+                        href={
+                          match.homeTeam.slug
+                            ? getChampionshipTeamBasePath(
+                                championship.slug,
+                                match.homeTeam.slug,
+                              )
+                            : null
+                        }
                         primaryColor={match.homeTeam.primaryColor}
                         secondaryColor={match.homeTeam.secondaryColor}
                       />
@@ -331,6 +474,14 @@ export default async function ChampionshipPublicPage({
                         align="left"
                         name={match.awayTeam.shortName || match.awayTeam.name}
                         fullName={match.awayTeam.name}
+                        href={
+                          match.awayTeam.slug
+                            ? getChampionshipTeamBasePath(
+                                championship.slug,
+                                match.awayTeam.slug,
+                              )
+                            : null
+                        }
                         primaryColor={match.awayTeam.primaryColor}
                         secondaryColor={match.awayTeam.secondaryColor}
                       />
@@ -383,6 +534,7 @@ function buildMatchViews(
     awayTeam: {
       id: string;
       name: string;
+      slug: string | null;
       shortName: string | null;
       primaryColor: string | null;
       secondaryColor: string | null;
@@ -479,16 +631,30 @@ function TeamFace({
   align,
   name,
   fullName,
+  href,
   primaryColor,
   secondaryColor,
 }: {
   align: "left" | "right";
   name: string;
   fullName: string;
+  href?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
 }) {
   const alignment = align === "right" ? "sm:text-right sm:items-end" : "sm:text-left sm:items-start";
+  const nameContent = href ? (
+    <Link
+      href={href}
+      className="font-black uppercase tracking-[0.04em] text-[#111827] transition hover:text-[#8B6914]"
+    >
+      {name}
+    </Link>
+  ) : (
+    <div className="font-black uppercase tracking-[0.04em] text-[#111827]">
+      {name}
+    </div>
+  );
 
   return (
     <div className={`flex flex-col items-center gap-2 text-center ${alignment}`}>
@@ -499,10 +665,76 @@ function TeamFace({
           borderColor: secondaryColor || primaryColor || "#E5E7EB",
         }}
       />
-      <div className="font-black uppercase tracking-[0.04em] text-[#111827]">
-        {name}
-      </div>
+      {nameContent}
       <div className="text-xs text-[#6B7280]">{fullName}</div>
+    </div>
+  );
+}
+
+function TableStatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "gold" | "neutral" | "blue";
+}) {
+  const tones = {
+    gold: {
+      background: "#FCF7E6",
+      border: "#F1D68A",
+      color: "#8B6914",
+    },
+    neutral: {
+      background: "#FAFAFA",
+      border: "#E5E7EB",
+      color: "#374151",
+    },
+    blue: {
+      background: "#EEF2FF",
+      border: "#C7D2FE",
+      color: "#3450A1",
+    },
+  } as const;
+
+  return (
+    <div
+      className="rounded-2xl border px-4 py-3"
+      style={{
+        background: tones[tone].background,
+        borderColor: tones[tone].border,
+      }}
+    >
+      <div
+        className="text-[0.72rem] font-bold uppercase tracking-[0.14em]"
+        style={{ color: tones[tone].color }}
+      >
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-black text-[#101010]">{value}</div>
+    </div>
+  );
+}
+
+function RoundStatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
+      <div className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-black text-[#101010]">{value}</div>
+    </div>
+  );
+}
+
+function MobileStandingStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white px-2 py-3">
+      <div className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#6B7280]">
+        {label}
+      </div>
+      <div className="mt-1 text-base font-black text-[#101010]">{value}</div>
     </div>
   );
 }
