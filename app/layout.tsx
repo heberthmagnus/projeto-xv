@@ -5,6 +5,7 @@ import { GlobalFeedbackToast } from "./global-feedback-toast";
 import { ScrollRestoration } from "./scroll-restoration";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader } from "./site-header";
+import { WhatsAppFloatingButton } from "./whatsapp-floating-button";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,6 +45,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <GlobalFeedbackToast />
         </Suspense>
+        <WhatsAppFloatingButton />
         <SiteHeader />
         <div className="flex flex-1 flex-col">{children}</div>
         <SiteFooter />

@@ -13,11 +13,14 @@ import { PeladaFeedbackBanner } from "./pelada-feedback";
 import { PeladaForm } from "./pelada-form";
 import { buildPeladaFormValues } from "./pelada-form-values";
 
+type PeladasFilter = "today" | "upcoming" | "past" | "all";
+
 type SearchParams = Promise<{
   success?: string;
   edit?: string;
   error?: string;
   warning?: string;
+  filter?: string;
 }>;
 
 export default async function PeladasAdminPage({
@@ -37,8 +40,23 @@ export default async function PeladasAdminPage({
         },
       },
     },
-    orderBy: [{ scheduledAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
   });
+
+  const classifiedPeladas = classifyPeladasForOperations(peladas);
+  const focusPelada =
+    classifiedPeladas.today[0] || classifiedPeladas.upcoming[0] || null;
+  const defaultFilter: PeladasFilter =
+    classifiedPeladas.today.length > 0 ? "today" : "upcoming";
+  const activeFilter = resolvePeladasFilter(params.filter, defaultFilter);
+  const filteredPeladas =
+    activeFilter === "today"
+      ? classifiedPeladas.today
+      : activeFilter === "upcoming"
+        ? classifiedPeladas.upcoming
+        : activeFilter === "past"
+          ? classifiedPeladas.past
+          : classifiedPeladas.all;
   const editingPelada = peladas.find((pelada) => pelada.id === params.edit) || null;
 
   return (
@@ -99,6 +117,82 @@ export default async function PeladasAdminPage({
             </div>
           </div>
 
+          {focusPelada ? (
+            <div style={focusCardStyle}>
+              <div style={focusCardHeaderStyle}>
+                <div>
+                  <p style={focusEyebrowStyle}>Em foco</p>
+                  <h3 style={focusTitleStyle}>
+                    {classifiedPeladas.today.length > 0
+                      ? "Pelada de hoje"
+                      : "Próxima pelada"}
+                  </h3>
+                  <p style={focusDescriptionStyle}>
+                    {formatDate(focusPelada.scheduledAt)} às {formatTime(focusPelada.scheduledAt)}
+                    {" • "}
+                    {getPeladaTypeLabel(focusPelada.type)}
+                    {" • "}
+                    {getPeladaStatusLabel(focusPelada.status)}
+                  </p>
+                </div>
+
+                <div style={focusStatsGridStyle}>
+                  <MiniMetric
+                    label="Confirmados"
+                    value={String(focusPelada._count.confirmations)}
+                  />
+                  <MiniMetric
+                    label="Chegadas"
+                    value={String(focusPelada._count.arrivals)}
+                  />
+                </div>
+              </div>
+
+              <div style={focusActionsStyle}>
+                <Link href={`/admin/peladas/${focusPelada.id}`} style={editSecondaryLinkStyle}>
+                  Abrir operação
+                </Link>
+                <Link
+                  href={buildPeladasFilterHref(activeFilter, {
+                    ...params,
+                    edit: focusPelada.id,
+                  })}
+                  style={editLinkStyle}
+                >
+                  Editar dados
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div style={emptyFocusStyle}>
+              Nenhuma pelada cadastrada para hoje ou para as próximas datas.
+            </div>
+          )}
+
+          <div style={filterBarStyle}>
+            {FILTER_OPTIONS.map((filterOption) => {
+              const isActive = activeFilter === filterOption.value;
+
+              return (
+                <Link
+                  key={filterOption.value}
+                  href={buildPeladasFilterHref(filterOption.value, params)}
+                  style={{
+                    ...filterChipStyle,
+                    ...(isActive ? activeFilterChipStyle : inactiveFilterChipStyle),
+                  }}
+                >
+                  {filterOption.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <p style={filterSummaryStyle}>
+            Exibindo <strong>{filteredPeladas.length}</strong> pelada(s) em{" "}
+            <strong>{getFilterLabel(activeFilter).toLowerCase()}</strong>.
+          </p>
+
           <div className="xv-table-scroll">
             <table style={tableStyle}>
               <thead>
@@ -118,14 +212,14 @@ export default async function PeladasAdminPage({
                 </tr>
               </thead>
               <tbody>
-                {peladas.length === 0 ? (
+                {filteredPeladas.length === 0 ? (
                   <tr>
                     <td colSpan={12} style={emptyStyle}>
-                      Nenhuma pelada cadastrada ainda.
+                      {getEmptyFilterMessage(activeFilter)}
                     </td>
                   </tr>
                 ) : (
-                  peladas.map((pelada) => (
+                  filteredPeladas.map((pelada) => (
                     <tr key={pelada.id}>
                       <td style={tdStyle}>
                         {formatDate(pelada.scheduledAt)}
@@ -186,6 +280,15 @@ export default async function PeladasAdminPage({
   );
 }
 
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={miniMetricStyle}>
+      <span style={miniMetricLabelStyle}>{label}</span>
+      <strong style={miniMetricValueStyle}>{value}</strong>
+    </div>
+  );
+}
+
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -241,8 +344,229 @@ function getStatusBadgeStyle(
   };
 }
 
+function getClubDayKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
+function classifyPeladasForOperations<
+  TPelada extends {
+    scheduledAt: Date;
+    createdAt: Date;
+  },
+>(peladas: TPelada[]) {
+  const todayKey = getClubDayKey(new Date());
+  const today: TPelada[] = [];
+  const upcoming: TPelada[] = [];
+  const past: TPelada[] = [];
+
+  for (const pelada of peladas) {
+    const peladaDayKey = getClubDayKey(pelada.scheduledAt);
+
+    if (peladaDayKey === todayKey) {
+      today.push(pelada);
+      continue;
+    }
+
+    if (peladaDayKey > todayKey) {
+      upcoming.push(pelada);
+      continue;
+    }
+
+    past.push(pelada);
+  }
+
+  today.sort((left, right) => left.scheduledAt.getTime() - right.scheduledAt.getTime());
+  upcoming.sort((left, right) => left.scheduledAt.getTime() - right.scheduledAt.getTime());
+  past.sort((left, right) => right.scheduledAt.getTime() - left.scheduledAt.getTime());
+
+  return {
+    today,
+    upcoming,
+    past,
+    all: [...today, ...upcoming, ...past],
+  };
+}
+
+function resolvePeladasFilter(
+  rawFilter: string | undefined,
+  defaultFilter: PeladasFilter,
+): PeladasFilter {
+  if (rawFilter === "today" || rawFilter === "upcoming" || rawFilter === "past" || rawFilter === "all") {
+    return rawFilter;
+  }
+
+  return defaultFilter;
+}
+
+function buildPeladasFilterHref(
+  filter: PeladasFilter,
+  params: {
+    success?: string;
+    edit?: string;
+    error?: string;
+    warning?: string;
+    filter?: string;
+  },
+) {
+  const nextParams = new URLSearchParams();
+
+  if (params.edit) {
+    nextParams.set("edit", params.edit);
+  }
+
+  nextParams.set("filter", filter);
+
+  const query = nextParams.toString();
+  return `${ADMIN_PELADAS_PATH}${query ? `?${query}` : ""}`;
+}
+
+function getFilterLabel(filter: PeladasFilter) {
+  return FILTER_OPTIONS.find((option) => option.value === filter)?.label || "Todas";
+}
+
+function getEmptyFilterMessage(filter: PeladasFilter) {
+  if (filter === "today") {
+    return "Nenhuma pelada marcada para hoje.";
+  }
+
+  if (filter === "upcoming") {
+    return "Nenhuma próxima pelada cadastrada.";
+  }
+
+  if (filter === "past") {
+    return "Nenhuma pelada passada cadastrada.";
+  }
+
+  return "Nenhuma pelada cadastrada ainda.";
+}
+
 const sectionHeaderStyle: React.CSSProperties = {
   marginBottom: 18,
+};
+
+const focusCardStyle: React.CSSProperties = {
+  marginBottom: 18,
+  padding: 18,
+  borderRadius: 18,
+  border: "1px solid #E7C56A",
+  background: "linear-gradient(180deg, #FFF8E7 0%, #FFFFFF 100%)",
+  boxShadow: "0 10px 24px rgba(184, 144, 32, 0.08)",
+};
+
+const focusCardHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 16,
+  flexWrap: "wrap",
+};
+
+const focusEyebrowStyle: React.CSSProperties = {
+  margin: "0 0 6px",
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#8B6914",
+};
+
+const focusTitleStyle: React.CSSProperties = {
+  margin: "0 0 6px",
+  fontSize: 22,
+  color: "#101010",
+};
+
+const focusDescriptionStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#4B5563",
+  lineHeight: 1.6,
+};
+
+const focusStatsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(110px, 1fr))",
+  gap: 10,
+};
+
+const miniMetricStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+  padding: "12px 14px",
+  borderRadius: 14,
+  border: "1px solid #E5E7EB",
+  background: "rgba(255, 255, 255, 0.92)",
+};
+
+const miniMetricLabelStyle: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#6B7280",
+};
+
+const miniMetricValueStyle: React.CSSProperties = {
+  fontSize: 20,
+  color: "#101010",
+};
+
+const focusActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginTop: 16,
+};
+
+const emptyFocusStyle: React.CSSProperties = {
+  marginBottom: 18,
+  padding: "16px 18px",
+  borderRadius: 16,
+  border: "1px dashed #D1D5DB",
+  background: "#FAFAFA",
+  color: "#6B7280",
+};
+
+const filterBarStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginBottom: 12,
+};
+
+const filterChipStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 40,
+  padding: "8px 14px",
+  borderRadius: 999,
+  border: "1px solid transparent",
+  textDecoration: "none",
+  fontWeight: 700,
+  fontSize: 14,
+};
+
+const activeFilterChipStyle: React.CSSProperties = {
+  background: "#101010",
+  borderColor: "#101010",
+  color: "#FFFFFF",
+};
+
+const inactiveFilterChipStyle: React.CSSProperties = {
+  background: "#FFFFFF",
+  borderColor: "#D1D5DB",
+  color: "#374151",
+};
+
+const filterSummaryStyle: React.CSSProperties = {
+  margin: "0 0 14px",
+  color: "#4B5563",
+  lineHeight: 1.6,
 };
 
 const editingHeaderStyle: React.CSSProperties = {
@@ -347,3 +671,13 @@ const deleteButtonStyle: React.CSSProperties = {
   color: "#B91C1C",
   cursor: "pointer",
 };
+
+const FILTER_OPTIONS: Array<{
+  value: PeladasFilter;
+  label: string;
+}> = [
+  { value: "today", label: "Hoje" },
+  { value: "upcoming", label: "Próximas" },
+  { value: "past", label: "Passadas" },
+  { value: "all", label: "Todas" },
+];
