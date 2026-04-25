@@ -55,8 +55,8 @@ export default async function HomePage() {
     <main id="inicio" className="bg-[#F5F0E8] text-[#1A1A1A]">
       <BannerRotativo nextPeladaType={nextPelada?.type ?? null} />
 
-      <section className="px-4 pb-12 pt-4 md:px-6 md:pb-20">
-        <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
+      <section className="px-4 pb-10 pt-4 md:px-6 md:pb-20">
+        <div className="mx-auto grid max-w-screen-lg gap-4 md:grid-cols-2 md:gap-6">
           {cards.map((card) => (
             <article
               key={card.id}
@@ -68,7 +68,7 @@ export default async function HomePage() {
                   <span className="text-4xl leading-none">
                     {card.id === "peladas" ? "⚽" : "🏆"}
                   </span>
-                  <h3 className="text-[1.7rem] font-bold text-[#1A1A1A] sm:text-[2rem]">{card.title}</h3>
+                  <h3 className="xv-fluid-text text-[1.45rem] font-bold text-[#1A1A1A] sm:text-[2rem]">{card.title}</h3>
                 </div>
                 <p className="text-[0.98rem] leading-7 text-[#1A1A1A] sm:text-base">
                   {card.text}
@@ -77,7 +77,7 @@ export default async function HomePage() {
 
               <Link
                 href={card.href}
-                className={`mt-7 inline-flex self-start rounded-full px-5 py-3 text-[1.05rem] font-semibold text-white transition ${
+                className={`mt-7 inline-flex min-h-11 w-full items-center justify-center self-start rounded-full px-5 py-3 text-[1rem] font-semibold text-white transition sm:w-auto sm:text-[1.05rem] ${
                   card.id === "copa-tio-hugo"
                     ? "bg-gradient-to-b from-[#C49B25] to-[#8B6914] hover:from-[#D3AB35] hover:to-[#9A7618]"
                     : "bg-[#1A1A1A] hover:bg-[#B8960C]"

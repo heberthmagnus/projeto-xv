@@ -102,7 +102,7 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
     <section className="w-full px-0 py-0">
       <div className="w-full overflow-hidden border-y border-black/20">
         <div
-          className="relative h-[220px] overflow-hidden bg-black md:h-[300px] lg:h-[360px]"
+          className="relative h-[260px] overflow-hidden bg-black md:h-[300px] lg:h-[360px]"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onTouchStart={handleTouchStart}
@@ -121,12 +121,12 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
 
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/20" />
 
-          <div className="mx-auto flex h-full w-full max-w-6xl items-center px-6 py-8 md:px-12 md:py-12 lg:px-16">
-            <div className="relative z-10 max-w-[600px]">
+          <div className="mx-auto flex h-full w-full max-w-6xl items-center px-4 py-6 sm:px-6 sm:py-8 md:px-12 md:py-12 lg:px-16">
+            <div className="relative z-10 w-full max-w-[600px]">
               <p className="text-[11px] font-bold uppercase tracking-widest text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] md:text-xs">
                 {activeBanner.title}
               </p>
-              <h2 className="mt-3 text-2xl font-bold leading-tight tracking-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] md:text-3xl lg:text-4xl">
+              <h2 className="xv-fluid-text mt-3 text-[1.7rem] font-bold leading-tight tracking-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)] md:text-3xl lg:text-4xl">
                 {heroCopy.heading}
               </h2>
               <p className="mt-2 max-w-[32rem] text-xs leading-5 text-white/90 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] md:text-sm md:leading-6 lg:text-base">
@@ -134,14 +134,14 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
               </p>
               <Link
                 href={activeBanner.href}
-                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_0_rgba(73,54,9,0.75),0_12px_22px_rgba(0,0,0,0.24)] transition hover:scale-[1.01] hover:from-[#D3AB35] hover:to-[#9A7618] md:text-base"
+                className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_0_rgba(73,54,9,0.75),0_12px_22px_rgba(0,0,0,0.24)] transition hover:scale-[1.01] hover:from-[#D3AB35] hover:to-[#9A7618] sm:w-auto md:text-base"
               >
                 {activeBanner.ctaLabel}
               </Link>
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-6 z-10 flex items-center gap-2 md:bottom-6 md:left-12 lg:left-16">
+          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 sm:left-6 md:bottom-6 md:left-12 lg:left-16">
             {banners.map((banner, index) => {
               const isActive = index === activeIndex;
 

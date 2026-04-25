@@ -15,18 +15,18 @@ export function SiteFooter() {
         </div>
 
         <div className="text-center md:text-left">
-          <h2 className="mb-4 text-[1.6rem] font-black tracking-tight text-white sm:text-[2rem]">
+          <h2 className="xv-fluid-text mb-4 text-[1.4rem] font-black tracking-tight text-white sm:text-[2rem]">
             Clube Quinze Veranistas
           </h2>
           <div className="grid gap-2 text-[0.95rem] leading-7 text-white/80 sm:text-[1.02rem]">
-            <p>R. Gumercindo Couto e Silva, 195 - Itapoã, Belo Horizonte - MG, 31710-050</p>
+            <p className="xv-fluid-text">R. Gumercindo Couto e Silva, 195 - Itapoã, Belo Horizonte - MG, 31710-050</p>
             <p>3441-2424</p>
-            <p>clubequinzeveranistas@yahoo.com.br</p>
+            <p className="xv-fluid-text">clubequinzeveranistas@yahoo.com.br</p>
           </div>
         </div>
 
         <div className="flex items-center justify-center md:justify-end">
-          <p className="text-center text-[1.8rem] font-black leading-tight text-[#F2CF73] sm:text-2xl md:text-right md:text-[2.1rem]">
+          <p className="xv-fluid-text max-w-[14ch] text-center text-[1.45rem] font-black leading-tight text-[#F2CF73] sm:text-2xl md:max-w-none md:text-right md:text-[2.1rem]">
             Tudo nos une, nada nos separa!
           </p>
         </div>

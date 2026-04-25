@@ -43,7 +43,7 @@ export default async function PeladasPage() {
           <div className="inline-flex rounded-full border border-[#B89020]/35 bg-[#B89020]/16 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#F3D27A]">
             Peladas do Clube
           </div>
-          <h1 className="mt-4 text-[2rem] font-black tracking-tight sm:text-[2.5rem]">
+          <h1 className="xv-fluid-text mt-4 text-[1.8rem] font-black tracking-tight sm:text-[2.5rem]">
             Confirmação rápida para o dia de jogo
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-white/85 sm:text-[1rem]">
@@ -85,7 +85,7 @@ export default async function PeladasPage() {
                 leve no celular e rápida no dia a dia.
               </p>
             </div>
-            <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
+            <div className="w-full rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-left sm:w-auto sm:text-right">
               <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
                 Semana
               </div>
@@ -120,7 +120,7 @@ export default async function PeladasPage() {
                       <span className="inline-flex rounded-full border border-[#F1D68A] bg-[#FCF7E6] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#8B6914]">
                         {getPeladaStatusLabel(pelada.status)}
                       </span>
-                      <h3 className="mt-3 text-[1.4rem] font-black tracking-tight text-[#101010]">
+                      <h3 className="xv-fluid-text mt-3 text-[1.3rem] font-black tracking-tight text-[#101010]">
                         Pelada de {formatDate(pelada.scheduledAt)}
                       </h3>
                     </div>

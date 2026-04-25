@@ -86,7 +86,7 @@ export default async function ChampionshipPublicPage({
 
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <h1 className="text-[2rem] font-black leading-none tracking-tight sm:text-[2.6rem]">
+              <h1 className="xv-fluid-text text-[1.8rem] font-black leading-tight tracking-tight sm:text-[2.6rem]">
                 {championship.name}
               </h1>
               <p className="mt-3 max-w-3xl text-[0.98rem] leading-7 text-white/[0.82] sm:text-[1.05rem]">
@@ -114,7 +114,7 @@ export default async function ChampionshipPublicPage({
               {showRegistrationAction ? (
                 <Link
                   href={registrationPath}
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_0_rgba(73,54,9,0.7)] transition hover:from-[#D3AB35] hover:to-[#9A7618]"
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_0_rgba(73,54,9,0.7)] transition hover:from-[#D3AB35] hover:to-[#9A7618] sm:w-auto"
                 >
                   {championship.slug === "tio-hugo-2026"
                     ? "Fazer inscrição"
@@ -123,7 +123,7 @@ export default async function ChampionshipPublicPage({
               ) : null}
               <Link
                 href={CALENDARIO_XV_PATH}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/16"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/16 sm:w-auto"
               >
                 Ver calendário
               </Link>
@@ -145,7 +145,7 @@ export default async function ChampionshipPublicPage({
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <article id="classificacao" className="xv-card overflow-hidden scroll-mt-28">
-            <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
                   Tabela real
@@ -157,7 +157,7 @@ export default async function ChampionshipPublicPage({
                   Pontuação viva da fase classificatória, calculada a partir dos jogos finalizados.
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
+              <div className="w-full rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-left sm:w-auto sm:text-right">
                 <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
                   Times na tabela
                 </div>
@@ -372,36 +372,36 @@ export default async function ChampionshipPublicPage({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
                         {currentViewIndex > 1 ? (
                           <Link
                             href={buildMatchViewHref(championship.slug, currentViewIndex - 1)}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
+                            className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1] sm:min-w-11 sm:flex-none"
                           >
                             <span className="md:hidden text-sm">Anterior</span>
                             <span className="hidden md:inline">{"<"}</span>
                           </Link>
                         ) : (
-                          <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
+                          <span className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF] sm:min-w-11 sm:flex-none">
                             <span className="md:hidden text-sm">Anterior</span>
                             <span className="hidden md:inline">{"<"}</span>
                           </span>
                         )}
 
-                        <div className="rounded-full bg-[#171717] px-4 py-2.5 text-sm font-bold text-white">
+                        <div className="inline-flex min-h-11 min-w-[88px] items-center justify-center rounded-full bg-[#171717] px-4 py-2.5 text-sm font-bold text-white">
                           {currentViewIndex} / {matchViews.length}
                         </div>
 
                         {currentViewIndex < matchViews.length ? (
                           <Link
                             href={buildMatchViewHref(championship.slug, currentViewIndex + 1)}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1]"
+                            className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1] sm:min-w-11 sm:flex-none"
                           >
                             <span className="md:hidden text-sm">Próxima</span>
                             <span className="hidden md:inline">{">"}</span>
                           </Link>
                         ) : (
-                          <span className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF]">
+                          <span className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF] sm:min-w-11 sm:flex-none">
                             <span className="md:hidden text-sm">Próxima</span>
                             <span className="hidden md:inline">{">"}</span>
                           </span>
@@ -457,7 +457,7 @@ export default async function ChampionshipPublicPage({
                         secondaryColor={match.homeTeam.secondaryColor}
                       />
 
-                      <div className="min-w-[106px] rounded-2xl bg-[#171717] px-4 py-3 text-center text-white">
+                      <div className="rounded-2xl bg-[#171717] px-4 py-3 text-center text-white sm:min-w-[106px]">
                         {match.status === "AGENDADO" ? (
                           <div className="text-lg font-black tracking-[0.18em] text-[#F3D27A]">
                             VS

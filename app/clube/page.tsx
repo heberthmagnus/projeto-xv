@@ -74,7 +74,7 @@ export default function ClubePage() {
 
             <div className="relative z-10 flex min-h-[360px] flex-col justify-end px-5 py-6 sm:min-h-[420px] sm:px-7 sm:py-8">
               <div className="max-w-2xl">
-                <h1 className="text-[2.1rem] font-black tracking-tight text-white sm:text-[2.9rem]">
+                <h1 className="xv-fluid-text text-[2rem] font-black tracking-tight text-white sm:text-[2.9rem]">
                   Clube Quinze Veranistas
                 </h1>
                 <p className="mt-2 text-lg font-semibold text-[#F3D27A] sm:text-xl">
@@ -103,12 +103,12 @@ export default function ClubePage() {
           aria-label="Navegação da página do clube"
           className="xv-card scroll-mt-24 px-4 py-4 sm:px-5"
         >
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap">
             {sectionLinks.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#D8C7A1] bg-[#FCF7E6] px-4 py-2 text-sm font-bold text-[#8B6914] transition hover:border-[#B89020] hover:bg-[#FFF5D9]"
+                className="inline-flex min-h-10 w-full items-center justify-center rounded-full border border-[#D8C7A1] bg-[#FCF7E6] px-4 py-2 text-sm font-bold text-[#8B6914] transition hover:border-[#B89020] hover:bg-[#FFF5D9] sm:w-auto"
               >
                 {item.label}
               </a>

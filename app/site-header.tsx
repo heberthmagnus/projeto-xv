@@ -34,7 +34,7 @@ export function SiteHeader() {
             />
 
             <div className="flex min-w-0 flex-col items-start justify-center">
-              <h1 className="text-[1.45rem] font-bold leading-tight tracking-tight sm:text-[1.7rem] md:text-[1.9rem]">
+              <h1 className="xv-fluid-text text-[1.2rem] font-bold leading-tight tracking-tight sm:text-[1.7rem] md:text-[1.9rem]">
                 Clube Quinze Veranistas
               </h1>
               <p className="mt-1 pl-[0.1rem] text-left text-[0.58rem] font-bold uppercase leading-tight tracking-[0.12em] text-[#8B6914] sm:text-[0.68rem] md:text-[0.76rem]">
@@ -77,7 +77,7 @@ export function SiteHeader() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex min-h-9 shrink-0 items-center rounded-full px-3 py-1.5 whitespace-nowrap text-[0.94rem] font-semibold transition sm:text-[0.98rem] ${
+                className={`inline-flex min-h-10 shrink-0 items-center rounded-full px-3 py-2 whitespace-nowrap text-[0.94rem] font-semibold transition sm:text-[0.98rem] ${
                   isActive
                     ? "bg-[#2A2A2A] text-[#F2C76B] shadow-[inset_0_0_0_1px_rgba(242,199,107,0.16)]"
                     : "text-white hover:bg-white/6 hover:text-[#B8960C]"

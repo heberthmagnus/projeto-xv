@@ -40,19 +40,19 @@ canvas {
 
 .xv-page-shell {
   background: #F0F0F0;
-  padding: 16px 12px 40px;
+  padding: 24px 16px 40px;
 }
 
 .xv-page-shell-soft {
   background: linear-gradient(180deg, #f7f2e9 0%, #f4eee5 100%);
-  padding: 24px 12px 40px;
+  padding: 24px 16px 40px;
 }
 
 .xv-page-container {
   max-width: 1440px;
   margin: 0 auto;
   display: grid;
-  gap: 18px;
+  gap: 24px;
 }
 
 .xv-page-container-medium {
@@ -69,6 +69,7 @@ canvas {
   border: 1px solid #E5E7EB;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   padding: clamp(16px, 2.4vw, 24px);
+  min-width: 0;
 }
 
 .xv-subcard {
@@ -167,6 +168,11 @@ canvas {
 
 .xv-mobile-card-grid {
   display: none;
+}
+
+.xv-fluid-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .xv-feedback-stack {

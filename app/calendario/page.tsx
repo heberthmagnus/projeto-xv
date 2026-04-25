@@ -727,6 +727,7 @@ const timelineNavGroupStyle: React.CSSProperties = {
   alignItems: "center",
   gap: 10,
   flexWrap: "wrap",
+  width: "100%",
 };
 
 const timelineArrowButtonStyle: React.CSSProperties = {
@@ -748,6 +749,7 @@ const timelineLabelStyle: React.CSSProperties = {
   minHeight: 42,
   display: "inline-flex",
   alignItems: "center",
+  justifyContent: "center",
   borderRadius: 999,
   background: "#FFFFFF",
   border: "1px solid #E5E7EB",
@@ -756,7 +758,9 @@ const timelineLabelStyle: React.CSSProperties = {
   fontSize: "clamp(20px, 3vw, 28px)",
   fontWeight: 900,
   lineHeight: 1,
-  letterSpacing: "-0.03em",
+  maxWidth: "100%",
+  textAlign: "center",
+  flex: "1 1 220px",
 };
 
 const todayButtonStyle: React.CSSProperties = {
@@ -869,7 +873,7 @@ const infoNoticeTextStyle: React.CSSProperties = {
 const calendarFrameStyle: React.CSSProperties = {
   display: "grid",
   gap: 10,
-  minWidth: 700,
+  minWidth: 640,
 };
 
 const weekdayHeaderRowStyle: React.CSSProperties = {
