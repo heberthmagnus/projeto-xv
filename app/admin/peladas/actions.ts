@@ -7,7 +7,10 @@ import {
   syncAthleteProfileFromPeladaArrival,
   syncAthleteProfileFromPeladaConfirmation,
 } from "@/lib/athlete-profiles";
-import { syncGuestConfirmations } from "@/lib/pelada-confirmations";
+import {
+  generateCancelToken,
+  syncGuestConfirmations,
+} from "@/lib/pelada-confirmations";
 import { getNextRoundPlayers } from "@/lib/pelada-rounds";
 import {
   buildPeladaTeams,
@@ -565,6 +568,7 @@ export async function createAdminPeladaConfirmation(formData: FormData) {
       preferredPosition: data.preferredPosition,
       age: data.age,
       level: data.level,
+      cancelToken: generateCancelToken(),
       guestCount: data.guestCount,
       goalkeeperSide: data.goalkeeperSide,
       createdByAdmin: true,

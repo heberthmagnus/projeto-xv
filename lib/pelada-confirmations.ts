@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { randomUUID } from "node:crypto";
 
 type SyncGuestConfirmationsInput = {
   confirmationId: string;
@@ -17,6 +18,10 @@ type SyncGuestConfirmationsInput = {
 
 export function buildGuestPlaceholderName(hostFullName: string, guestOrder: number) {
   return `Convidado ${guestOrder} de ${hostFullName}`;
+}
+
+export function generateCancelToken() {
+  return randomUUID();
 }
 
 export async function syncGuestConfirmations({
@@ -67,6 +72,7 @@ export async function syncGuestConfirmations({
         return {
           peladaId,
           parentConfirmationId: confirmationId,
+          cancelToken: generateCancelToken(),
           fullName: buildGuestPlaceholderName(hostFullName, guestOrder),
           preferredPosition,
           age: null,

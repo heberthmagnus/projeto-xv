@@ -1,15 +1,26 @@
 import Link from "next/link";
+import { CopyCancelLinkButton } from "./copy-cancel-link-button";
 
 type Params = Promise<{
   id: string;
 }>;
 
+type SearchParams = Promise<{
+  token?: string;
+}>;
+
 export default async function PeladaConfirmationSuccessPage({
   params,
+  searchParams,
 }: {
   params: Params;
+  searchParams: SearchParams;
 }) {
   const { id } = await params;
+  const { token } = await searchParams;
+  const cancelPath = token
+    ? `/peladas/${id}/cancelar?token=${encodeURIComponent(token)}`
+    : null;
 
   return (
     <main style={pageStyle}>
@@ -17,9 +28,17 @@ export default async function PeladaConfirmationSuccessPage({
         <div style={iconStyle}>✓</div>
         <h1 style={titleStyle}>Confirmação enviada</h1>
         <p style={descriptionStyle}>
-          Sua resposta foi registrada com sucesso. Se precisar corrigir alguma
-          informação, fale com a organização da pelada.
+          Confirmação realizada. Para cancelar, use este link.
         </p>
+
+        {cancelPath ? (
+          <div style={cancelBoxStyle}>
+            <Link href={cancelPath} style={cancelLinkStyle}>
+              {cancelPath}
+            </Link>
+            <CopyCancelLinkButton cancelPath={cancelPath} />
+          </div>
+        ) : null}
 
         <div style={actionsStyle}>
           <Link href={`/peladas/${id}`} style={primaryLinkStyle}>
@@ -87,6 +106,27 @@ const actionsStyle: React.CSSProperties = {
   gap: 12,
   flexWrap: "wrap",
   marginTop: 24,
+};
+
+const cancelBoxStyle: React.CSSProperties = {
+  marginTop: 24,
+  display: "grid",
+  gap: 12,
+  justifyItems: "center",
+};
+
+const cancelLinkStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 420,
+  padding: "12px 14px",
+  borderRadius: 10,
+  border: "1px solid #E5E7EB",
+  background: "#F9FAFB",
+  color: "#3450A1",
+  fontSize: 14,
+  lineHeight: 1.5,
+  textDecoration: "none",
+  wordBreak: "break-all",
 };
 
 const baseLinkStyle: React.CSSProperties = {

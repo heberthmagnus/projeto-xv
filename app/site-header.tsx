@@ -7,6 +7,7 @@ import { CALENDARIO_XV_PATH, getChampionshipBasePath } from "@/lib/routes";
 
 const menuItems = [
   { href: "/", label: "Início" },
+  { href: "/clube", label: "O Clube" },
   {
     href: getChampionshipBasePath("tio-hugo-2026"),
     label: "Copa Tio Hugo 2026",
@@ -62,6 +63,8 @@ export function SiteHeader() {
             const isActive =
               item.href === "/"
                 ? pathname === "/"
+                : item.href === "/clube"
+                  ? pathname.startsWith("/clube")
                 : item.href.startsWith("/campeonatos")
                   ? pathname.startsWith("/campeonatos/tio-hugo-2026")
                   : item.href.startsWith("/peladas")

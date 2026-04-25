@@ -24,9 +24,13 @@ export default async function PeladasPage() {
     },
     orderBy: [{ scheduledAt: "asc" }],
     include: {
-      _count: {
+      confirmations: {
+        where: {
+          parentConfirmationId: null,
+          canceledAt: null,
+        },
         select: {
-          confirmations: true,
+          id: true,
         },
       },
     },
@@ -56,7 +60,7 @@ export default async function PeladasPage() {
             <HeroInfo
               label="Confirmados previstos"
               value={String(
-                peladas.reduce((sum, pelada) => sum + pelada._count.confirmations, 0),
+                peladas.reduce((sum, pelada) => sum + pelada.confirmations.length, 0),
               )}
             />
           </div>
@@ -143,7 +147,7 @@ export default async function PeladasPage() {
                     />
                     <FactCard
                       label="Confirmados previstos"
-                      value={String(pelada._count.confirmations)}
+                      value={String(pelada.confirmations.length)}
                       tone="blue"
                     />
                   </div>

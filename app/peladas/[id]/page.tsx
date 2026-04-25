@@ -30,6 +30,7 @@ export default async function PeladaPublicPage({
         where: {
           parentConfirmationId: null,
           createdByAdmin: false,
+          canceledAt: null,
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: {
@@ -53,7 +54,6 @@ export default async function PeladaPublicPage({
       },
       _count: {
         select: {
-          confirmations: true,
           arrivals: true,
         },
       },
@@ -103,7 +103,7 @@ export default async function PeladaPublicPage({
           </div>
 
           <div style={highlightStyle}>
-            Confirmados previstos: <strong>{pelada._count.confirmations}</strong>
+            Confirmados previstos: <strong>{pelada.confirmations.length}</strong>
             {" • "}
             Chegadas marcadas: <strong>{pelada._count.arrivals}</strong>
           </div>
@@ -172,9 +172,8 @@ export default async function PeladaPublicPage({
           )}
 
           <div style={publicInfoNoteStyle}>
-            O cancelamento público ficou desativado por enquanto. Sem login ou outro
-            identificador confiável, qualquer botão de desmarcar nesta lista abriria
-            espaço para alguém remover a confirmação de outra pessoa.
+            Cada confirmação gera um link individual e seguro para cancelamento,
+            sem expor seu nome a outras pessoas na lista.
           </div>
         </section>
 

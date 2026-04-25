@@ -1,8 +1,12 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { syncAthleteProfileFromPeladaConfirmation } from "@/lib/athlete-profiles";
-import { syncGuestConfirmations } from "@/lib/pelada-confirmations";
+import {
+  generateCancelToken,
+  syncGuestConfirmations,
+} from "@/lib/pelada-confirmations";
 import { prisma } from "@/lib/prisma";
 import { PeladaConfirmationFormState } from "./form-state";
 
@@ -68,6 +72,8 @@ export async function createPeladaConfirmation(
     level: null,
   });
 
+  const cancelToken = generateCancelToken();
+
   const confirmation = await prisma.peladaConfirmation.create({
     data: {
       pelada: {
@@ -88,6 +94,7 @@ export async function createPeladaConfirmation(
         | "VOLANTE"
         | "MEIA"
         | "ATACANTE",
+      cancelToken,
       age,
       guestCount,
       createdByAdmin: false,
@@ -109,5 +116,8 @@ export async function createPeladaConfirmation(
     createdByAdmin: false,
   });
 
-  redirect(`/peladas/${peladaId}/sucesso`);
+  revalidatePath(`/peladas/${peladaId}`);
+  revalidatePath("/peladas");
+
+  redirect(`/peladas/${peladaId}/sucesso?token=${encodeURIComponent(cancelToken)}`);
 }

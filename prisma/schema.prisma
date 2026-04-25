@@ -17,9 +17,9 @@ model User {
 }
 
 model AthleteProfile {
-  id                  String              @id @default(uuid())
+  id                  String               @id @default(uuid())
   fullName            String
-  normalizedFullName  String              @unique
+  normalizedFullName  String               @unique
   nickname            String?
   preferredPosition   PreferredPosition?
   birthDate           DateTime?
@@ -27,11 +27,11 @@ model AthleteProfile {
   defaultLevel        PlayerLevel?
   phone               String?
   email               String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  registrations       Registration[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   peladaArrivals      PeladaArrival[]
   peladaConfirmations PeladaConfirmation[]
+  registrations       Registration[]
 }
 
 model Championship {
@@ -179,7 +179,6 @@ model MatchEvent {
 model Registration {
   id                 String              @id @default(uuid())
   championshipId     String
-  athleteProfileId   String?
   fullName           String
   nickname           String?
   preferredPosition  PreferredPosition
@@ -191,8 +190,9 @@ model Registration {
   createdAt          DateTime            @default(now())
   paidAt             DateTime?
   paymentStatus      PaymentStatus       @default(PENDENTE)
-  athleteProfile     AthleteProfile?     @relation(fields: [athleteProfileId], references: [id], onDelete: SetNull)
+  athleteProfileId   String?
   championshipPlayer ChampionshipPlayer?
+  athleteProfile     AthleteProfile?     @relation(fields: [athleteProfileId], references: [id])
   championship       Championship        @relation(fields: [championshipId], references: [id])
 
   @@index([championshipId])
@@ -200,22 +200,22 @@ model Registration {
 }
 
 model Pelada {
-  id                  String                 @id @default(uuid())
-  scheduledAt         DateTime
-  type                PeladaType
-  firstGameRule       FirstGameRule
-  arrivalCutoffTime   String?
-  maxFirstGamePlayers Int?
+  id                   String                 @id @default(uuid())
+  scheduledAt          DateTime
+  type                 PeladaType
+  firstGameRule        FirstGameRule
+  arrivalCutoffTime    String?
+  maxFirstGamePlayers  Int?
+  linePlayersCount     Int
+  status               PeladaStatus           @default(ABERTA)
+  notes                String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
   roundDurationMinutes Int                    @default(20)
-  linePlayersCount    Int
-  status              PeladaStatus           @default(ABERTA)
-  notes               String?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
-  arrivals            PeladaArrival[]
-  confirmations       PeladaConfirmation[]
-  rounds              PeladaRound[]
-  teamAssignments     PeladaTeamAssignment[]
+  arrivals             PeladaArrival[]
+  confirmations        PeladaConfirmation[]
+  rounds               PeladaRound[]
+  teamAssignments      PeladaTeamAssignment[]
 
   @@index([scheduledAt])
   @@index([status])
@@ -224,7 +224,6 @@ model Pelada {
 model PeladaConfirmation {
   id                   String               @id @default(uuid())
   peladaId             String
-  athleteProfileId     String?
   fullName             String
   preferredPosition    PreferredPosition
   age                  Int?
@@ -232,12 +231,15 @@ model PeladaConfirmation {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   createdByAdmin       Boolean              @default(false)
+  cancelToken          String?              @unique
+  canceledAt           DateTime?
   goalkeeperSide       GoalkeeperSide?
   guestOrder           Int?
   level                PlayerLevel?
   parentConfirmationId String?
+  athleteProfileId     String?
   arrivals             PeladaArrival[]
-  athleteProfile       AthleteProfile?      @relation(fields: [athleteProfileId], references: [id], onDelete: SetNull)
+  athleteProfile       AthleteProfile?      @relation(fields: [athleteProfileId], references: [id])
   parentConfirmation   PeladaConfirmation?  @relation("PeladaConfirmationGuests", fields: [parentConfirmationId], references: [id], onDelete: Cascade)
   guests               PeladaConfirmation[] @relation("PeladaConfirmationGuests")
   pelada               Pelada               @relation(fields: [peladaId], references: [id], onDelete: Cascade)
@@ -252,7 +254,6 @@ model PeladaArrival {
   id                    String                @id @default(uuid())
   peladaId              String
   confirmationId        String?
-  athleteProfileId      String?
   fullName              String
   preferredPosition     PreferredPosition
   age                   Int?
@@ -264,10 +265,11 @@ model PeladaArrival {
   updatedAt             DateTime              @updatedAt
   arrivedAt             DateTime              @default(now())
   availableForNextRound Boolean               @default(false)
-  outForDay             Boolean               @default(false)
   guestInvitedBy        String?
   isGuest               Boolean               @default(false)
-  athleteProfile        AthleteProfile?       @relation(fields: [athleteProfileId], references: [id], onDelete: SetNull)
+  outForDay             Boolean               @default(false)
+  athleteProfileId      String?
+  athleteProfile        AthleteProfile?       @relation(fields: [athleteProfileId], references: [id])
   confirmation          PeladaConfirmation?   @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
   pelada                Pelada                @relation(fields: [peladaId], references: [id], onDelete: Cascade)
   roundPlayers          PeladaRoundPlayer[]
@@ -300,13 +302,13 @@ model PeladaRound {
   id          String              @id @default(uuid())
   peladaId    String
   roundNumber Int
-  startedAt   DateTime?
   status      PeladaRoundStatus   @default(ATIVA)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   blackScore  Int                 @default(0)
   notes       String?
   yellowScore Int                 @default(0)
+  startedAt   DateTime?
   pelada      Pelada              @relation(fields: [peladaId], references: [id], onDelete: Cascade)
   goals       PeladaRoundGoal[]
   players     PeladaRoundPlayer[]

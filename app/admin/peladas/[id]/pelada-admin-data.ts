@@ -118,6 +118,7 @@ export async function loadPeladaAdminData(id: string) {
     where: {
       peladaId: id,
       parentConfirmationId: null,
+      canceledAt: null,
       guestCount: {
         gt: 0,
       },
@@ -155,6 +156,7 @@ export async function loadPeladaAdminData(id: string) {
       confirmations: {
         where: {
           parentConfirmationId: null,
+          canceledAt: null,
         },
         orderBy: { createdAt: "desc" },
         include: {
@@ -169,6 +171,9 @@ export async function loadPeladaAdminData(id: string) {
             select: { id: true },
           },
           guests: {
+            where: {
+              canceledAt: null,
+            },
             orderBy: { guestOrder: "asc" },
             include: {
               athleteProfile: {
