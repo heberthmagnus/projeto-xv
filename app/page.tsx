@@ -1,5 +1,6 @@
 import { BannerRotativo } from "./BannerRotativo";
 import Link from "next/link";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { prisma } from "@/lib/prisma";
 import { getChampionshipBasePath } from "@/lib/routes";
 
@@ -55,8 +56,8 @@ export default async function HomePage() {
     <main id="inicio" className="bg-[#F5F0E8] text-[#1A1A1A]">
       <BannerRotativo nextPeladaType={nextPelada?.type ?? null} />
 
-      <section className="px-4 pb-10 pt-4 md:px-6 md:pb-20">
-        <div className="mx-auto grid max-w-screen-lg gap-4 md:grid-cols-2 md:gap-6">
+      <section className="py-8 md:py-10">
+        <PageContainer className="grid gap-4 md:grid-cols-2 md:gap-6">
           {cards.map((card) => (
             <article
               key={card.id}
@@ -87,7 +88,7 @@ export default async function HomePage() {
               </Link>
             </article>
           ))}
-        </div>
+        </PageContainer>
       </section>
     </main>
   );

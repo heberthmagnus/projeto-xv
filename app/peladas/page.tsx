@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { PageContainer } from "@/components/ui/PageContainer";
 import {
   getFirstGameRuleLabel,
   getPeladaStatusLabel,
@@ -38,7 +39,7 @@ export default async function PeladasPage() {
 
   return (
     <main className="xv-page-shell-soft">
-      <div className="xv-page-container xv-page-container-medium">
+      <PageContainer className="grid gap-4 md:gap-6">
         <section className="overflow-hidden rounded-[20px] bg-[#1A1A1A] px-5 py-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:px-7 sm:py-8">
           <div className="inline-flex rounded-full border border-[#B89020]/35 bg-[#B89020]/16 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#F3D27A]">
             Peladas do Clube
@@ -171,7 +172,7 @@ export default async function PeladasPage() {
             </div>
           )}
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

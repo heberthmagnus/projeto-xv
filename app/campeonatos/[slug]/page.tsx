@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import type { ChampionshipFormat, ChampionshipRegistrationMode, ChampionshipStatus, MatchStatus, StandingMovement } from "@prisma/client";
+import { PageContainer } from "@/components/ui/PageContainer";
 import { getChampionshipPublicPageDataBySlug } from "@/lib/championships";
 import {
   CALENDARIO_XV_PATH,
@@ -78,7 +79,7 @@ export default async function ChampionshipPublicPage({
 
   return (
     <main className="xv-page-shell-soft">
-      <div className="xv-page-container xv-page-container-medium">
+      <PageContainer className="grid gap-4 md:gap-6">
         <section className="overflow-hidden rounded-[20px] bg-[#171717] px-5 py-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8">
           <div className="mb-4 inline-flex rounded-full border border-[#B89020]/40 bg-[#B89020]/15 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.18em] text-[#F3D27A]">
             Campeonato do Clube Quinze Veranistas
@@ -503,7 +504,7 @@ export default async function ChampionshipPublicPage({
             )}
           </article>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

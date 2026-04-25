@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { PageContainer } from "@/components/ui/PageContainer";
 import {
   CALENDAR_WEEKDAY_LABELS,
   COPA_TIO_HUGO_2026_EVENTS,
@@ -154,7 +155,7 @@ export default async function CalendarioPage({
 
   return (
     <main className="xv-page-shell-soft">
-      <div className="xv-page-container xv-page-container-medium">
+      <PageContainer className="grid gap-4 md:gap-6">
         <section className="xv-calendar-hero" style={heroStyle}>
           <div style={badgeStyle}>Calendário do XV</div>
           <h1 style={titleStyle}>Agenda visual do clube</h1>
@@ -300,7 +301,7 @@ export default async function CalendarioPage({
             />
           )}
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }

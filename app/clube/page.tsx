@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import { PageContainer } from "@/components/ui/PageContainer";
 
 const sectionLinks = [
   { href: "#historia", label: "História" },
@@ -22,6 +22,23 @@ const warCryLines = [
   "",
   "Opá, companheiro",
   "Opá! Opá! Opá!",
+];
+
+const historyImages = [
+  {
+    src: "/historia-praca-sao-pelagio-xv.webp",
+    alt: "Registro histórico ligado à fundação e aos primeiros encontros do Clube Quinze Veranistas",
+    title: "Origens do Clube XV",
+    description:
+      "Imagem histórica conectada ao início da trajetória do clube e ao espírito de convivência que marcou sua fundação.",
+  },
+  {
+    src: "/inauguracao-campo-camarao-xv.webp",
+    alt: "Imagem histórica da inauguração do campo do Clube Quinze Veranistas",
+    title: "Estreia do Campão — 1982",
+    description:
+      "Em 7 de março de 1982, o Clube Quinze Veranistas viveu um marco importante com a inauguração do novo campo gramado, carinhosamente conhecido como “Canarão”. A imagem registra esse momento histórico de alegria e continuidade da vida esportiva do clube.",
+  },
 ];
 
 const structureItems = [
@@ -59,7 +76,7 @@ const structureImage = {
 export default function ClubePage() {
   return (
     <main className="xv-page-shell-soft">
-      <div className="xv-page-container xv-page-container-medium gap-5">
+      <PageContainer className="grid gap-5">
         <section className="overflow-hidden rounded-[22px] border border-[#8B6914]/18 bg-[#171717] text-white shadow-[0_18px_40px_rgba(0,0,0,0.16)]">
           <div className="relative min-h-[360px] sm:min-h-[420px]">
             <Image
@@ -85,15 +102,6 @@ export default function ClubePage() {
                   convidados se encontram para viver o futebol, a convivência e os
                   eventos do clube.
                 </p>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link href="/peladas" className="xv-primary-action">
-                    Acompanhar peladas
-                  </Link>
-                  <Link href="/calendario" className="xv-secondary-action bg-white/95">
-                    Ver calendário
-                  </Link>
-                </div>
               </div>
             </div>
           </div>
@@ -117,52 +125,100 @@ export default function ClubePage() {
         </nav>
 
         <section id="historia" className="xv-card scroll-mt-24">
-          <div className="max-w-4xl">
-            <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-              História do Clube
-            </span>
-            <h2 className="mt-3 text-[1.7rem] font-black tracking-tight text-[#101010]">
-              Uma história de convivência, continuidade e união
-            </h2>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(420px,520px)] lg:items-start lg:gap-10">
+            <div className="flex min-w-0 flex-col">
+              <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
+                História do Clube
+              </span>
+              <h2 className="mt-3 text-[1.7rem] font-black tracking-tight text-[#101010]">
+                Uma história de convivência, continuidade e união
+              </h2>
 
-            <div className="mt-5 grid gap-4 text-sm leading-7 text-[#4B5563] sm:text-base">
-              {historyParagraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
+              <div className="mt-5 grid gap-4 text-sm leading-7 text-[#4B5563] sm:text-base lg:gap-5">
+                {historyParagraphs.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+
+              <div className="mt-6 rounded-[18px] border border-[#B89020]/30 bg-[#171717] px-5 py-5 text-white shadow-[0_14px_30px_rgba(16,16,16,0.12)]">
+                <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#F3D27A]">
+                  Nosso lema
+                </div>
+                <p className="mt-3 text-lg font-black leading-8">
+                  Recreio e esporte a bem da cultura e da verdade.
+                </p>
+              </div>
             </div>
 
-            <div className="mt-6 rounded-[18px] border border-[#E5E7EB] bg-[#171717] px-5 py-5 text-white">
-              <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#F3D27A]">
-                Nosso lema
-              </div>
-              <p className="mt-3 text-lg font-black leading-8">
-                Recreio e esporte a bem da cultura e da verdade.
-              </p>
+            <div className="grid w-full min-w-0 gap-4">
+              <figure className="w-full max-w-none overflow-hidden rounded-[20px] border border-[#E5E7EB] bg-[#F8F5EC] shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                <div className="relative aspect-[4/3] lg:aspect-[16/10]">
+                  <Image
+                    src={historyImages[0].src}
+                    alt={historyImages[0].alt}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 520px"
+                    className="object-cover"
+                  />
+                </div>
+                <figcaption className="px-4 py-4">
+                  <div className="text-sm font-black text-[#101010]">
+                    {historyImages[0].title}
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+                    {historyImages[0].description}
+                  </p>
+                </figcaption>
+              </figure>
             </div>
           </div>
+
+          <article className="mt-6 grid overflow-hidden rounded-[20px] border border-[#E5E7EB] bg-[#F8F5EC] shadow-[0_10px_24px_rgba(15,23,42,0.05)] lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1fr)] lg:items-stretch">
+            <div className="flex min-w-0 flex-col justify-center px-5 py-5 sm:px-6 lg:py-7">
+              <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
+                Marco esportivo
+              </div>
+              <h3 className="mt-2 text-xl font-black tracking-tight text-[#101010]">
+                {historyImages[1].title}
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-[#4B5563] sm:text-base">
+                {historyImages[1].description}
+              </p>
+            </div>
+
+            <div className="relative aspect-[4/3] min-w-0 lg:aspect-auto lg:min-h-[280px]">
+              <Image
+                src={historyImages[1].src}
+                alt={historyImages[1].alt}
+                fill
+                sizes="(max-width: 1024px) 100vw, 520px"
+                className="object-cover"
+              />
+            </div>
+          </article>
         </section>
 
-        <section className="xv-card">
-          <div className="max-w-3xl">
-            <span className="inline-flex rounded-full bg-[#E9EEF9] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
+        <section className="overflow-hidden rounded-[18px] border border-[#B89020]/25 bg-[#171717] px-5 py-6 text-white shadow-[0_10px_30px_rgba(16,16,16,0.10)] sm:px-7 sm:py-7">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="inline-flex rounded-full border border-[#F3D27A]/30 bg-[#F3D27A]/10 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#F3D27A]">
               Nosso Grito de Guerra
             </span>
-            <h2 className="mt-3 text-[1.7rem] font-black tracking-tight text-[#101010]">
+            <h2 className="mt-3 text-[1.7rem] font-black tracking-tight text-white">
               Nosso Grito de Guerra
             </h2>
 
-            <div className="mt-5 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-5 py-5">
-              <div className="space-y-1 text-lg font-black leading-8 text-[#101010]">
+            <div className="mx-auto mt-5 w-full max-w-xl rounded-[16px] border border-[#F3D27A]/18 bg-[#201D16] px-5 py-5 sm:px-7">
+              <div className="space-y-1 text-balance text-lg font-black leading-8 text-white sm:text-xl sm:leading-9">
                 {warCryLines.map((line, index) =>
                   line ? (
                     <p key={`${line}-${index}`}>{line}</p>
                   ) : (
-                    <div key={`space-${index}`} className="h-3" aria-hidden="true" />
+                    <div key={`space-${index}`} className="h-4" aria-hidden="true" />
                   ),
                 )}
               </div>
 
-              <p className="mt-5 text-sm font-semibold text-[#6B7280]">
+              <p className="mt-6 border-t border-[#F3D27A]/20 pt-4 text-sm font-semibold text-[#F3D27A]">
                 Autoria: Sebastião Teixeira Neves
               </p>
             </div>
@@ -191,7 +247,7 @@ export default function ClubePage() {
             </div>
           </div>
 
-          <div className="mt-5 max-w-4xl">
+          <div className="mt-5 max-w-none">
             <h3 className="text-lg font-black text-[#101010]">Vista geral do Clube XV</h3>
             <p className="mt-3 text-sm leading-7 text-[#4B5563] sm:text-base">
               Localizado na região da Pampulha, o clube conta com campo principal,
@@ -215,7 +271,7 @@ export default function ClubePage() {
             ))}
           </div>
         </section>
-      </div>
+      </PageContainer>
     </main>
   );
 }
