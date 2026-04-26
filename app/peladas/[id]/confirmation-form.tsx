@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { dispatchGlobalFeedback } from "@/app/global-feedback-events";
 import { createPeladaConfirmation } from "./actions";
 import { initialPeladaConfirmationFormState } from "./form-state";
@@ -16,6 +16,7 @@ export function PeladaConfirmationForm({
     createPeladaConfirmation.bind(null, { peladaId }),
     initialPeladaConfirmationFormState,
   );
+  const [guestCount, setGuestCount] = useState(0);
 
   useEffect(() => {
     if (!state.error) {
@@ -61,7 +62,12 @@ export function PeladaConfirmationForm({
       </div>
 
       <FormField label="Convidados">
-        <select name="guestCount" defaultValue="0" style={inputStyle}>
+        <select
+          name="guestCount"
+          value={String(guestCount)}
+          onChange={(event) => setGuestCount(Number.parseInt(event.target.value, 10))}
+          style={inputStyle}
+        >
           <option value="0">Nenhum</option>
           <option value="1">1 convidado</option>
           <option value="2">2 convidados</option>
@@ -70,6 +76,61 @@ export function PeladaConfirmationForm({
           <option value="5">5 convidados</option>
         </select>
       </FormField>
+
+      {guestCount > 0 ? (
+        <div style={guestFieldsStackStyle}>
+          {Array.from({ length: guestCount }, (_, index) => {
+            const guestNumber = index + 1;
+
+            return (
+              <fieldset key={guestNumber} style={guestFieldsetStyle}>
+                <legend style={guestLegendStyle}>Convidado {guestNumber}</legend>
+
+                <FormField label="Nome ou apelido *">
+                  <input
+                    name={`guestFullName_${guestNumber}`}
+                    type="text"
+                    required
+                    style={inputStyle}
+                  />
+                </FormField>
+
+                <div style={gridStyle}>
+                  <FormField label="Posição *">
+                    <select
+                      name={`guestPreferredPosition_${guestNumber}`}
+                      required
+                      defaultValue=""
+                      style={inputStyle}
+                    >
+                      <option value="" disabled>
+                        Selecione
+                      </option>
+                      <option value="GOLEIRO">Goleiro</option>
+                      <option value="LATERAL">Lateral</option>
+                      <option value="ZAGUEIRO">Zagueiro</option>
+                      <option value="VOLANTE">Volante</option>
+                      <option value="MEIA">Meia</option>
+                      <option value="ATACANTE">Atacante</option>
+                    </select>
+                  </FormField>
+
+                  <FormField label="Idade *">
+                    <input
+                      name={`guestAge_${guestNumber}`}
+                      type="number"
+                      min={1}
+                      max={99}
+                      required
+                      style={inputStyle}
+                    />
+                  </FormField>
+                </div>
+              </fieldset>
+            );
+          })}
+        </div>
+      ) : null}
 
       {state.error && (
         <div style={errorStyle} aria-live="polite">
@@ -121,6 +182,28 @@ const gridStyle: React.CSSProperties = {
 const fieldStyle: React.CSSProperties = {
   display: "grid",
   gap: 8,
+};
+
+const guestFieldsStackStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 12,
+};
+
+const guestFieldsetStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 14,
+  margin: 0,
+  padding: 14,
+  borderRadius: 14,
+  border: "1px solid #E5E7EB",
+  background: "#FAFAFA",
+};
+
+const guestLegendStyle: React.CSSProperties = {
+  padding: "0 6px",
+  fontSize: 13,
+  fontWeight: 800,
+  color: "#8B6914",
 };
 
 const labelStyle: React.CSSProperties = {

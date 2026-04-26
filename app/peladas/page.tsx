@@ -11,31 +11,50 @@ import { CALENDARIO_XV_PATH } from "@/lib/routes";
 
 export default async function PeladasPage() {
   await connection();
-  const currentWeekRange = getCurrentClubWeekRange();
+  const now = new Date();
 
-  const peladas = await prisma.pelada.findMany({
-    where: {
-      status: {
-        in: ["ABERTA", "EM_ANDAMENTO"],
-      },
-      scheduledAt: {
-        gte: currentWeekRange.startsAt,
-        lte: currentWeekRange.endsAt,
-      },
-    },
-    orderBy: [{ scheduledAt: "asc" }],
-    include: {
-      confirmations: {
-        where: {
-          parentConfirmationId: null,
-          canceledAt: null,
+  const [nextPelada, recentPastPeladas] = await Promise.all([
+    prisma.pelada.findFirst({
+      where: {
+        status: {
+          in: ["ABERTA", "EM_ANDAMENTO"],
         },
-        select: {
-          id: true,
+        scheduledAt: {
+          gte: now,
         },
       },
-    },
-  });
+      orderBy: [{ scheduledAt: "asc" }],
+      include: {
+        confirmations: {
+          where: {
+            canceledAt: null,
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    }),
+    prisma.pelada.findMany({
+      where: {
+        scheduledAt: {
+          lt: now,
+        },
+      },
+      orderBy: [{ scheduledAt: "desc" }],
+      take: 5,
+      include: {
+        confirmations: {
+          where: {
+            canceledAt: null,
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    }),
+  ]);
 
   return (
     <main className="xv-page-shell-soft">
@@ -53,16 +72,14 @@ export default async function PeladasPage() {
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <HeroInfo label="Peladas abertas" value={String(peladas.length)} />
+            <HeroInfo label="Próxima pelada" value={nextPelada ? "Disponível" : "—"} />
             <HeroInfo
               label="Próximo horário"
-              value={peladas[0] ? formatTime(peladas[0].scheduledAt) : "—"}
+              value={nextPelada ? formatTime(nextPelada.scheduledAt) : "—"}
             />
             <HeroInfo
               label="Confirmados previstos"
-              value={String(
-                peladas.reduce((sum, pelada) => sum + pelada.confirmations.length, 0),
-              )}
+              value={nextPelada ? String(nextPelada.confirmations.length) : "—"}
             />
           </div>
 
@@ -76,96 +93,145 @@ export default async function PeladasPage() {
           <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
             <div>
               <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-                Peladas disponíveis
+                Próxima pelada
               </span>
               <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
-                Escolha a pelada
+                Confirme sua presença
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4B5563]">
-                Mostramos apenas as peladas da semana corrente para a lista ficar
-                leve no celular e rápida no dia a dia.
+                A próxima pelada aberta aparece em destaque para você chegar rápido
+                na confirmação.
               </p>
             </div>
             <div className="w-full rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-left sm:w-auto sm:text-right">
               <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-                Semana
+                Status
               </div>
               <div className="text-xl font-black text-[#101010]">
-                {formatWeekRangeLabel(
-                  currentWeekRange.startsAt,
-                  currentWeekRange.endsAt,
-                )}
+                {nextPelada ? getPeladaStatusLabel(nextPelada.status) : "Sem agenda"}
               </div>
             </div>
           </div>
 
-          {peladas.length === 0 ? (
+          {!nextPelada ? (
             <div className="rounded-[18px] border border-dashed border-[#D1D5DB] bg-[#FAFAFA] px-5 py-7 text-center">
               <div className="text-lg font-black tracking-tight text-[#101010]">
-                Nenhuma pelada aberta nesta semana
+                Nenhuma pelada futura disponível no momento.
               </div>
               <p className="mt-2 text-sm leading-6 text-[#6B7280]">
-                As próximas datas continuam no calendário do clube. Quando houver
-                pelada na semana corrente, ela aparece aqui automaticamente.
+                As próximas datas continuam no calendário do clube e aparecem aqui
+                quando houver uma pelada aberta.
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {peladas.map((pelada) => (
+            <article className="rounded-[20px] border border-[#E8C866] bg-white p-5 shadow-[0_12px_34px_rgba(184,144,32,0.14)]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className="inline-flex rounded-full border border-[#F1D68A] bg-[#FCF7E6] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#8B6914]">
+                    {getPeladaStatusLabel(nextPelada.status)}
+                  </span>
+                  <h3 className="xv-fluid-text mt-3 text-[1.45rem] font-black tracking-tight text-[#101010]">
+                    Pelada de {formatDate(nextPelada.scheduledAt)}
+                  </h3>
+                </div>
+                <div className="rounded-2xl bg-[#F3F4F6] px-3 py-2 text-right">
+                  <div className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
+                    Horário
+                  </div>
+                  <div className="text-lg font-black text-[#101010]">
+                    {formatTime(nextPelada.scheduledAt)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <FactCard
+                  label="Tipo"
+                  value={getPeladaTypeLabel(nextPelada.type)}
+                  tone="gold"
+                />
+                <FactCard
+                  label="Primeira"
+                  value={getFirstGameRuleLabel(nextPelada.firstGameRule)}
+                  tone="neutral"
+                />
+                <FactCard
+                  label="Confirmados previstos"
+                  value={String(nextPelada.confirmations.length)}
+                  tone="blue"
+                />
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <Link
+                  href={`/peladas/${nextPelada.id}`}
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_0_rgba(73,54,9,0.7)] transition hover:from-[#D3AB35] hover:to-[#9A7618]"
+                >
+                  Preencher confirmação
+                </Link>
+                <Link
+                  href={CALENDARIO_XV_PATH}
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/10 bg-gradient-to-b from-[#4A4A4E] to-[#2F2F33] px-5 py-3 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:from-[#55555A] hover:to-[#38383C]"
+                >
+                  Ver no calendário
+                </Link>
+              </div>
+            </article>
+          )}
+        </section>
+
+        <section className="xv-card">
+          <div className="mb-5">
+            <span className="inline-flex rounded-full bg-[#F3F4F6] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#4B5563]">
+              Histórico recente
+            </span>
+            <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
+              Últimas peladas
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4B5563]">
+              Consulta rápida das peladas que já aconteceram. Esta área é apenas
+              informativa.
+            </p>
+          </div>
+
+          {recentPastPeladas.length === 0 ? (
+            <div className="rounded-[18px] border border-dashed border-[#D1D5DB] bg-[#FAFAFA] px-5 py-6 text-center">
+              <div className="text-base font-black tracking-tight text-[#101010]">
+                Nenhuma pelada recente no histórico.
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {recentPastPeladas.map((pelada) => (
                 <article
                   key={pelada.id}
-                  className="rounded-[20px] border border-[#E5E7EB] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+                  className="grid gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <span className="inline-flex rounded-full border border-[#F1D68A] bg-[#FCF7E6] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#8B6914]">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full border border-[#E5E7EB] bg-white px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#6B7280]">
                         {getPeladaStatusLabel(pelada.status)}
                       </span>
-                      <h3 className="xv-fluid-text mt-3 text-[1.3rem] font-black tracking-tight text-[#101010]">
-                        Pelada de {formatDate(pelada.scheduledAt)}
-                      </h3>
+                      <span className="text-sm font-semibold text-[#6B7280]">
+                        {formatDate(pelada.scheduledAt)} às {formatTime(pelada.scheduledAt)}
+                      </span>
                     </div>
-                    <div className="rounded-2xl bg-[#F3F4F6] px-3 py-2 text-right">
-                      <div className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
-                        Horário
-                      </div>
-                      <div className="text-lg font-black text-[#101010]">
-                        {formatTime(pelada.scheduledAt)}
-                      </div>
-                    </div>
+                    <h3 className="mt-2 text-lg font-black text-[#101010]">
+                      {getPeladaTypeLabel(pelada.type)}
+                    </h3>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <FactCard
-                      label="Tipo"
-                      value={getPeladaTypeLabel(pelada.type)}
-                      tone="gold"
-                    />
+                  <div className="grid grid-cols-2 gap-2 sm:min-w-[220px]">
                     <FactCard
                       label="Primeira"
                       value={getFirstGameRuleLabel(pelada.firstGameRule)}
                       tone="neutral"
                     />
                     <FactCard
-                      label="Confirmados previstos"
+                      label="Confirmados"
                       value={String(pelada.confirmations.length)}
                       tone="blue"
                     />
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <Link
-                      href={`/peladas/${pelada.id}`}
-                      className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_0_rgba(73,54,9,0.7)] transition hover:from-[#D3AB35] hover:to-[#9A7618]"
-                    >
-                      Preencher confirmação
-                    </Link>
-                    <Link
-                      href={CALENDARIO_XV_PATH}
-                      className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/10 bg-gradient-to-b from-[#4A4A4E] to-[#2F2F33] px-5 py-3 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:from-[#55555A] hover:to-[#38383C]"
-                    >
-                      Ver no calendário
-                    </Link>
                   </div>
                 </article>
               ))}
@@ -249,59 +315,4 @@ function formatTime(date: Date) {
     minute: "2-digit",
     timeZone: "America/Sao_Paulo",
   }).format(date);
-}
-
-function formatWeekRangeLabel(startsAt: Date, endsAt: Date) {
-  const formatter = new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  });
-
-  return `${formatter.format(startsAt)} a ${formatter.format(endsAt)}`;
-}
-
-function getCurrentClubWeekRange() {
-  const today = new Date();
-  const parts = getClubDateParts(today);
-  const anchor = new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00-03:00`);
-  const weekday = getMondayFirstWeekdayIndex(anchor);
-  const weekStart = new Date(anchor);
-  weekStart.setDate(anchor.getDate() - weekday);
-  weekStart.setHours(0, 0, 0, 0);
-
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-
-  return {
-    startsAt: weekStart,
-    endsAt: weekEnd,
-  };
-}
-
-function getClubDateParts(date: Date) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  });
-  const parts = formatter.formatToParts(date);
-
-  return {
-    year: parts.find((part) => part.type === "year")?.value ?? "0000",
-    month: parts.find((part) => part.type === "month")?.value ?? "01",
-    day: parts.find((part) => part.type === "day")?.value ?? "01",
-  };
-}
-
-function getMondayFirstWeekdayIndex(date: Date) {
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-  const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  return Math.max(0, weekdayOrder.indexOf(weekday));
 }

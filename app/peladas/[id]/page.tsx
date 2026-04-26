@@ -39,6 +39,15 @@ export default async function PeladaPublicPage({
           preferredPosition: true,
           guestCount: true,
           createdAt: true,
+          guests: {
+            where: {
+              canceledAt: null,
+            },
+            orderBy: { guestOrder: "asc" },
+            select: {
+              id: true,
+            },
+          },
         },
       },
       arrivals: {
@@ -66,6 +75,10 @@ export default async function PeladaPublicPage({
 
   const allowSubmit =
     pelada.status !== "FINALIZADA" && pelada.status !== "CANCELADA";
+  const totalConfirmedPlayers = pelada.confirmations.reduce(
+    (sum, confirmation) => sum + 1 + confirmation.guests.length,
+    0,
+  );
 
   return (
     <main className="xv-page-shell-soft">
@@ -103,7 +116,7 @@ export default async function PeladaPublicPage({
           </div>
 
           <div style={highlightStyle}>
-            Confirmados previstos: <strong>{pelada.confirmations.length}</strong>
+            Confirmados previstos: <strong>{totalConfirmedPlayers}</strong>
             {" • "}
             Chegadas marcadas: <strong>{pelada._count.arrivals}</strong>
           </div>
@@ -133,7 +146,7 @@ export default async function PeladaPublicPage({
                 Lista pública compacta para todo mundo visualizar rápido no celular.
               </p>
             </div>
-            <div style={countBadgeStyle}>{pelada.confirmations.length} nomes</div>
+            <div style={countBadgeStyle}>{totalConfirmedPlayers} nomes</div>
           </div>
 
           {pelada.confirmations.length === 0 ? (

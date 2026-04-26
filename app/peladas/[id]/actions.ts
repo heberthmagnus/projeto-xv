@@ -3,16 +3,30 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { syncAthleteProfileFromPeladaConfirmation } from "@/lib/athlete-profiles";
-import {
-  generateCancelToken,
-  syncGuestConfirmations,
-} from "@/lib/pelada-confirmations";
+import { generateCancelToken } from "@/lib/pelada-confirmations";
 import { prisma } from "@/lib/prisma";
 import { PeladaConfirmationFormState } from "./form-state";
 
 type Params = {
   peladaId: string;
 };
+
+type PreferredPositionValue =
+  | "GOLEIRO"
+  | "LATERAL"
+  | "ZAGUEIRO"
+  | "VOLANTE"
+  | "MEIA"
+  | "ATACANTE";
+
+const preferredPositionValues = new Set<string>([
+  "GOLEIRO",
+  "LATERAL",
+  "ZAGUEIRO",
+  "VOLANTE",
+  "MEIA",
+  "ATACANTE",
+]);
 
 export async function createPeladaConfirmation(
   { peladaId }: Params,
@@ -45,6 +59,47 @@ export async function createPeladaConfirmation(
     return { error: "A quantidade de convidados deve ficar entre 0 e 5." };
   }
 
+  const parsedPreferredPosition = parsePreferredPosition(preferredPosition);
+
+  if (!parsedPreferredPosition) {
+    return { error: "Selecione uma posição válida." };
+  }
+
+  const guests = [];
+
+  for (let guestOrder = 1; guestOrder <= guestCount; guestOrder += 1) {
+    const guestFullName = String(
+      formData.get(`guestFullName_${guestOrder}`) || "",
+    ).trim();
+    const guestPreferredPosition = String(
+      formData.get(`guestPreferredPosition_${guestOrder}`) || "",
+    ).trim();
+    const guestAge = Number.parseInt(
+      String(formData.get(`guestAge_${guestOrder}`) || "").trim(),
+      10,
+    );
+    const parsedGuestPreferredPosition = parsePreferredPosition(guestPreferredPosition);
+
+    if (!guestFullName) {
+      return { error: `Informe o nome ou apelido do convidado ${guestOrder}.` };
+    }
+
+    if (!parsedGuestPreferredPosition) {
+      return { error: `Selecione a posição do convidado ${guestOrder}.` };
+    }
+
+    if (!Number.isInteger(guestAge) || guestAge <= 0 || guestAge > 99) {
+      return { error: `Informe uma idade válida para o convidado ${guestOrder}.` };
+    }
+
+    guests.push({
+      guestOrder,
+      fullName: guestFullName,
+      preferredPosition: parsedGuestPreferredPosition,
+      age: guestAge,
+    });
+  }
+
   const pelada = await prisma.pelada.findUnique({
     where: { id: peladaId },
     select: { id: true, status: true },
@@ -61,63 +116,67 @@ export async function createPeladaConfirmation(
   const athleteProfileId = await syncAthleteProfileFromPeladaConfirmation({
     athleteProfileId: null,
     fullName,
-    preferredPosition: preferredPosition as
-      | "GOLEIRO"
-      | "LATERAL"
-      | "ZAGUEIRO"
-      | "VOLANTE"
-      | "MEIA"
-      | "ATACANTE",
+    preferredPosition: parsedPreferredPosition,
     age,
     level: null,
   });
 
+  const guestAthleteProfiles = await Promise.all(
+    guests.map(async (guest) => ({
+      ...guest,
+      athleteProfileId: await syncAthleteProfileFromPeladaConfirmation({
+        athleteProfileId: null,
+        fullName: guest.fullName,
+        preferredPosition: guest.preferredPosition,
+        age: guest.age,
+        level: null,
+      }),
+    })),
+  );
+
   const cancelToken = generateCancelToken();
 
-  const confirmation = await prisma.peladaConfirmation.create({
-    data: {
-      pelada: {
-        connect: {
-          id: peladaId,
-        },
+  await prisma.$transaction(async (tx) => {
+    const confirmation = await tx.peladaConfirmation.create({
+      data: {
+        peladaId,
+        athleteProfileId,
+        fullName,
+        preferredPosition: parsedPreferredPosition,
+        cancelToken,
+        age,
+        guestCount: guests.length,
+        createdByAdmin: false,
       },
-      athleteProfile: {
-        connect: {
-          id: athleteProfileId,
-        },
+      select: {
+        id: true,
       },
-      fullName,
-      preferredPosition: preferredPosition as
-        | "GOLEIRO"
-        | "LATERAL"
-        | "ZAGUEIRO"
-        | "VOLANTE"
-        | "MEIA"
-        | "ATACANTE",
-      cancelToken,
-      age,
-      guestCount,
-      createdByAdmin: false,
-    },
-  });
+    });
 
-  await syncGuestConfirmations({
-    confirmationId: confirmation.id,
-    peladaId,
-    hostFullName: fullName,
-    preferredPosition: preferredPosition as
-      | "GOLEIRO"
-      | "LATERAL"
-      | "ZAGUEIRO"
-      | "VOLANTE"
-      | "MEIA"
-      | "ATACANTE",
-    guestCount,
-    createdByAdmin: false,
+    if (guestAthleteProfiles.length > 0) {
+      await tx.peladaConfirmation.createMany({
+        data: guestAthleteProfiles.map((guest) => ({
+          peladaId,
+          parentConfirmationId: confirmation.id,
+          athleteProfileId: guest.athleteProfileId,
+          cancelToken: generateCancelToken(),
+          fullName: guest.fullName,
+          preferredPosition: guest.preferredPosition,
+          age: guest.age,
+          guestCount: 0,
+          createdByAdmin: false,
+          guestOrder: guest.guestOrder,
+        })),
+      });
+    }
   });
 
   revalidatePath(`/peladas/${peladaId}`);
   revalidatePath("/peladas");
 
   redirect(`/peladas/${peladaId}/sucesso?token=${encodeURIComponent(cancelToken)}`);
+}
+
+function parsePreferredPosition(value: string): PreferredPositionValue | null {
+  return preferredPositionValues.has(value) ? (value as PreferredPositionValue) : null;
 }
