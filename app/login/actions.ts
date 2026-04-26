@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import {
   clearAdminSession,
   createAdminSession,
+  isAdminRole,
   verifyStoredPassword,
 } from "@/lib/auth";
 import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
@@ -25,10 +26,14 @@ export async function login(
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, password: true },
+    select: { id: true, password: true, role: true },
   });
 
-  if (!user || !(await verifyStoredPassword(user.password, password))) {
+  if (
+    !user ||
+    !isAdminRole(user.role) ||
+    !(await verifyStoredPassword(user.password, password))
+  ) {
     return { error: "E-mail ou senha inválidos." };
   }
 

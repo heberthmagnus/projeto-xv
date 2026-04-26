@@ -36,12 +36,17 @@ function isDatabaseConnectionError(error: unknown) {
 }
 
 function getSessionSecret() {
-  return (
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.DATABASE_URL ||
-    "xv-dev-secret"
-  );
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
+  if (secret) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be set in production.");
+  }
+
+  return "xv-dev-secret";
 }
 
 function encodePayload(payload: SessionPayload) {
@@ -147,10 +152,16 @@ export async function getAuthenticatedAdmin() {
   }
 
   try {
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: session.userId },
       select: { id: true, email: true, role: true },
     });
+
+    if (!user || !isAdminRole(user.role)) {
+      return null;
+    }
+
+    return user;
   } catch (error) {
     if (isDatabaseConnectionError(error)) {
       throw new AuthDatabaseUnavailableError();
@@ -185,4 +196,8 @@ export async function verifyStoredPassword(
   }
 
   return safeEqual(normalizedPassword, password);
+}
+
+export function isAdminRole(role: string | null | undefined) {
+  return role === "ADMIN" || role === "OWNER" || role === "SUPERADMIN";
 }
