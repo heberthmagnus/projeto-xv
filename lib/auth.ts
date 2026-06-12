@@ -18,6 +18,13 @@ export class AuthDatabaseUnavailableError extends Error {
   }
 }
 
+export class AuthConfigurationError extends Error {
+  constructor() {
+    super("A autenticação não está configurada corretamente.");
+    this.name = "AuthConfigurationError";
+  }
+}
+
 function isDatabaseConnectionError(error: unknown) {
   if (
     typeof error === "object" &&
@@ -43,7 +50,7 @@ function getSessionSecret() {
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be set in production.");
+    throw new AuthConfigurationError();
   }
 
   return "xv-dev-secret";

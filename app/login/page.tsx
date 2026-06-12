@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import {
+  AuthConfigurationError,
   AuthDatabaseUnavailableError,
   getAuthenticatedAdmin,
 } from "@/lib/auth";
@@ -10,12 +11,15 @@ import { LoginForm } from "./login-form";
 export default async function LoginPage() {
   let user = null;
   let databaseUnavailable = false;
+  let authUnavailable = false;
 
   try {
     user = await getAuthenticatedAdmin();
   } catch (error) {
     if (error instanceof AuthDatabaseUnavailableError) {
       databaseUnavailable = true;
+    } else if (error instanceof AuthConfigurationError) {
+      authUnavailable = true;
     } else {
       throw error;
     }
@@ -49,6 +53,13 @@ export default async function LoginPage() {
           <div className="mb-5 rounded-[14px] border border-[#FDBA74] bg-[#FFF7ED] px-4 py-3 text-sm font-semibold leading-6 text-[#9A3412]">
             Não foi possível conectar ao banco agora. O login pode falhar até a
             conexão do Supabase ser restabelecida.
+          </div>
+        )}
+
+        {authUnavailable && (
+          <div className="mb-5 rounded-[14px] border border-[#FCA5A5] bg-[#FEF2F2] px-4 py-3 text-sm font-semibold leading-6 text-[#B91C1C]">
+            A autenticação da área administrativa está temporariamente
+            indisponível por uma configuração ausente no ambiente de produção.
           </div>
         )}
 
