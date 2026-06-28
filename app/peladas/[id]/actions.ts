@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { syncAthleteProfileFromPeladaConfirmation } from "@/lib/athlete-profiles";
 import { generateCancelToken } from "@/lib/pelada-confirmations";
 import { prisma } from "@/lib/prisma";
+import { getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { PeladaConfirmationFormState } from "./form-state";
 
 type Params = {
@@ -100,76 +101,86 @@ export async function createPeladaConfirmation(
     });
   }
 
-  const pelada = await prisma.pelada.findUnique({
-    where: { id: peladaId },
-    select: { id: true, status: true },
-  });
-
-  if (!pelada) {
-    return { error: "Pelada não encontrada." };
-  }
-
-  if (pelada.status === "FINALIZADA" || pelada.status === "CANCELADA") {
-    return { error: "Esta pelada não está mais aberta para confirmação." };
-  }
-
-  const athleteProfileId = await syncAthleteProfileFromPeladaConfirmation({
-    athleteProfileId: null,
-    fullName,
-    preferredPosition: parsedPreferredPosition,
-    age,
-    level: null,
-  });
-
-  const guestAthleteProfiles = await Promise.all(
-    guests.map(async (guest) => ({
-      ...guest,
-      athleteProfileId: await syncAthleteProfileFromPeladaConfirmation({
-        athleteProfileId: null,
-        fullName: guest.fullName,
-        preferredPosition: guest.preferredPosition,
-        age: guest.age,
-        level: null,
-      }),
-    })),
-  );
-
   const cancelToken = generateCancelToken();
 
-  await prisma.$transaction(async (tx) => {
-    const confirmation = await tx.peladaConfirmation.create({
-      data: {
-        peladaId,
-        athleteProfileId,
-        fullName,
-        preferredPosition: parsedPreferredPosition,
-        cancelToken,
-        age,
-        guestCount: guests.length,
-        createdByAdmin: false,
-      },
-      select: {
-        id: true,
-      },
+  try {
+    const pelada = await prisma.pelada.findUnique({
+      where: { id: peladaId },
+      select: { id: true, status: true },
     });
 
-    if (guestAthleteProfiles.length > 0) {
-      await tx.peladaConfirmation.createMany({
-        data: guestAthleteProfiles.map((guest) => ({
-          peladaId,
-          parentConfirmationId: confirmation.id,
-          athleteProfileId: guest.athleteProfileId,
-          cancelToken: generateCancelToken(),
+    if (!pelada) {
+      return { error: "Pelada não encontrada." };
+    }
+
+    if (pelada.status === "FINALIZADA" || pelada.status === "CANCELADA") {
+      return { error: "Esta pelada não está mais aberta para confirmação." };
+    }
+
+    const athleteProfileId = await syncAthleteProfileFromPeladaConfirmation({
+      athleteProfileId: null,
+      fullName,
+      preferredPosition: parsedPreferredPosition,
+      age,
+      level: null,
+    });
+
+    const guestAthleteProfiles = await Promise.all(
+      guests.map(async (guest) => ({
+        ...guest,
+        athleteProfileId: await syncAthleteProfileFromPeladaConfirmation({
+          athleteProfileId: null,
           fullName: guest.fullName,
           preferredPosition: guest.preferredPosition,
           age: guest.age,
-          guestCount: 0,
+          level: null,
+        }),
+      })),
+    );
+
+    await prisma.$transaction(async (tx) => {
+      const confirmation = await tx.peladaConfirmation.create({
+        data: {
+          peladaId,
+          athleteProfileId,
+          fullName,
+          preferredPosition: parsedPreferredPosition,
+          cancelToken,
+          age,
+          guestCount: guests.length,
           createdByAdmin: false,
-          guestOrder: guest.guestOrder,
-        })),
+        },
+        select: {
+          id: true,
+        },
       });
+
+      if (guestAthleteProfiles.length > 0) {
+        await tx.peladaConfirmation.createMany({
+          data: guestAthleteProfiles.map((guest) => ({
+            peladaId,
+            parentConfirmationId: confirmation.id,
+            athleteProfileId: guest.athleteProfileId,
+            cancelToken: generateCancelToken(),
+            fullName: guest.fullName,
+            preferredPosition: guest.preferredPosition,
+            age: guest.age,
+            guestCount: 0,
+            createdByAdmin: false,
+            guestOrder: guest.guestOrder,
+          })),
+        });
+      }
+    });
+  } catch (error) {
+    const databaseMessage = getFriendlyDatabaseErrorMessage(error);
+
+    if (databaseMessage) {
+      return { error: databaseMessage };
     }
-  });
+
+    throw error;
+  }
 
   revalidatePath(`/peladas/${peladaId}`);
   revalidatePath("/peladas");

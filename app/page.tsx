@@ -1,7 +1,9 @@
 import { BannerRotativo } from "./BannerRotativo";
 import Link from "next/link";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipBasePath } from "@/lib/routes";
 
 const cards = [
@@ -22,18 +24,23 @@ const cards = [
 ];
 
 export default async function HomePage() {
-  const openPeladas = await prisma.pelada.findMany({
-    where: {
-      status: {
-        in: ["ABERTA", "EM_ANDAMENTO"],
-      },
-    },
-    orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
-    select: {
-      type: true,
-      scheduledAt: true,
-    },
-  });
+  const { data: openPeladas, databaseUnavailable } = await executePrismaWithFallback(
+    () =>
+      prisma.pelada.findMany({
+        where: {
+          status: {
+            in: ["ABERTA", "EM_ANDAMENTO"],
+          },
+        },
+        orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+        select: {
+          type: true,
+          scheduledAt: true,
+        },
+      }),
+    [],
+    "home:open-peladas",
+  );
   const todayKey = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
     month: "2-digit",
@@ -57,7 +64,12 @@ export default async function HomePage() {
       <BannerRotativo nextPeladaType={nextPelada?.type ?? null} />
 
       <section className="py-8 md:py-10">
-        <PageContainer className="grid gap-4 md:grid-cols-2 md:gap-6">
+        <PageContainer className="grid gap-4 md:gap-6">
+          {databaseUnavailable ? (
+            <DatabaseUnavailableNotice description="A página inicial continua disponível, mas os dados ao vivo das peladas não puderam ser carregados agora." />
+          ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
           {cards.map((card) => (
             <article
               key={card.id}
@@ -88,6 +100,7 @@ export default async function HomePage() {
               </Link>
             </article>
           ))}
+          </div>
         </PageContainer>
       </section>
     </main>

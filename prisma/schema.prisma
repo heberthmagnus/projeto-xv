@@ -32,6 +32,7 @@ model AthleteProfile {
   peladaArrivals      PeladaArrival[]
   peladaConfirmations PeladaConfirmation[]
   registrations       Registration[]
+  matchParticipations MatchPlayerParticipation[]
 }
 
 model Championship {
@@ -60,6 +61,7 @@ model Team {
   name           String
   createdAt      DateTime             @default(now())
   crestUrl       String?
+  icon           String?
   primaryColor   String?
   secondaryColor String?
   shortName      String?
@@ -70,6 +72,7 @@ model Team {
   awayMatches    Match[]              @relation("AwayTeam")
   homeMatches    Match[]              @relation("HomeTeam")
   events         MatchEvent[]
+  matchParticipations MatchPlayerParticipation[]
   standings      Standing[]
 }
 
@@ -125,12 +128,13 @@ model Match {
   championshipId String
   homeTeamId     String
   awayTeamId     String
-  homeScore      Int                @default(0)
-  awayScore      Int                @default(0)
+  homeScore      Int?
+  awayScore      Int?
   round          Int
   createdAt      DateTime           @default(now())
   location       String?
   notes          String?
+  referee        String?
   roundNumber    Int?
   scheduledAt    DateTime?
   stageId        String?
@@ -141,6 +145,7 @@ model Match {
   homeTeam       Team               @relation("HomeTeam", fields: [homeTeamId], references: [id])
   stage          ChampionshipStage? @relation(fields: [stageId], references: [id])
   events         MatchEvent[]
+  participations MatchPlayerParticipation[]
 }
 
 model Standing {
@@ -174,6 +179,31 @@ model MatchEvent {
   type    MatchEventType
   match   Match          @relation(fields: [matchId], references: [id])
   team    Team?          @relation(fields: [teamId], references: [id])
+}
+
+model MatchPlayerParticipation {
+  id            String         @id @default(uuid())
+  matchId       String
+  playerId      String
+  teamId        String
+  starter       Boolean        @default(false)
+  bionic        Boolean        @default(false)
+  goals         Int            @default(0)
+  assists       Int?
+  yellowCards   Int            @default(0)
+  redCards      Int            @default(0)
+  ownGoals      Int            @default(0)
+  mvp           Boolean        @default(false)
+  minutesPlayed Int?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  match         Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player        AthleteProfile @relation(fields: [playerId], references: [id])
+  team          Team           @relation(fields: [teamId], references: [id])
+
+  @@unique([matchId, playerId, teamId])
+  @@index([playerId])
+  @@index([teamId])
 }
 
 model Registration {
@@ -422,6 +452,7 @@ enum StandingMovement {
 enum ChampionshipPlayerStatus {
   ATIVO
   RESERVA
+  BIONICO
   INATIVO
 }
 

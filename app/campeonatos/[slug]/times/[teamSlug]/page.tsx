@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { getChampionshipTeamPublicPageData } from "@/lib/championships";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipBasePath, getChampionshipTeamBasePath } from "@/lib/routes";
 
 type Params = Promise<{
@@ -16,7 +18,11 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug, teamSlug } = await params;
-  const championship = await getChampionshipTeamPublicPageData(slug, teamSlug);
+  const { data: championship } = await executePrismaWithFallback(
+    () => getChampionshipTeamPublicPageData(slug, teamSlug),
+    null,
+    `campeonatos:${slug}:team:${teamSlug}:metadata`,
+  );
 
   if (!championship) {
     return {
@@ -25,8 +31,8 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${championship.teamEntry.team.name} | ${championship.name}`,
-    description: `Elenco, jogos e acompanhamento público do ${championship.teamEntry.team.name} em ${championship.name}.`,
+    title: `${formatTeamDisplayName(championship.teamEntry.team.name, championship.teamEntry.team.icon)} | ${championship.name}`,
+    description: `Elenco, jogos e acompanhamento público do ${formatTeamDisplayName(championship.teamEntry.team.name, championship.teamEntry.team.icon)} em ${championship.name}.`,
   };
 }
 
@@ -38,7 +44,21 @@ export default async function ChampionshipTeamPublicPage({
   await connection();
 
   const { slug, teamSlug } = await params;
-  const championship = await getChampionshipTeamPublicPageData(slug, teamSlug);
+  const { data: championship, databaseUnavailable } = await executePrismaWithFallback(
+    () => getChampionshipTeamPublicPageData(slug, teamSlug),
+    null,
+    `campeonatos:${slug}:team:${teamSlug}`,
+  );
+
+  if (databaseUnavailable) {
+    return (
+      <main className="xv-page-shell-soft">
+        <div className="xv-page-container xv-page-container-medium">
+          <DatabaseUnavailableNotice description="A página pública do time não pôde buscar os dados mais recentes agora. Tente novamente em alguns instantes." />
+        </div>
+      </main>
+    );
+  }
 
   if (!championship) {
     notFound();
@@ -61,9 +81,14 @@ export default async function ChampionshipTeamPublicPage({
               <div className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em]">
                 Time no campeonato
               </div>
-              <h1 className="mt-4 text-[2rem] font-black tracking-tight sm:text-[2.6rem]">
-                {team.name}
-              </h1>
+              <div className="mt-4 flex items-center gap-4">
+                <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-white/30 bg-white text-4xl shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
+                  {team.icon || null}
+                </span>
+                <h1 className="text-[2rem] font-black tracking-tight sm:text-[2.6rem]">
+                  {team.shortName || team.name}
+                </h1>
+              </div>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/85">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">
                   <span
@@ -322,10 +347,18 @@ export default async function ChampionshipTeamPublicPage({
                             )}
                             className="transition hover:text-[#8B6914]"
                           >
-                            {match.opponent.shortName || match.opponent.name}
+                            {formatTeamDisplayName(
+                              match.opponent.shortName || match.opponent.name,
+                              match.opponent.icon,
+                            )}
                           </Link>
                         ) : (
-                          <span>{match.opponent.shortName || match.opponent.name}</span>
+                          <span>
+                            {formatTeamDisplayName(
+                              match.opponent.shortName || match.opponent.name,
+                              match.opponent.icon,
+                            )}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -491,12 +524,16 @@ function getStatusLabel(status: string) {
   }
 }
 
-function getScoreLabel(status: string, teamScore: number, opponentScore: number) {
-  if (status === "AGENDADO") {
+function getScoreLabel(status: string, teamScore: number | null, opponentScore: number | null) {
+  if (status === "AGENDADO" || teamScore === null || opponentScore === null) {
     return "-";
   }
 
   return `${teamScore} x ${opponentScore}`;
+}
+
+function formatTeamDisplayName(name: string, icon?: string | null) {
+  return icon ? `${icon} ${name}` : name;
 }
 
 function formatMatchDateTime(date: Date | null) {

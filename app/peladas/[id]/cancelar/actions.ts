@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isPrismaConnectionError, logPrismaError } from "@/lib/prisma-safe";
 
 type CancelPeladaConfirmationParams = {
   peladaId: string;
@@ -18,22 +19,36 @@ export async function cancelPeladaConfirmation(
     redirect(`/peladas/${peladaId}/cancelar?error=invalid`);
   }
 
-  const confirmation = await prisma.peladaConfirmation.findFirst({
-    where: {
-      peladaId,
-      cancelToken: token,
-      parentConfirmationId: null,
-    },
-    select: {
-      id: true,
-      canceledAt: true,
-      guests: {
-        select: {
-          id: true,
+  let confirmation;
+
+  try {
+    confirmation = await prisma.peladaConfirmation.findFirst({
+      where: {
+        peladaId,
+        cancelToken: token,
+        parentConfirmationId: null,
+      },
+      select: {
+        id: true,
+        canceledAt: true,
+        guests: {
+          select: {
+            id: true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    logPrismaError("peladas:cancel-action:find-confirmation", error);
+
+    if (isPrismaConnectionError(error)) {
+      redirect(
+        `/peladas/${peladaId}/cancelar?token=${encodeURIComponent(token)}&error=db-unavailable`,
+      );
+    }
+
+    throw error;
+  }
 
   if (!confirmation) {
     redirect(`/peladas/${peladaId}/cancelar?error=invalid`);
@@ -43,16 +58,28 @@ export async function cancelPeladaConfirmation(
     redirect(`/peladas/${peladaId}/cancelar?token=${encodeURIComponent(token)}&status=already-canceled`);
   }
 
-  await prisma.peladaConfirmation.updateMany({
-    where: {
-      id: {
-        in: [confirmation.id, ...confirmation.guests.map((guest) => guest.id)],
+  try {
+    await prisma.peladaConfirmation.updateMany({
+      where: {
+        id: {
+          in: [confirmation.id, ...confirmation.guests.map((guest) => guest.id)],
+        },
       },
-    },
-    data: {
-      canceledAt: new Date(),
-    },
-  });
+      data: {
+        canceledAt: new Date(),
+      },
+    });
+  } catch (error) {
+    logPrismaError("peladas:cancel-action:update-confirmation", error);
+
+    if (isPrismaConnectionError(error)) {
+      redirect(
+        `/peladas/${peladaId}/cancelar?token=${encodeURIComponent(token)}&error=db-unavailable`,
+      );
+    }
+
+    throw error;
+  }
 
   revalidatePath(`/peladas/${peladaId}`);
   revalidatePath("/peladas");

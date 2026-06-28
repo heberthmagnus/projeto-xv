@@ -1,5 +1,6 @@
 import { MatchStatus } from "@prisma/client";
 import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { buildArrivalDateTimeInput } from "@/lib/peladas";
 import { getAuthenticatedAdmin } from "@/lib/auth";
 import {
@@ -8,6 +9,7 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { ADMIN_MATCHES_PATH } from "@/lib/routes";
 import {
   applyTioHugoBaseSchedule,
@@ -28,85 +30,108 @@ export default async function JogosAdminPage({
 }) {
   const params = await searchParams;
   const adminUser = await getAuthenticatedAdmin();
-  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
-
-  const [teams, stages, matches] = await Promise.all([
-    prisma.championshipTeam.findMany({
-      where: {
-        championshipId: championship.id,
-      },
-      orderBy: [{ displayOrder: "asc" }, { seed: "asc" }, { id: "asc" }],
-      select: {
-        id: true,
-        displayOrder: true,
-        seed: true,
-        team: {
+  const { data, databaseUnavailable } = await executePrismaWithFallback<{
+    championship: Awaited<ReturnType<typeof getRequiredChampionshipBySlug>> | null;
+    teams: Array<any>;
+    stages: Array<any>;
+    matches: Array<any>;
+  }>(
+    async () => {
+      const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+      const [teams, stages, matches] = await Promise.all([
+        prisma.championshipTeam.findMany({
+          where: {
+            championshipId: championship.id,
+          },
+          orderBy: [{ displayOrder: "asc" }, { seed: "asc" }, { id: "asc" }],
           select: {
             id: true,
-            name: true,
-            shortName: true,
+            displayOrder: true,
+            seed: true,
+            team: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true,
+              },
+            },
           },
-        },
-      },
-    }),
-    prisma.championshipStage.findMany({
-      where: {
-        championshipId: championship.id,
-      },
-      orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        order: true,
-        stageType: true,
-      },
-    }),
-    prisma.match.findMany({
-      where: {
-        championshipId: championship.id,
-      },
-      orderBy: [
-        { stage: { order: "asc" } },
-        { round: "asc" },
-        { roundNumber: "asc" },
-        { createdAt: "asc" },
-      ],
-      select: {
-        id: true,
-        round: true,
-        roundNumber: true,
-        scheduledAt: true,
-        location: true,
-        notes: true,
-        status: true,
-        homeScore: true,
-        awayScore: true,
-        stageId: true,
-        stage: {
+        }),
+        prisma.championshipStage.findMany({
+          where: {
+            championshipId: championship.id,
+          },
+          orderBy: [{ order: "asc" }, { createdAt: "asc" }],
           select: {
             id: true,
             name: true,
             order: true,
             stageType: true,
           },
-        },
-        homeTeam: {
+        }),
+        prisma.match.findMany({
+          where: {
+            championshipId: championship.id,
+          },
+          orderBy: [
+            { stage: { order: "asc" } },
+            { round: "asc" },
+            { roundNumber: "asc" },
+            { createdAt: "asc" },
+          ],
           select: {
             id: true,
-            name: true,
-            shortName: true,
+            round: true,
+            roundNumber: true,
+            scheduledAt: true,
+            location: true,
+            notes: true,
+            status: true,
+            homeScore: true,
+            awayScore: true,
+            stageId: true,
+            stage: {
+              select: {
+                id: true,
+                name: true,
+                order: true,
+                stageType: true,
+              },
+            },
+            homeTeam: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true,
+              },
+            },
+            awayTeam: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true,
+              },
+            },
           },
-        },
-        awayTeam: {
-          select: {
-            id: true,
-            name: true,
-            shortName: true,
-          },
-        },
-      },
-    }),
-  ]);
+        }),
+      ]);
+
+      return { championship, teams, stages, matches };
+    },
+    { championship: null, teams: [], stages: [], matches: [] },
+    "admin:championship-matches:list",
+  );
+  const { championship, teams, stages, matches } = data;
+
+  if (!championship) {
+    return (
+      <main className="xv-page-shell">
+        <div className="xv-page-container xv-page-container-medium">
+          <DatabaseUnavailableNotice description="Os jogos não puderam ser carregados agora. Tente novamente em alguns instantes." />
+        </div>
+      </main>
+    );
+  }
 
   const groupedMatches = groupMatchesByStageAndRound(matches);
   const finalizedMatches = matches.filter((match) => match.status === "FINALIZADO").length;
@@ -114,6 +139,10 @@ export default async function JogosAdminPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container xv-page-container-medium">
+        {databaseUnavailable ? (
+          <DatabaseUnavailableNotice description="A tela continua disponível, mas os dados mais recentes de times, fases e jogos não puderam ser carregados agora." className="mb-4" />
+        ) : null}
+
         <section className="xv-card">
           <div className="xv-responsive-stack">
             <div>

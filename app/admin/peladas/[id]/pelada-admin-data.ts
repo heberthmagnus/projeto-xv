@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { syncGuestConfirmations } from "@/lib/pelada-confirmations";
 import { prisma } from "@/lib/prisma";
+import { executePrisma } from "@/lib/prisma-safe";
 
 export type PageGuestConfirmation = {
   id: string;
@@ -114,24 +115,28 @@ export type PeladaAdminData = {
 };
 
 export async function loadPeladaAdminData(id: string) {
-  const hostConfirmations = await prisma.peladaConfirmation.findMany({
-    where: {
-      peladaId: id,
-      parentConfirmationId: null,
-      canceledAt: null,
-      guestCount: {
-        gt: 0,
-      },
-    },
-    select: {
-      id: true,
-      peladaId: true,
-      fullName: true,
-      preferredPosition: true,
-      guestCount: true,
-      createdByAdmin: true,
-    },
-  });
+  const hostConfirmations = await executePrisma(
+    () =>
+      prisma.peladaConfirmation.findMany({
+        where: {
+          peladaId: id,
+          parentConfirmationId: null,
+          canceledAt: null,
+          guestCount: {
+            gt: 0,
+          },
+        },
+        select: {
+          id: true,
+          peladaId: true,
+          fullName: true,
+          preferredPosition: true,
+          guestCount: true,
+          createdByAdmin: true,
+        },
+      }),
+    "admin:pelada-detail:host-confirmations",
+  );
 
   await Promise.allSettled(
     hostConfirmations.map((confirmation) =>
@@ -150,31 +155,17 @@ export async function loadPeladaAdminData(id: string) {
     findUnique(args: unknown): Promise<PeladaAdminData | null>;
   };
 
-  const pelada = await peladaDelegate.findUnique({
-    where: { id },
-    include: {
-      confirmations: {
-        where: {
-          parentConfirmationId: null,
-          canceledAt: null,
-        },
-        orderBy: { createdAt: "desc" },
+  const pelada = await executePrisma(
+    () =>
+      peladaDelegate.findUnique({
+        where: { id },
         include: {
-          athleteProfile: {
-            select: {
-              id: true,
-              nickname: true,
-              defaultLevel: true,
-            },
-          },
-          arrivals: {
-            select: { id: true },
-          },
-          guests: {
+          confirmations: {
             where: {
+              parentConfirmationId: null,
               canceledAt: null,
             },
-            orderBy: { guestOrder: "asc" },
+            orderBy: { createdAt: "desc" },
             include: {
               athleteProfile: {
                 select: {
@@ -186,54 +177,72 @@ export async function loadPeladaAdminData(id: string) {
               arrivals: {
                 select: { id: true },
               },
+              guests: {
+                where: {
+                  canceledAt: null,
+                },
+                orderBy: { guestOrder: "asc" },
+                include: {
+                  athleteProfile: {
+                    select: {
+                      id: true,
+                      nickname: true,
+                      defaultLevel: true,
+                    },
+                  },
+                  arrivals: {
+                    select: { id: true },
+                  },
+                },
+              },
             },
           },
-        },
-      },
-      arrivals: {
-        orderBy: [{ arrivalOrder: "asc" }, { arrivedAt: "asc" }],
-        include: {
-          athleteProfile: {
-            select: {
-              id: true,
-              nickname: true,
-              defaultLevel: true,
+          arrivals: {
+            orderBy: [{ arrivalOrder: "asc" }, { arrivedAt: "asc" }],
+            include: {
+              athleteProfile: {
+                select: {
+                  id: true,
+                  nickname: true,
+                  defaultLevel: true,
+                },
+              },
+              confirmation: {
+                select: {
+                  id: true,
+                  createdByAdmin: true,
+                },
+              },
             },
           },
-          confirmation: {
-            select: {
-              id: true,
-              createdByAdmin: true,
-            },
-          },
-        },
-      },
-      teamAssignments: {
-        orderBy: [{ teamColor: "asc" }, { displayOrder: "asc" }],
-        include: {
-          arrival: true,
-        },
-      },
-      rounds: {
-        orderBy: {
-          roundNumber: "desc",
-        },
-        include: {
-          goals: {
-            orderBy: [{ teamColor: "asc" }, { createdAt: "asc" }],
-          },
-          players: {
-            orderBy: {
-              queueOrder: "asc",
-            },
+          teamAssignments: {
+            orderBy: [{ teamColor: "asc" }, { displayOrder: "asc" }],
             include: {
               arrival: true,
             },
           },
+          rounds: {
+            orderBy: {
+              roundNumber: "desc",
+            },
+            include: {
+              goals: {
+                orderBy: [{ teamColor: "asc" }, { createdAt: "asc" }],
+              },
+              players: {
+                orderBy: {
+                  queueOrder: "asc",
+                },
+                include: {
+                  arrival: true,
+                },
+              },
+            },
+          },
         },
-      },
-    },
-  });
+      }),
+    "admin:pelada-detail:full-data",
+  );
 
   if (!pelada) {
     notFound();

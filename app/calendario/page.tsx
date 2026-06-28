@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { PageContainer } from "@/components/ui/PageContainer";
 import {
   CALENDAR_WEEKDAY_LABELS,
-  COPA_TIO_HUGO_2026_EVENTS,
   filterCalendarEventsByMonth,
   filterCalendarEventsByYear,
   getCalendarDateKey,
@@ -19,7 +19,9 @@ import {
   type CalendarEventItem,
   type CalendarEventType,
 } from "@/lib/calendar";
+import { getTioHugoBasePath, TIO_HUGO_2026_SLUG } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { CALENDARIO_XV_PATH } from "@/lib/routes";
 
 type SearchParams = Promise<{
@@ -106,19 +108,70 @@ export default async function CalendarioPage({
     view,
   });
 
-  const peladas = await prisma.pelada.findMany({
-    where: {
-      status: {
-        not: "CANCELADA",
-      },
-    },
-    orderBy: [{ scheduledAt: "asc" }],
-    select: {
-      id: true,
-      scheduledAt: true,
-      status: true,
-    },
-  });
+  const { data, databaseUnavailable } = await executePrismaWithFallback(
+    () =>
+      Promise.all([
+        prisma.pelada.findMany({
+          where: {
+            status: {
+              not: "CANCELADA",
+            },
+          },
+          orderBy: [{ scheduledAt: "asc" }],
+          select: {
+            id: true,
+            scheduledAt: true,
+            status: true,
+          },
+        }),
+        prisma.championship.findUnique({
+          where: { slug: TIO_HUGO_2026_SLUG },
+          select: {
+            matches: {
+              orderBy: [
+                { scheduledAt: "asc" },
+                { round: "asc" },
+                { roundNumber: "asc" },
+                { createdAt: "asc" },
+              ],
+              select: {
+                id: true,
+                round: true,
+                roundNumber: true,
+                scheduledAt: true,
+                notes: true,
+                homeScore: true,
+                awayScore: true,
+                stage: {
+                  select: {
+                    name: true,
+                    stageType: true,
+                  },
+                },
+                homeTeam: {
+                  select: {
+                    name: true,
+                    shortName: true,
+                    icon: true,
+                  },
+                },
+                awayTeam: {
+                  select: {
+                    name: true,
+                    shortName: true,
+                    icon: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ]),
+    [[], null],
+    "calendario:eventos",
+  );
+  const [peladas, copaChampionship] = data;
+  const copaMatches = copaChampionship?.matches || [];
 
   const peladaEvents = peladas.map<CalendarEventItem>((pelada) => ({
     id: pelada.id,
@@ -127,10 +180,20 @@ export default async function CalendarioPage({
     startsAt: pelada.scheduledAt,
     href: `/peladas/${pelada.id}`,
   }));
+  const copaEvents = copaMatches
+    .filter((match) => match.scheduledAt)
+    .map<CalendarEventItem>((match) => ({
+      id: `copa-tio-hugo-2026-${match.id}`,
+      type: "COPA_TIO_HUGO",
+      title: getCopaCalendarTitle(match),
+      description: getCopaCalendarDescription(match),
+      startsAt: match.scheduledAt as Date,
+      href: `${getTioHugoBasePath()}?view=${match.stage?.stageType === "FINAL" ? 7 : match.round}`,
+    }));
 
   const allEvents = [
     ...peladaEvents,
-    ...COPA_TIO_HUGO_2026_EVENTS,
+    ...copaEvents,
     ...INTERCLUBES_2026_EVENTS,
   ].sort(
     (left, right) => left.startsAt.getTime() - right.startsAt.getTime(),
@@ -142,7 +205,7 @@ export default async function CalendarioPage({
   const yearlyEventsByDate = buildEventsByDate(yearEvents);
   const todayKey = getCalendarDateKey(new Date());
   const copaEventsInMonth = filterCalendarEventsByMonth(
-    COPA_TIO_HUGO_2026_EVENTS,
+    copaEvents,
     year,
     month,
   );
@@ -156,6 +219,10 @@ export default async function CalendarioPage({
   return (
     <main className="xv-page-shell-soft">
       <PageContainer className="grid gap-4 md:gap-6">
+        {databaseUnavailable ? (
+          <DatabaseUnavailableNotice description="O calendário continua acessível com os eventos fixos do clube, mas as peladas vindas do banco não puderam ser carregadas agora." />
+        ) : null}
+
         <section className="xv-calendar-hero" style={heroStyle}>
           <div style={badgeStyle}>Calendário do XV</div>
           <h1 style={titleStyle}>Agenda visual do clube</h1>
@@ -258,7 +325,7 @@ export default async function CalendarioPage({
               <strong style={monthSummaryValueStyle}>
                 {view === "month"
                   ? copaEventsInMonth.length
-                  : filterCalendarEventsByYear(COPA_TIO_HUGO_2026_EVENTS, year).length}
+                  : filterCalendarEventsByYear(copaEvents, year).length}
               </strong>
             </div>
             <div style={monthSummaryCardStyle}>
@@ -300,6 +367,8 @@ export default async function CalendarioPage({
               todayKey={todayKey}
             />
           )}
+
+          <CopaScheduleSection matches={copaMatches} />
         </section>
       </PageContainer>
     </main>
@@ -466,6 +535,11 @@ function MobileAgendaList({
                   <div className="mt-2 text-base font-black leading-6 text-[#101010]">
                     {event.title}
                   </div>
+                  {event.description ? (
+                    <div className="mt-1 text-sm leading-5 text-[#4B5563]">
+                      {event.description}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rounded-2xl bg-[#F3F4F6] px-3 py-2 text-right">
                   <div className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-[#6B7280]">
@@ -596,6 +670,189 @@ function CalendarDayCell({
       ) : null}
     </div>
   );
+}
+
+function CopaScheduleSection({
+  matches,
+}: {
+  matches: Array<{
+    id: string;
+    round: number;
+    roundNumber: number | null;
+    scheduledAt: Date | null;
+    notes: string | null;
+    homeScore: number | null;
+    awayScore: number | null;
+    stage: { name: string; stageType: string } | null;
+    homeTeam: { name: string; shortName: string | null; icon: string | null };
+    awayTeam: { name: string; shortName: string | null; icon: string | null };
+  }>;
+}) {
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const groups = groupCopaMatches(matches);
+
+  return (
+    <section className="mt-2 grid gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] p-4">
+      <div>
+        <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
+          Copa Tio Hugo 2026
+        </div>
+        <h2 className="mt-1 text-xl font-black tracking-tight text-[#101010]">
+          Tabela correta
+        </h2>
+      </div>
+
+      <div className="grid gap-3">
+        {groups.map((group) => (
+          <article key={group.key} className="rounded-[16px] border border-[#E5E7EB] bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-base font-black text-[#101010]">{group.label}</h3>
+              <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-bold text-[#4338CA]">
+                {formatCalendarEventDate(group.startsAt)}
+              </span>
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              {group.matches.map((match) => (
+                <div
+                  key={match.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FCFCFC] px-3 py-2"
+                >
+                  <span className="font-bold text-[#101010]">{getCopaFixtureLabel(match)}</span>
+                  <span className="text-sm font-semibold text-[#6B7280]">
+                    {match.homeScore === null || match.awayScore === null
+                      ? "Placar em aberto"
+                      : `${match.homeScore} x ${match.awayScore}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {group.bye ? (
+              <div className="mt-3 text-sm font-semibold text-[#6B7280]">
+                Folga: {group.bye}
+              </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function groupCopaMatches(
+  matches: Array<{
+    id: string;
+    round: number;
+    roundNumber: number | null;
+    scheduledAt: Date | null;
+    notes: string | null;
+    homeScore: number | null;
+    awayScore: number | null;
+    stage: { name: string; stageType: string } | null;
+    homeTeam: { name: string; shortName: string | null; icon: string | null };
+    awayTeam: { name: string; shortName: string | null; icon: string | null };
+  }>,
+) {
+  const groups = new Map<
+    string,
+    {
+      key: string;
+      label: string;
+      startsAt: Date;
+      bye: string | null;
+      matches: typeof matches;
+    }
+  >();
+
+  for (const match of matches) {
+    if (!match.scheduledAt) {
+      continue;
+    }
+
+    const key = `${match.round}-${getCalendarDateKey(match.scheduledAt)}`;
+    const current = groups.get(key) || {
+      key,
+      label: getCopaGroupLabel(match),
+      startsAt: match.scheduledAt,
+      bye: getByeFromNotes(match.notes),
+      matches: [],
+    };
+
+    current.bye ||= getByeFromNotes(match.notes);
+    current.matches.push(match);
+    groups.set(key, current);
+  }
+
+  return Array.from(groups.values()).sort((left, right) => {
+    const dateDiff = left.startsAt.getTime() - right.startsAt.getTime();
+    return dateDiff || left.key.localeCompare(right.key);
+  });
+}
+
+function getCopaGroupLabel(match: {
+  round: number;
+  stage: { name: string; stageType: string } | null;
+}) {
+  if (match.stage?.stageType === "SEMIFINAL") {
+    return "Semifinais";
+  }
+
+  if (match.stage?.stageType === "FINAL") {
+    return "Final";
+  }
+
+  return `Rodada ${match.round}`;
+}
+
+function getCopaCalendarTitle(match: {
+  round: number;
+  roundNumber: number | null;
+  stage: { name: string; stageType: string } | null;
+  homeTeam: { name: string; shortName: string | null; icon: string | null };
+  awayTeam: { name: string; shortName: string | null; icon: string | null };
+}) {
+  return `Copa • ${getCopaFixtureLabel(match)}`;
+}
+
+function getCopaCalendarDescription(match: { notes: string | null }) {
+  return getByeFromNotes(match.notes) ? `Folga: ${getByeFromNotes(match.notes)}` : undefined;
+}
+
+function getCopaFixtureLabel(match: {
+  round: number;
+  roundNumber: number | null;
+  stage: { name: string; stageType: string } | null;
+  homeTeam: { name: string; shortName: string | null; icon: string | null };
+  awayTeam: { name: string; shortName: string | null; icon: string | null };
+}) {
+  if (match.stage?.stageType === "SEMIFINAL") {
+    return match.roundNumber === 2 ? "2º x 3º" : "1º x 4º";
+  }
+
+  if (match.stage?.stageType === "FINAL") {
+    return "Winner SF1 x Winner SF2";
+  }
+
+  return `${formatTeamDisplayName(
+    match.homeTeam.shortName || match.homeTeam.name,
+    match.homeTeam.icon,
+  )} x ${formatTeamDisplayName(
+    match.awayTeam.shortName || match.awayTeam.name,
+    match.awayTeam.icon,
+  )}`;
+}
+
+function getByeFromNotes(notes: string | null) {
+  const match = notes?.match(/Folga:\s*([^.;]+)/i);
+  return match?.[1]?.trim() || null;
+}
+
+function formatTeamDisplayName(name: string, icon?: string | null) {
+  return icon ? `${icon} ${name}` : name;
 }
 
 function buildEventsByDate(events: CalendarEventItem[]) {

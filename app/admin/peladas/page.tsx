@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { getAuthenticatedAdmin } from "@/lib/auth";
 import {
   getPeladaDurationRuleLabel,
@@ -7,6 +8,7 @@ import {
   getPeladaTypeLabel,
 } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { ADMIN_PELADAS_PATH } from "@/lib/routes";
 import { createPelada, deletePelada, updatePelada } from "./actions";
 import { PeladaFeedbackBanner } from "./pelada-feedback";
@@ -31,17 +33,22 @@ export default async function PeladasAdminPage({
   const params = await searchParams;
   const adminUser = await getAuthenticatedAdmin();
 
-  const peladas = await prisma.pelada.findMany({
-    include: {
-      _count: {
-        select: {
-          confirmations: true,
-          arrivals: true,
+  const { data: peladas, databaseUnavailable } = await executePrismaWithFallback(
+    () =>
+      prisma.pelada.findMany({
+        include: {
+          _count: {
+            select: {
+              confirmations: true,
+              arrivals: true,
+            },
+          },
         },
-      },
-    },
-    orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
-  });
+        orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+      }),
+    [],
+    "admin:peladas:list",
+  );
 
   const classifiedPeladas = classifyPeladasForOperations(peladas);
   const focusPelada =
@@ -62,6 +69,10 @@ export default async function PeladasAdminPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container">
+        {databaseUnavailable ? (
+          <DatabaseUnavailableNotice description="As peladas não puderam ser carregadas agora. Os formulários continuam visíveis, mas as informações salvas dependem da volta do banco." className="mb-4" />
+        ) : null}
+
         <PeladaFeedbackBanner
           scope="admin-list"
           success={params.success}

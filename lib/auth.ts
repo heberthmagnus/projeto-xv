@@ -4,6 +4,10 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE } from "@/lib/auth-session";
 import { prisma } from "@/lib/prisma";
+import {
+  executePrisma,
+  isPrismaConnectionError,
+} from "@/lib/prisma-safe";
 const SESSION_DURATION_SECONDS = 60 * 60 * 12;
 
 type SessionPayload = {
@@ -23,23 +27,6 @@ export class AuthConfigurationError extends Error {
     super("A autenticação não está configurada corretamente.");
     this.name = "AuthConfigurationError";
   }
-}
-
-function isDatabaseConnectionError(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "P1001"
-  ) {
-    return true;
-  }
-
-  if (error instanceof Error) {
-    return error.message.includes("Can't reach database server");
-  }
-
-  return false;
 }
 
 function getSessionSecret() {
@@ -159,10 +146,14 @@ export async function getAuthenticatedAdmin() {
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { id: true, email: true, role: true },
-    });
+    const user = await executePrisma(
+      () =>
+        prisma.user.findUnique({
+          where: { id: session.userId },
+          select: { id: true, email: true, role: true },
+        }),
+      "auth:get-authenticated-admin",
+    );
 
     if (!user || !isAdminRole(user.role)) {
       return null;
@@ -170,7 +161,7 @@ export async function getAuthenticatedAdmin() {
 
     return user;
   } catch (error) {
-    if (isDatabaseConnectionError(error)) {
+    if (isPrismaConnectionError(error)) {
       throw new AuthDatabaseUnavailableError();
     }
 

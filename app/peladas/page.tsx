@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { PageContainer } from "@/components/ui/PageContainer";
 import {
   getFirstGameRuleLabel,
@@ -7,58 +8,69 @@ import {
   getPeladaTypeLabel,
 } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { CALENDARIO_XV_PATH } from "@/lib/routes";
 
 export default async function PeladasPage() {
   await connection();
   const now = new Date();
 
-  const [nextPelada, recentPastPeladas] = await Promise.all([
-    prisma.pelada.findFirst({
-      where: {
-        status: {
-          in: ["ABERTA", "EM_ANDAMENTO"],
-        },
-        scheduledAt: {
-          gte: now,
-        },
-      },
-      orderBy: [{ scheduledAt: "asc" }],
-      include: {
-        confirmations: {
+  const { data, databaseUnavailable } = await executePrismaWithFallback(
+    () =>
+      Promise.all([
+        prisma.pelada.findFirst({
           where: {
-            canceledAt: null,
+            status: {
+              in: ["ABERTA", "EM_ANDAMENTO"],
+            },
+            scheduledAt: {
+              gte: now,
+            },
           },
-          select: {
-            id: true,
+          orderBy: [{ scheduledAt: "asc" }],
+          include: {
+            confirmations: {
+              where: {
+                canceledAt: null,
+              },
+              select: {
+                id: true,
+              },
+            },
           },
-        },
-      },
-    }),
-    prisma.pelada.findMany({
-      where: {
-        scheduledAt: {
-          lt: now,
-        },
-      },
-      orderBy: [{ scheduledAt: "desc" }],
-      take: 5,
-      include: {
-        confirmations: {
+        }),
+        prisma.pelada.findMany({
           where: {
-            canceledAt: null,
+            scheduledAt: {
+              lt: now,
+            },
           },
-          select: {
-            id: true,
+          orderBy: [{ scheduledAt: "desc" }],
+          take: 5,
+          include: {
+            confirmations: {
+              where: {
+                canceledAt: null,
+              },
+              select: {
+                id: true,
+              },
+            },
           },
-        },
-      },
-    }),
-  ]);
+        }),
+      ]),
+    [null, []] as const,
+    "peladas:list",
+  );
+  const [nextPelada, recentPastPeladas] = data;
 
   return (
     <main className="xv-page-shell-soft">
       <PageContainer className="grid gap-4 md:gap-6">
+        {databaseUnavailable ? (
+          <DatabaseUnavailableNotice description="A listagem de peladas está temporariamente sem dados ao vivo. Assim que o banco voltar, a próxima pelada e o histórico recente reaparecem aqui." />
+        ) : null}
+
         <section className="overflow-hidden rounded-[20px] bg-[#1A1A1A] px-5 py-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:px-7 sm:py-8">
           <div className="inline-flex rounded-full border border-[#B89020]/35 bg-[#B89020]/16 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#F3D27A]">
             Peladas do Clube

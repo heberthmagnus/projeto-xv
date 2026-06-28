@@ -4,6 +4,7 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { DATABASE_UNAVAILABLE_MESSAGE, isPrismaConnectionError, logPrismaError } from "@/lib/prisma-safe";
 
 function formatPosition(position: string) {
   switch (position) {
@@ -30,46 +31,59 @@ function escapeCsv(value: string | null | undefined) {
 }
 
 export async function GET() {
-  await requireAdmin();
+  try {
+    await requireAdmin();
 
-  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+    const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
 
-  const registrations = await prisma.registration.findMany({
-    where: { championshipId: championship.id },
-    orderBy: { createdAt: "desc" },
-  });
+    const registrations = await prisma.registration.findMany({
+      where: { championshipId: championship.id },
+      orderBy: { createdAt: "desc" },
+    });
 
-  const header = [
-    "Nome",
-    "Apelido",
-    "Posição",
-    "Data de nascimento",
-    "Telefone",
-    "E-mail",
-    "Nível",
-    "Data da inscrição",
-  ];
+    const header = [
+      "Nome",
+      "Apelido",
+      "Posição",
+      "Data de nascimento",
+      "Telefone",
+      "E-mail",
+      "Nível",
+      "Data da inscrição",
+    ];
 
-  const rows = registrations.map((r) => [
-    escapeCsv(r.fullName),
-    escapeCsv(r.nickname),
-    escapeCsv(formatPosition(r.preferredPosition)),
-    escapeCsv(new Date(r.birthDate).toLocaleDateString("pt-BR")),
-    escapeCsv(r.phone),
-    escapeCsv(r.email),
-    escapeCsv(r.level),
-    escapeCsv(new Date(r.createdAt).toLocaleDateString("pt-BR")),
-  ]);
+    const rows = registrations.map((r) => [
+      escapeCsv(r.fullName),
+      escapeCsv(r.nickname),
+      escapeCsv(formatPosition(r.preferredPosition)),
+      escapeCsv(new Date(r.birthDate).toLocaleDateString("pt-BR")),
+      escapeCsv(r.phone),
+      escapeCsv(r.email),
+      escapeCsv(r.level),
+      escapeCsv(new Date(r.createdAt).toLocaleDateString("pt-BR")),
+    ]);
 
-  const csv = [header.join(","), ...rows.map((row) => row.join(","))].join(
-    "\n",
-  );
+    const csv = [header.join(","), ...rows.map((row) => row.join(","))].join(
+      "\n",
+    );
 
-  return new Response(csv, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="inscricoes-tio-hugo-2026.csv"`,
-    },
-  });
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="inscricoes-tio-hugo-2026.csv"`,
+      },
+    });
+  } catch (error) {
+    logPrismaError("admin:championship-registrations:export", error);
+
+    if (isPrismaConnectionError(error)) {
+      return Response.json(
+        { error: DATABASE_UNAVAILABLE_MESSAGE },
+        { status: 503 },
+      );
+    }
+
+    throw error;
+  }
 }

@@ -11,6 +11,7 @@ export type CalendarEventItem = {
   type: CalendarEventType;
   title: string;
   startsAt: Date;
+  description?: string;
   href?: string;
   external?: boolean;
 };
@@ -20,49 +21,49 @@ export const COPA_TIO_HUGO_2026_EVENTS: CalendarEventItem[] = [
     id: "copa-tio-hugo-2026-r1",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 1",
-    startsAt: new Date("2026-05-07T19:00:00-03:00"),
+    startsAt: new Date("2026-06-25T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=1`,
   },
   {
     id: "copa-tio-hugo-2026-r2",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 2",
-    startsAt: new Date("2026-05-14T19:00:00-03:00"),
+    startsAt: new Date("2026-07-02T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=2`,
   },
   {
     id: "copa-tio-hugo-2026-r3",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 3",
-    startsAt: new Date("2026-05-21T19:00:00-03:00"),
+    startsAt: new Date("2026-07-09T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=3`,
   },
   {
     id: "copa-tio-hugo-2026-r4",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 4",
-    startsAt: new Date("2026-05-28T19:00:00-03:00"),
+    startsAt: new Date("2026-07-16T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=4`,
   },
   {
     id: "copa-tio-hugo-2026-r5",
     type: "COPA_TIO_HUGO",
     title: "Copa • Rodada 5",
-    startsAt: new Date("2026-06-11T19:00:00-03:00"),
+    startsAt: new Date("2026-07-23T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=5`,
   },
   {
     id: "copa-tio-hugo-2026-semifinal",
     type: "COPA_TIO_HUGO",
     title: "Copa • Semifinal",
-    startsAt: new Date("2026-06-18T19:00:00-03:00"),
+    startsAt: new Date("2026-07-30T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=6`,
   },
   {
     id: "copa-tio-hugo-2026-final",
     type: "COPA_TIO_HUGO",
     title: "Copa • Final",
-    startsAt: new Date("2026-06-25T19:00:00-03:00"),
+    startsAt: new Date("2026-08-06T20:00:00-03:00"),
     href: `${getTioHugoBasePath()}?view=7`,
   },
 ];

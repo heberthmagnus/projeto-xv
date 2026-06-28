@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import {
   PaymentStatus,
   PlayerLevel,
@@ -12,6 +13,7 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { ADMIN_REGISTRATIONS_PATH } from "@/lib/routes";
 import { RegistrationRow } from "./registration-row";
 
@@ -40,33 +42,58 @@ export default async function InscricoesAdminPage({
   const payment = String(params.payment || "").trim();
   const error = String(params.error || "").trim();
 
-  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const { data, databaseUnavailable } = await executePrismaWithFallback<{
+    championship: Awaited<ReturnType<typeof getRequiredChampionshipBySlug>> | null;
+    registrations: Array<any>;
+  }>(
+    async () => {
+      const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+      const registrations = await prisma.registration.findMany({
+        where: {
+          championshipId: championship.id,
+          ...(q
+            ? {
+                OR: [
+                  { fullName: { contains: q, mode: "insensitive" } },
+                  { nickname: { contains: q, mode: "insensitive" } },
+                  { email: { contains: q, mode: "insensitive" } },
+                  { phone: { contains: q, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+          ...(position
+            ? { preferredPosition: position as PreferredPosition }
+            : {}),
+          ...(level ? { level: level as PlayerLevel } : {}),
+          ...(payment ? { paymentStatus: payment as PaymentStatus } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+      });
 
-  const registrations = await prisma.registration.findMany({
-    where: {
-      championshipId: championship.id,
-      ...(q
-        ? {
-            OR: [
-              { fullName: { contains: q, mode: "insensitive" } },
-              { nickname: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-              { phone: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-      ...(position
-        ? { preferredPosition: position as PreferredPosition }
-        : {}),
-      ...(level ? { level: level as PlayerLevel } : {}),
-      ...(payment ? { paymentStatus: payment as PaymentStatus } : {}),
+      return { championship, registrations };
     },
-    orderBy: { createdAt: "desc" },
-  });
+    { championship: null, registrations: [] },
+    "admin:championship-registrations:list",
+  );
+  const { championship, registrations } = data;
+
+  if (!championship) {
+    return (
+      <main style={pageStyle}>
+        <div style={containerStyle}>
+          <DatabaseUnavailableNotice description="As inscrições não puderam ser carregadas agora. Tente novamente em alguns instantes." />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
+        {databaseUnavailable ? (
+          <DatabaseUnavailableNotice description="Os filtros continuam disponíveis, mas a lista completa de inscrições não pôde ser carregada agora." className="mb-4" />
+        ) : null}
+
         <div style={headerCardStyle}>
           <div
             style={{

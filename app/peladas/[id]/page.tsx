@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { getFirstGameRuleLabel, getPeladaStatusLabel, getPeladaTypeLabel } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { PeladaConfirmationForm } from "./confirmation-form";
 
 type Params = Promise<{
@@ -23,51 +25,66 @@ export default async function PeladaPublicPage({
 
   const { id } = await params;
 
-  const pelada = await prisma.pelada.findUnique({
-    where: { id },
-    include: {
-      confirmations: {
-        where: {
-          parentConfirmationId: null,
-          createdByAdmin: false,
-          canceledAt: null,
-        },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: {
-          id: true,
-          fullName: true,
-          preferredPosition: true,
-          guestCount: true,
-          createdAt: true,
-          guests: {
+  const { data: pelada, databaseUnavailable } = await executePrismaWithFallback(
+    () =>
+      prisma.pelada.findUnique({
+        where: { id },
+        include: {
+          confirmations: {
             where: {
+              parentConfirmationId: null,
+              createdByAdmin: false,
               canceledAt: null,
             },
-            orderBy: { guestOrder: "asc" },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
             select: {
               id: true,
+              fullName: true,
+              preferredPosition: true,
+              guestCount: true,
+              createdAt: true,
+              guests: {
+                where: {
+                  canceledAt: null,
+                },
+                orderBy: { guestOrder: "asc" },
+                select: {
+                  id: true,
+                },
+              },
+            },
+          },
+          arrivals: {
+            orderBy: [{ arrivalOrder: "asc" }, { arrivedAt: "asc" }],
+            select: {
+              id: true,
+              arrivalOrder: true,
+              fullName: true,
+              preferredPosition: true,
+              arrivedAt: true,
+              isGuest: true,
+            },
+          },
+          _count: {
+            select: {
+              arrivals: true,
             },
           },
         },
-      },
-      arrivals: {
-        orderBy: [{ arrivalOrder: "asc" }, { arrivedAt: "asc" }],
-        select: {
-          id: true,
-          arrivalOrder: true,
-          fullName: true,
-          preferredPosition: true,
-          arrivedAt: true,
-          isGuest: true,
-        },
-      },
-      _count: {
-        select: {
-          arrivals: true,
-        },
-      },
-    },
-  });
+      }),
+    null,
+    "peladas:detail",
+  );
+
+  if (databaseUnavailable) {
+    return (
+      <main className="xv-page-shell-soft">
+        <div className="xv-page-container xv-page-container-narrow">
+          <DatabaseUnavailableNotice description="Esta tela de confirmação continua publicada, mas os dados da pelada não puderam ser carregados agora." />
+        </div>
+      </main>
+    );
+  }
 
   if (!pelada) {
     notFound();

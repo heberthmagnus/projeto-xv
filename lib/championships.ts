@@ -77,6 +77,7 @@ export const getChampionshipTeamsWithPlayersBySlug = cache(async (slug: string) 
               id: true,
               name: true,
               shortName: true,
+              icon: true,
             },
           },
           awayTeam: {
@@ -84,6 +85,7 @@ export const getChampionshipTeamsWithPlayersBySlug = cache(async (slug: string) 
               id: true,
               name: true,
               shortName: true,
+              icon: true,
             },
           },
         },
@@ -111,6 +113,7 @@ export const getChampionshipTeamsWithPlayersBySlug = cache(async (slug: string) 
               slug: true,
               shortName: true,
               crestUrl: true,
+              icon: true,
               primaryColor: true,
               secondaryColor: true,
               players: {
@@ -202,6 +205,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               name: true,
               slug: true,
               shortName: true,
+              icon: true,
               primaryColor: true,
               secondaryColor: true,
             },
@@ -234,6 +238,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               name: true,
               slug: true,
               shortName: true,
+              icon: true,
               primaryColor: true,
               secondaryColor: true,
             },
@@ -263,6 +268,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               name: true,
               slug: true,
               shortName: true,
+              icon: true,
               primaryColor: true,
               secondaryColor: true,
             },
@@ -273,6 +279,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               name: true,
               slug: true,
               shortName: true,
+              icon: true,
               primaryColor: true,
               secondaryColor: true,
             },
@@ -283,6 +290,34 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               name: true,
               order: true,
               stageType: true,
+            },
+          },
+          participations: {
+            orderBy: [{ team: { name: "asc" } }, { player: { fullName: "asc" } }],
+            select: {
+              id: true,
+              goals: true,
+              assists: true,
+              yellowCards: true,
+              redCards: true,
+              ownGoals: true,
+              bionic: true,
+              starter: true,
+              teamId: true,
+              player: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  shortName: true,
+                  icon: true,
+                },
+              },
             },
           },
         },
@@ -310,6 +345,7 @@ function buildDynamicChampionshipStandings(args: {
       name: string;
       slug: string | null;
       shortName: string | null;
+      icon: string | null;
       primaryColor: string | null;
       secondaryColor: string | null;
     };
@@ -317,13 +353,14 @@ function buildDynamicChampionshipStandings(args: {
   matches: Array<{
     id: string;
     status: "AGENDADO" | "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO";
-    homeScore: number;
-    awayScore: number;
+    homeScore: number | null;
+    awayScore: number | null;
     homeTeam: {
       id: string;
       name: string;
       slug: string | null;
       shortName: string | null;
+      icon: string | null;
       primaryColor: string | null;
       secondaryColor: string | null;
     };
@@ -332,6 +369,7 @@ function buildDynamicChampionshipStandings(args: {
       name: string;
       slug: string | null;
       shortName: string | null;
+      icon: string | null;
       primaryColor: string | null;
       secondaryColor: string | null;
     };
@@ -365,7 +403,12 @@ function buildDynamicChampionshipStandings(args: {
   );
 
   for (const match of args.matches) {
-    if (match.status !== "FINALIZADO" || match.stage?.stageType !== "GRUPO") {
+    if (
+      match.status !== "FINALIZADO" ||
+      match.stage?.stageType !== "GRUPO" ||
+      match.homeScore === null ||
+      match.awayScore === null
+    ) {
       continue;
     }
 
@@ -454,6 +497,7 @@ export const getChampionshipTeamPublicPageData = cache(
                   name: true,
                   slug: true,
                   shortName: true,
+                  icon: true,
                   primaryColor: true,
                   secondaryColor: true,
                 },
@@ -481,6 +525,7 @@ export const getChampionshipTeamPublicPageData = cache(
                   name: true,
                   slug: true,
                   shortName: true,
+                  icon: true,
                   primaryColor: true,
                   secondaryColor: true,
                 },
@@ -491,6 +536,7 @@ export const getChampionshipTeamPublicPageData = cache(
                   name: true,
                   slug: true,
                   shortName: true,
+                  icon: true,
                   primaryColor: true,
                   secondaryColor: true,
                 },
@@ -527,6 +573,7 @@ export const getChampionshipTeamPublicPageData = cache(
               slug: true,
               shortName: true,
               crestUrl: true,
+              icon: true,
               primaryColor: true,
               secondaryColor: true,
               players: {
@@ -584,6 +631,7 @@ export const getChampionshipTeamPublicPageData = cache(
                       name: true,
                       slug: true,
                       shortName: true,
+                      icon: true,
                       primaryColor: true,
                       secondaryColor: true,
                     },
@@ -618,6 +666,7 @@ export const getChampionshipTeamPublicPageData = cache(
                       name: true,
                       slug: true,
                       shortName: true,
+                      icon: true,
                       primaryColor: true,
                       secondaryColor: true,
                     },

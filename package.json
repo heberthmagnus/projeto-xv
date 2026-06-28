@@ -9,6 +9,7 @@
     "lint": "eslint",
     "import:athletes": "node --experimental-strip-types scripts/import-athletes.ts",
     "backfill:pelada-athletes": "node --experimental-strip-types scripts/backfill-pelada-confirmations-athlete-profile.ts",
+    "seed:copa-tio-hugo-2026": "tsx scripts/seed-copa-tio-hugo-2026.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

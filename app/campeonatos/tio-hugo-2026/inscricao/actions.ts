@@ -8,6 +8,7 @@ import {
 } from "@/lib/championships";
 import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { prisma } from "@/lib/prisma";
+import { getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { RegistrationFormState } from "./form-state";
 
@@ -45,27 +46,9 @@ export async function createRegistration(
     return { error: "Confirme a leitura das regras para continuar." };
   }
 
-  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
-  const athleteProfileId = await syncAthleteProfileFromRegistration({
-    fullName,
-    nickname: nickname || null,
-    preferredPosition: preferredPosition as
-      | "GOLEIRO"
-      | "LATERAL"
-      | "ZAGUEIRO"
-      | "VOLANTE"
-      | "MEIA"
-      | "ATACANTE",
-    birthDate: new Date(birthDate),
-    phone,
-    email: email || null,
-    level: null,
-  });
-
-  await prisma.registration.create({
-    data: {
-      championshipId: championship.id,
-      athleteProfileId,
+  try {
+    const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+    const athleteProfileId = await syncAthleteProfileFromRegistration({
       fullName,
       nickname: nickname || null,
       preferredPosition: preferredPosition as
@@ -78,9 +61,37 @@ export async function createRegistration(
       birthDate: new Date(birthDate),
       phone,
       email: email || null,
-      confirmedRules,
-    },
-  });
+      level: null,
+    });
+
+    await prisma.registration.create({
+      data: {
+        championshipId: championship.id,
+        athleteProfileId,
+        fullName,
+        nickname: nickname || null,
+        preferredPosition: preferredPosition as
+          | "GOLEIRO"
+          | "LATERAL"
+          | "ZAGUEIRO"
+          | "VOLANTE"
+          | "MEIA"
+          | "ATACANTE",
+        birthDate: new Date(birthDate),
+        phone,
+        email: email || null,
+        confirmedRules,
+      },
+    });
+  } catch (error) {
+    const databaseMessage = getFriendlyDatabaseErrorMessage(error);
+
+    if (databaseMessage) {
+      return { error: databaseMessage };
+    }
+
+    throw error;
+  }
 
   redirect(`${getTioHugoRegistrationPath()}/sucesso`);
 }

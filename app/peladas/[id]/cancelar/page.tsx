@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { prisma } from "@/lib/prisma";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { cancelPeladaConfirmation } from "./actions";
 
 type Params = Promise<{
@@ -29,33 +31,51 @@ export default async function PeladaCancelPage({
   const status = String(resolvedSearchParams.status || "").trim();
   const error = String(resolvedSearchParams.error || "").trim();
 
-  const pelada = await prisma.pelada.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      scheduledAt: true,
-    },
-  });
+  const { data, databaseUnavailable } = await executePrismaWithFallback(
+    () =>
+      Promise.all([
+        prisma.pelada.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            scheduledAt: true,
+          },
+        }),
+        token
+          ? prisma.peladaConfirmation.findFirst({
+              where: {
+                peladaId: id,
+                cancelToken: token,
+                parentConfirmationId: null,
+              },
+              select: {
+                id: true,
+                canceledAt: true,
+              },
+            })
+          : Promise.resolve(null),
+      ]),
+    [null, null] as const,
+    "peladas:cancel-page",
+  );
+  const [pelada, confirmation] = data;
+
+  if (databaseUnavailable) {
+    return (
+      <main style={pageStyle}>
+        <div style={{ ...cardStyle, textAlign: "left" }}>
+          <DatabaseUnavailableNotice description="O cancelamento fica disponível novamente assim que a conexão com o banco for restabelecida." />
+        </div>
+      </main>
+    );
+  }
 
   if (!pelada) {
     notFound();
   }
 
-  const confirmation = token
-    ? await prisma.peladaConfirmation.findFirst({
-        where: {
-          peladaId: id,
-          cancelToken: token,
-          parentConfirmationId: null,
-        },
-        select: {
-          id: true,
-          canceledAt: true,
-        },
-      })
-    : null;
-
   const invalidToken = !token || error === "invalid" || !confirmation;
+  const databaseError = error === "db-unavailable";
   const justCanceled = status === "success" && Boolean(confirmation);
   const alreadyCanceled =
     !justCanceled &&
@@ -68,7 +88,11 @@ export default async function PeladaCancelPage({
         <div style={badgeStyle}>Pelada de {formatDate(pelada.scheduledAt)}</div>
         <h1 style={titleStyle}>Cancelar presença</h1>
 
-        {invalidToken ? (
+        {databaseError ? (
+          <p style={descriptionStyle}>
+            Sistema temporariamente indisponível. Tente novamente em alguns instantes.
+          </p>
+        ) : invalidToken ? (
           <p style={descriptionStyle}>
             Confirmação não encontrada ou já cancelada.
           </p>

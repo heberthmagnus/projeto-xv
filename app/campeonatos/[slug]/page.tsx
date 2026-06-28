@@ -3,14 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import type { ChampionshipFormat, ChampionshipRegistrationMode, ChampionshipStatus, MatchStatus, StandingMovement } from "@prisma/client";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { getChampionshipPublicPageDataBySlug } from "@/lib/championships";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import {
   CALENDARIO_XV_PATH,
-  getChampionshipBasePath,
   getChampionshipRegistrationPath,
   getChampionshipTeamBasePath,
 } from "@/lib/routes";
+import { MatchRoundCalendar } from "./match-round-calendar";
 
 type Params = Promise<{
   slug: string;
@@ -22,7 +24,11 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const championship = await getChampionshipPublicPageDataBySlug(slug);
+  const { data: championship } = await executePrismaWithFallback(
+    () => getChampionshipPublicPageDataBySlug(slug),
+    null,
+    `campeonatos:${slug}:metadata`,
+  );
 
   if (!championship) {
     return {
@@ -51,7 +57,21 @@ export default async function ChampionshipPublicPage({
 
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
-  const championship = await getChampionshipPublicPageDataBySlug(slug);
+  const { data: championship, databaseUnavailable } = await executePrismaWithFallback(
+    () => getChampionshipPublicPageDataBySlug(slug),
+    null,
+    `campeonatos:${slug}:public-page`,
+  );
+
+  if (databaseUnavailable) {
+    return (
+      <main className="xv-page-shell-soft">
+        <PageContainer>
+          <DatabaseUnavailableNotice description="A página pública do campeonato continua no ar, mas os dados ao vivo não puderam ser carregados agora." />
+        </PageContainer>
+      </main>
+    );
+  }
 
   if (!championship) {
     notFound();
@@ -70,12 +90,11 @@ export default async function ChampionshipPublicPage({
     Number.isInteger(requestedViewIndex) && requestedViewIndex > 0
       ? Math.min(requestedViewIndex, Math.max(matchViews.length, 1))
       : 1;
-  const currentMatchView = matchViews[currentViewIndex - 1] || null;
   const groupStandings = championship.standings.filter((standing) => standing.gamesPlayed > 0);
   const qualifiedCutoff =
     championship._count.teams >= 5 && championship.slug === "tio-hugo-2026" ? 4 : 0;
-  const currentViewFinishedMatches =
-    currentMatchView?.matches.filter((match) => match.status === "FINALIZADO").length || 0;
+  const topScorers = buildTopScorers(championship.matches);
+  const cardLeaders = buildCardLeaders(championship.matches);
 
   return (
     <main className="xv-page-shell-soft">
@@ -175,8 +194,11 @@ export default async function ChampionshipPublicPage({
                     label="Líder"
                     value={
                       championship.standings[0]
-                        ? championship.standings[0].team.shortName ||
-                          championship.standings[0].team.name
+                        ? formatTeamDisplayName(
+                            championship.standings[0].team.shortName ||
+                              championship.standings[0].team.name,
+                            championship.standings[0].team.icon,
+                          )
                         : "-"
                     }
                     tone="gold"
@@ -214,7 +236,9 @@ export default async function ChampionshipPublicPage({
                       }}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <TeamIcon icon={standing.team.icon} />
+                          <div className="min-w-0">
                           <div className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
                             {standing.rank ? `${standing.rank}º lugar` : "Posição"}
                           </div>
@@ -227,7 +251,7 @@ export default async function ChampionshipPublicPage({
                           >
                             {standing.team.shortName || standing.team.name}
                           </Link>
-                          <div className="text-sm text-[#6B7280]">{standing.team.name}</div>
+                          </div>
                         </div>
                         <div className="rounded-2xl bg-[#171717] px-3 py-2 text-center text-white">
                           <div className="text-[0.68rem] font-bold uppercase tracking-[0.12em] text-white/60">
@@ -291,6 +315,9 @@ export default async function ChampionshipPublicPage({
                           </div>
                         </td>
                         <td className="border-b border-[#F1F5F9] px-3 py-3">
+                          <div className="flex items-center gap-3">
+                            <TeamIcon icon={standing.team.icon} compact />
+                            <div>
                           <Link
                             href={getChampionshipTeamBasePath(
                               championship.slug,
@@ -300,8 +327,7 @@ export default async function ChampionshipPublicPage({
                           >
                             {standing.team.shortName || standing.team.name}
                           </Link>
-                          <div className="text-xs text-[#6B7280]">
-                            {standing.team.name}
+                          </div>
                           </div>
                         </td>
                         <td className="border-b border-[#F1F5F9] px-3 py-3 text-center font-bold text-[#101010]">
@@ -336,181 +362,69 @@ export default async function ChampionshipPublicPage({
             )}
           </article>
 
-          <article id="jogos" className="xv-card scroll-mt-28">
-            <div className="mb-5 flex items-start justify-between gap-4">
+          <article className="xv-card">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <span className="inline-flex rounded-full bg-[#E9EEF9] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
-                  Rodada ao vivo
+                <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
+                  Estatísticas
                 </span>
                 <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
-                  Jogos
+                  Artilharia e cartões
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4B5563]">
-                  Painel da rodada ou fase selecionada, usando os confrontos reais do campeonato.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
-                <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
-                  Jogos cadastrados
-                </div>
-                <div className="text-xl font-black text-[#101010]">
-                  {championship.matches.length}
-                </div>
               </div>
             </div>
 
-            {championship.matches.length > 0 ? (
-              <div className="grid gap-4">
-                {currentMatchView ? (
-                  <div className="grid gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
-                          Navegação
-                        </div>
-                        <div className="mt-1 text-lg font-black text-[#101010]">
-                          {currentMatchView.label}
-                        </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4">
+                <h3 className="text-base font-black text-[#101010]">Artilheiros</h3>
+                <div className="mt-3 grid gap-2">
+                  {topScorers.length > 0 ? (
+                    topScorers.map((entry) => (
+                      <div key={entry.key} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                        <span className="font-semibold text-[#101010]">{entry.name}</span>
+                        <span className="rounded-full bg-[#171717] px-3 py-1 text-sm font-black text-white">
+                          {entry.goals}
+                        </span>
                       </div>
-
-                      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-                        {currentViewIndex > 1 ? (
-                          <Link
-                            href={buildMatchViewHref(championship.slug, currentViewIndex - 1)}
-                            className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1] sm:min-w-11 sm:flex-none"
-                          >
-                            <span className="md:hidden text-sm">Anterior</span>
-                            <span className="hidden md:inline">{"<"}</span>
-                          </Link>
-                        ) : (
-                          <span className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF] sm:min-w-11 sm:flex-none">
-                            <span className="md:hidden text-sm">Anterior</span>
-                            <span className="hidden md:inline">{"<"}</span>
-                          </span>
-                        )}
-
-                        <div className="inline-flex min-h-11 min-w-[88px] items-center justify-center rounded-full bg-[#171717] px-4 py-2.5 text-sm font-bold text-white">
-                          {currentViewIndex} / {matchViews.length}
-                        </div>
-
-                        {currentViewIndex < matchViews.length ? (
-                          <Link
-                            href={buildMatchViewHref(championship.slug, currentViewIndex + 1)}
-                            className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1] sm:min-w-11 sm:flex-none"
-                          >
-                            <span className="md:hidden text-sm">Próxima</span>
-                            <span className="hidden md:inline">{">"}</span>
-                          </Link>
-                        ) : (
-                          <span className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-2.5 text-lg font-black text-[#9CA3AF] sm:min-w-11 sm:flex-none">
-                            <span className="md:hidden text-sm">Próxima</span>
-                            <span className="hidden md:inline">{">"}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <RoundStatCard
-                        label="Jogos nesta vista"
-                        value={String(currentMatchView.matches.length)}
-                      />
-                      <RoundStatCard
-                        label="Finalizados"
-                        value={String(currentViewFinishedMatches)}
-                      />
-                      <RoundStatCard
-                        label="Pendentes"
-                        value={String(currentMatchView.matches.length - currentViewFinishedMatches)}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                {(currentMatchView?.matches || []).map((match) => (
-                  <article
-                    key={match.id}
-                    className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
-                  >
-                    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#6B7280]">
-                      <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[#374151]">
-                        {getMatchStageLabel(match.stage?.name, match.round, match.roundNumber)}
-                      </span>
-                      <span className={getMatchStatusClassName(match.status)}>
-                        {getMatchStatusLabel(match.status)}
-                      </span>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-                      <TeamFace
-                        align="right"
-                        name={match.homeTeam.shortName || match.homeTeam.name}
-                        fullName={match.homeTeam.name}
-                        href={
-                          match.homeTeam.slug
-                            ? getChampionshipTeamBasePath(
-                                championship.slug,
-                                match.homeTeam.slug,
-                              )
-                            : null
-                        }
-                        primaryColor={match.homeTeam.primaryColor}
-                        secondaryColor={match.homeTeam.secondaryColor}
-                      />
-
-                      <div className="rounded-2xl bg-[#171717] px-4 py-3 text-center text-white sm:min-w-[106px]">
-                        {match.status === "AGENDADO" ? (
-                          <div className="text-lg font-black tracking-[0.18em] text-[#F3D27A]">
-                            VS
-                          </div>
-                        ) : (
-                          <div className="text-[1.7rem] font-black leading-none">
-                            {match.homeScore} <span className="text-white/[0.45]">x</span>{" "}
-                            {match.awayScore}
-                          </div>
-                        )}
-                      </div>
-
-                      <TeamFace
-                        align="left"
-                        name={match.awayTeam.shortName || match.awayTeam.name}
-                        fullName={match.awayTeam.name}
-                        href={
-                          match.awayTeam.slug
-                            ? getChampionshipTeamBasePath(
-                                championship.slug,
-                                match.awayTeam.slug,
-                              )
-                            : null
-                        }
-                        primaryColor={match.awayTeam.primaryColor}
-                        secondaryColor={match.awayTeam.secondaryColor}
-                      />
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#4B5563]">
-                      <span>{formatMatchDateTime(match.scheduledAt)}</span>
-                      {match.location ? <span>{match.location}</span> : null}
-                      {match.notes ? <span>{match.notes}</span> : null}
-                    </div>
-                  </article>
-                ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-[#6B7280]">Sem gols registrados ainda.</p>
+                  )}
+                </div>
               </div>
-            ) : (
-              <EmptyPanel
-                title="Jogos ainda não cadastrados"
-                description="A estrutura pública já está pronta para receber calendário de rodadas, semifinais e final. Quando os confrontos entrarem no banco, esta coluna passa a refletir a agenda do campeonato."
-              />
-            )}
+
+              <div className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4">
+                <h3 className="text-base font-black text-[#101010]">Cartões</h3>
+                <div className="mt-3 grid gap-2">
+                  {cardLeaders.length > 0 ? (
+                    cardLeaders.map((entry) => (
+                      <div key={entry.key} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                        <span className="font-semibold text-[#101010]">{entry.name}</span>
+                        <span className="text-sm font-black text-[#101010]">
+                          {"🟨".repeat(entry.yellowCards)}
+                          {"🟥".repeat(entry.redCards)}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-[#6B7280]">Sem cartões registrados ainda.</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </article>
+
         </section>
+
+        <MatchRoundCalendar
+          championshipSlug={championship.slug}
+          matchViews={matchViews}
+          initialViewIndex={currentViewIndex}
+          totalMatches={championship.matches.length}
+        />
       </PageContainer>
     </main>
   );
-}
-
-function buildMatchViewHref(slug: string, view: number) {
-  return `${getChampionshipBasePath(slug)}?view=${view}`;
 }
 
 function buildMatchViews(
@@ -522,22 +436,24 @@ function buildMatchViews(
     location: string | null;
     status: MatchStatus;
     notes: string | null;
-    homeScore: number;
-    awayScore: number;
+    homeScore: number | null;
+    awayScore: number | null;
     homeTeam: {
       id: string;
       name: string;
-      slug: string | null;
-      shortName: string | null;
-      primaryColor: string | null;
+    slug: string | null;
+    shortName: string | null;
+    icon: string | null;
+    primaryColor: string | null;
       secondaryColor: string | null;
     };
     awayTeam: {
       id: string;
       name: string;
-      slug: string | null;
-      shortName: string | null;
-      primaryColor: string | null;
+    slug: string | null;
+    shortName: string | null;
+    icon: string | null;
+    primaryColor: string | null;
       secondaryColor: string | null;
     };
     stage: {
@@ -628,47 +544,108 @@ function EmptyPanel({
   );
 }
 
-function TeamFace({
-  align,
-  name,
-  fullName,
-  href,
+function buildTopScorers(
+  matches: Array<{
+    participations?: Array<{
+      player: { id: string; fullName: string };
+      goals: number;
+    }>;
+  }>,
+) {
+  const scorers = new Map<string, { key: string; name: string; goals: number }>();
+
+  for (const match of matches) {
+    for (const participation of match.participations || []) {
+      if (participation.goals <= 0) {
+        continue;
+      }
+
+      const current =
+        scorers.get(participation.player.id) || {
+          key: participation.player.id,
+          name: participation.player.fullName,
+          goals: 0,
+        };
+      current.goals += participation.goals;
+      scorers.set(participation.player.id, current);
+    }
+  }
+
+  return Array.from(scorers.values()).sort((left, right) => {
+    if (right.goals !== left.goals) return right.goals - left.goals;
+    return left.name.localeCompare(right.name, "pt-BR");
+  });
+}
+
+function buildCardLeaders(
+  matches: Array<{
+    participations?: Array<{
+      player: { id: string; fullName: string };
+      yellowCards: number;
+      redCards: number;
+    }>;
+  }>,
+) {
+  const players = new Map<
+    string,
+    { key: string; name: string; yellowCards: number; redCards: number }
+  >();
+
+  for (const match of matches) {
+    for (const participation of match.participations || []) {
+      if (participation.yellowCards <= 0 && participation.redCards <= 0) {
+        continue;
+      }
+
+      const current =
+        players.get(participation.player.id) || {
+          key: participation.player.id,
+          name: participation.player.fullName,
+          yellowCards: 0,
+          redCards: 0,
+        };
+      current.yellowCards += participation.yellowCards;
+      current.redCards += participation.redCards;
+      players.set(participation.player.id, current);
+    }
+  }
+
+  return Array.from(players.values()).sort((left, right) => {
+    const rightTotal = right.yellowCards + right.redCards;
+    const leftTotal = left.yellowCards + left.redCards;
+    if (rightTotal !== leftTotal) return rightTotal - leftTotal;
+    return left.name.localeCompare(right.name, "pt-BR");
+  });
+}
+
+function formatTeamDisplayName(name: string, icon?: string | null) {
+  return icon ? `${icon} ${name}` : name;
+}
+
+function TeamIcon({
+  icon,
   primaryColor,
   secondaryColor,
+  compact = false,
 }: {
-  align: "left" | "right";
-  name: string;
-  fullName: string;
-  href?: string | null;
+  icon?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  compact?: boolean;
 }) {
-  const alignment = align === "right" ? "sm:text-right sm:items-end" : "sm:text-left sm:items-start";
-  const nameContent = href ? (
-    <Link
-      href={href}
-      className="font-black uppercase tracking-[0.04em] text-[#111827] transition hover:text-[#8B6914]"
-    >
-      {name}
-    </Link>
-  ) : (
-    <div className="font-black uppercase tracking-[0.04em] text-[#111827]">
-      {name}
-    </div>
-  );
-
   return (
-    <div className={`flex flex-col items-center gap-2 text-center ${alignment}`}>
-      <div
-        className="h-11 w-11 rounded-full border"
-        style={{
-          background: buildTeamBadgeBackground(primaryColor, secondaryColor),
-          borderColor: secondaryColor || primaryColor || "#E5E7EB",
-        }}
-      />
-      {nameContent}
-      <div className="text-xs text-[#6B7280]">{fullName}</div>
-    </div>
+    <span
+      aria-hidden="true"
+      className={`grid shrink-0 place-items-center rounded-full border bg-white ${
+        compact ? "h-9 w-9 text-xl" : "h-11 w-11 text-2xl"
+      }`}
+      style={{
+        background: icon ? "#FFFFFF" : buildTeamBadgeBackground(primaryColor, secondaryColor),
+        borderColor: secondaryColor || primaryColor || "#E5E7EB",
+      }}
+    >
+      {icon || null}
+    </span>
   );
 }
 
@@ -711,17 +688,6 @@ function TableStatCard({
         className="text-[0.72rem] font-bold uppercase tracking-[0.14em]"
         style={{ color: tones[tone].color }}
       >
-        {label}
-      </div>
-      <div className="mt-1 text-xl font-black text-[#101010]">{value}</div>
-    </div>
-  );
-}
-
-function RoundStatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
-      <div className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7280]">
         {label}
       </div>
       <div className="mt-1 text-xl font-black text-[#101010]">{value}</div>
@@ -780,34 +746,6 @@ function getRegistrationModeLabel(mode: ChampionshipRegistrationMode) {
   }
 }
 
-function getMatchStatusLabel(status: MatchStatus) {
-  switch (status) {
-    case "EM_ANDAMENTO":
-      return "Ao vivo";
-    case "FINALIZADO":
-      return "Finalizado";
-    case "CANCELADO":
-      return "Cancelado";
-    case "AGENDADO":
-    default:
-      return "Agendado";
-  }
-}
-
-function getMatchStatusClassName(status: MatchStatus) {
-  switch (status) {
-    case "FINALIZADO":
-      return "rounded-full bg-[#ECFDF3] px-2.5 py-1 text-[#047857]";
-    case "EM_ANDAMENTO":
-      return "rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[#92400E]";
-    case "CANCELADO":
-      return "rounded-full bg-[#FEF2F2] px-2.5 py-1 text-[#B91C1C]";
-    case "AGENDADO":
-    default:
-      return "rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[#4338CA]";
-  }
-}
-
 function getMovementIcon(movement: StandingMovement) {
   switch (movement) {
     case "SUBIU":
@@ -840,21 +778,6 @@ function formatChampionshipWindow(startsAt?: Date | null, endsAt?: Date | null) 
   return "A definir";
 }
 
-function formatMatchDateTime(date?: Date | null) {
-  if (!date) {
-    return "Data a definir";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  }).format(date);
-}
-
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -862,26 +785,6 @@ function formatDate(date: Date) {
     year: "numeric",
     timeZone: "America/Sao_Paulo",
   }).format(date);
-}
-
-function getMatchStageLabel(
-  stageName?: string | null,
-  round?: number | null,
-  roundNumber?: number | null,
-) {
-  if (stageName) {
-    return stageName;
-  }
-
-  if (roundNumber) {
-    return `Rodada ${roundNumber}`;
-  }
-
-  if (round) {
-    return `Rodada ${round}`;
-  }
-
-  return "Partida";
 }
 
 function buildTeamBadgeBackground(

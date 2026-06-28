@@ -1,5 +1,6 @@
 import { ChampionshipPlayerStatus } from "@prisma/client";
 import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
+import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { requireAdmin } from "@/lib/auth";
 import {
   getChampionshipTeamsWithPlayersBySlug,
@@ -7,6 +8,7 @@ import {
   getTioHugoAdminTeamsPath,
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
+import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { ADMIN_TEAMS_PATH } from "@/lib/routes";
 import {
   assignRegistrationToTeam,
@@ -29,13 +31,35 @@ export default async function TimesAdminPage({
 }) {
   const params = await searchParams;
   const adminUser = await requireAdmin();
-  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
-  const championshipWithTeams = await getChampionshipTeamsWithPlayersBySlug(
-    TIO_HUGO_2026_SLUG,
-  );
+  const { data, databaseUnavailable } = await executePrismaWithFallback<{
+    championship: Awaited<ReturnType<typeof getRequiredChampionshipBySlug>> | null;
+    championshipWithTeams: any;
+  }>(
+    async () => {
+      const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+      const championshipWithTeams = await getChampionshipTeamsWithPlayersBySlug(
+        TIO_HUGO_2026_SLUG,
+      );
 
-  if (!championshipWithTeams) {
-    throw new Error("Campeonato não encontrado.");
+      return { championship, championshipWithTeams };
+    },
+    { championship: null, championshipWithTeams: null },
+    "admin:championship-teams:list",
+  );
+  const championship = data.championship;
+  const championshipWithTeams =
+    data.championshipWithTeams as NonNullable<
+      Awaited<ReturnType<typeof getChampionshipTeamsWithPlayersBySlug>>
+    > | null;
+
+  if (!championship || !championshipWithTeams) {
+    return (
+      <main className="xv-page-shell">
+        <div className="xv-page-container xv-page-container-medium">
+          <DatabaseUnavailableNotice description="Os times e elencos do campeonato não puderam ser carregados agora. Tente novamente em alguns instantes." />
+        </div>
+      </main>
+    );
   }
 
   const teams = championshipWithTeams.teams;
@@ -51,6 +75,10 @@ export default async function TimesAdminPage({
   return (
     <main className="xv-page-shell">
       <div className="xv-page-container xv-page-container-medium">
+        {databaseUnavailable ? (
+          <DatabaseUnavailableNotice description="A estrutura da tela permanece disponível, mas os dados atuais de times e jogadores não puderam ser carregados agora." className="mb-4" />
+        ) : null}
+
         <section className="xv-card">
           <div className="xv-responsive-stack">
             <div>

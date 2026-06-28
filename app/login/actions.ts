@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth";
 import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { executePrisma, getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { LoginFormState } from "./form-state";
 
 export async function login(
@@ -30,14 +31,19 @@ export async function login(
   let user;
 
   try {
-    user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, password: true, role: true },
-    });
+    user = await executePrisma(
+      () =>
+        prisma.user.findUnique({
+          where: { email },
+          select: { id: true, password: true, role: true },
+        }),
+      "login:find-user",
+    );
   } catch (error) {
-    if (isDatabaseConnectionError(error)) {
-      console.error("Login failed: database unavailable.");
-      return { error: "Banco de dados indisponível no momento. Tente novamente em instantes." };
+    const databaseMessage = getFriendlyDatabaseErrorMessage(error);
+
+    if (databaseMessage) {
+      return { error: databaseMessage };
     }
 
     throw error;
@@ -75,24 +81,4 @@ export async function login(
 export async function logout() {
   await clearAdminSession();
   redirect("/login");
-}
-
-function isDatabaseConnectionError(error: unknown) {
-  if (error instanceof AuthDatabaseUnavailableError) {
-    return true;
-  }
-
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === "P1001";
-  }
-
-  if (error instanceof Prisma.PrismaClientInitializationError) {
-    return error.message.includes("Can't reach database server");
-  }
-
-  if (error instanceof Error) {
-    return error.message.includes("Can't reach database server");
-  }
-
-  return false;
 }
