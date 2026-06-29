@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MatchStatus } from "@prisma/client";
 import { getChampionshipTeamBasePath } from "@/lib/routes";
 
@@ -44,70 +44,136 @@ export function MatchRoundCalendar({
   matchViews,
   initialViewIndex,
   totalMatches,
+  allTeams,
+  variant = "full",
 }: {
   championshipSlug: string;
   matchViews: MatchView[];
   initialViewIndex: number;
   totalMatches: number;
+  allTeams: CalendarTeam[];
+  variant?: "full" | "sidebar";
 }) {
   const [viewIndex, setViewIndex] = useState(() =>
     clampViewIndex(initialViewIndex, matchViews.length),
   );
+  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
   const currentMatchView = matchViews[viewIndex - 1] || null;
+  const isSidebar = variant === "sidebar";
   const currentViewFinishedMatches = useMemo(
     () =>
       currentMatchView?.matches.filter((match) => match.status === "FINALIZADO")
         .length || 0,
     [currentMatchView],
   );
+  const byeTeams = useMemo(() => {
+    if (!currentMatchView) {
+      return [];
+    }
+
+    const teamIdsInRound = new Set<string>();
+
+    for (const match of currentMatchView.matches) {
+      teamIdsInRound.add(match.homeTeam.id);
+      teamIdsInRound.add(match.awayTeam.id);
+    }
+
+    return allTeams.filter((team) => !teamIdsInRound.has(team.id));
+  }, [allTeams, currentMatchView]);
+  const roundDateLabel = useMemo(() => {
+    if (!currentMatchView?.matches.length) {
+      return "Data a definir";
+    }
+
+    const firstScheduledAt = currentMatchView.matches.find((match) => match.scheduledAt)?.scheduledAt;
+    return formatMatchDate(firstScheduledAt || null);
+  }, [currentMatchView]);
+
+  useLayoutEffect(() => {
+    const pendingScroll = pendingScrollRef.current;
+
+    if (!pendingScroll) {
+      return;
+    }
+
+    pendingScrollRef.current = null;
+    const previousScrollBehavior =
+      document.documentElement.style.scrollBehavior;
+
+    const frameId = window.requestAnimationFrame(() => {
+      document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo({
+        left: pendingScroll.left,
+        top: pendingScroll.top,
+        behavior: "auto",
+      });
+      document.documentElement.style.scrollBehavior = previousScrollBehavior;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      document.documentElement.style.scrollBehavior = previousScrollBehavior;
+    };
+  }, [viewIndex]);
+
+  const updateViewIndex = (getNextIndex: (current: number) => number) => {
+    pendingScrollRef.current = {
+      left: window.scrollX,
+      top: window.scrollY,
+    };
+
+    setViewIndex((current) =>
+      clampViewIndex(getNextIndex(current), matchViews.length),
+    );
+  };
 
   const goToPrevious = () => {
-    setViewIndex((current) => Math.max(1, current - 1));
+    updateViewIndex((current) => current - 1);
   };
 
   const goToNext = () => {
-    setViewIndex((current) => Math.min(matchViews.length, current + 1));
+    updateViewIndex((current) => current + 1);
   };
 
   return (
     <article id="jogos" className="xv-card scroll-mt-28">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <span className="inline-flex rounded-full bg-[#E9EEF9] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
-            Calendário do torneio
-          </span>
-          <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
-            Jogos
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
-            Navegue pelas rodadas sem sair desta área. A troca é local, rápida e
-            mantém sua posição na página.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
-          <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
-            Jogos cadastrados
+      {isSidebar ? null : (
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <span className="inline-flex rounded-full bg-[#E9EEF9] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
+              Calendário do torneio
+            </span>
+            <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
+              Jogos
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+              Navegue pelas rodadas sem sair desta área. A troca é local, rápida e mantém sua posição na página.
+            </p>
           </div>
-          <div className="text-xl font-black text-[#101010]">{totalMatches}</div>
+          <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-3 py-2 text-right">
+            <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
+              Jogos cadastrados
+            </div>
+            <div className="text-xl font-black text-[#101010]">{totalMatches}</div>
+          </div>
         </div>
-      </div>
+      )}
 
       {matchViews.length > 0 && currentMatchView ? (
         <div className="grid gap-4">
           <div className="grid gap-3 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#6B7280]">
-                  Rodada selecionada
-                </div>
-                <div className="mt-1 text-lg font-black text-[#101010]">
+                <div className="text-lg font-black text-[#101010]">
                   {currentMatchView.label}
                 </div>
+                <div className="mt-1 text-sm font-medium text-[#4B5563]">{roundDateLabel}</div>
               </div>
 
               <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
                 <button
                   type="button"
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={goToPrevious}
                   disabled={viewIndex <= 1}
                   className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1] disabled:cursor-default disabled:border-[#E5E7EB] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] sm:min-w-11 sm:flex-none"
@@ -123,6 +189,7 @@ export function MatchRoundCalendar({
 
                 <button
                   type="button"
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={goToNext}
                   disabled={viewIndex >= matchViews.length}
                   className="inline-flex min-h-11 min-w-[110px] flex-1 items-center justify-center rounded-full border border-[#D1D5DB] bg-white px-4 py-2.5 text-lg font-black text-[#101010] transition hover:border-[#3450A1] hover:text-[#3450A1] disabled:cursor-default disabled:border-[#E5E7EB] disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] sm:min-w-11 sm:flex-none"
@@ -134,7 +201,7 @@ export function MatchRoundCalendar({
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className={`grid gap-3 ${isSidebar ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               <RoundStatCard
                 label="Jogos nesta vista"
                 value={String(currentMatchView.matches.length)}
@@ -149,10 +216,29 @@ export function MatchRoundCalendar({
                   currentMatchView.matches.length - currentViewFinishedMatches,
                 )}
               />
+              {!isSidebar ? null : (
+                <RoundStatCard
+                  label="Bye"
+                  value={
+                    byeTeams.length > 0
+                      ? byeTeams.map((team) => team.shortName || team.name).join(", ")
+                      : "—"
+                  }
+                />
+              )}
             </div>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          {byeTeams.length > 0 ? (
+            <div className="rounded-[18px] border border-dashed border-[#D1D5DB] bg-[#FCFCFC] px-4 py-3 text-sm text-[#4B5563]">
+              <strong className="text-[#101010]">Folga:</strong>{" "}
+              {byeTeams
+                .map((team) => formatTeamDisplayName(team.shortName || team.name, team.icon))
+                .join(", ")}
+            </div>
+          ) : null}
+
+          <div className={`grid gap-4 ${isSidebar ? "" : "xl:grid-cols-2"}`}>
             {currentMatchView.matches.map((match) => (
               <article
                 key={match.id}
@@ -402,6 +488,23 @@ function formatMatchDateTime(date: Date | string | null) {
     minute: "2-digit",
     timeZone: "America/Sao_Paulo",
   }).format(new Date(date));
+}
+
+function formatMatchDate(date: Date | string | null) {
+  if (!date) {
+    return "Data a definir";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(date));
+}
+
+function formatTeamDisplayName(name: string, icon?: string | null) {
+  return icon ? `${icon} ${name}` : name;
 }
 
 function shouldShowSecondaryTeamName(primary: string, secondary: string) {

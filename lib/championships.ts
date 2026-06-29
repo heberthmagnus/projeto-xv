@@ -301,6 +301,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               yellowCards: true,
               redCards: true,
               ownGoals: true,
+              mvp: true,
               bionic: true,
               starter: true,
               teamId: true,

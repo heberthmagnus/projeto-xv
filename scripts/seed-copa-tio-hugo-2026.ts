@@ -734,11 +734,10 @@ async function main() {
     teamId: caboVerde.id,
     players: caboVerdeTeam.players,
     stats: {
-      Anderson: { goals: 1 },
+      Gordo: { goals: 1, yellowCards: 1 },
       F2: { goals: 2 },
       Iguin: { goals: 2 },
       Carlos: { yellowCards: 1 },
-      Gordo: { yellowCards: 1 },
     },
   });
 
@@ -748,7 +747,8 @@ async function main() {
     players: senegalTeam.players,
     stats: {
       Dinho: { goals: 4 },
-      Pedrinho: { goals: 4, yellowCards: 1 },
+      Fred: { goals: 1 },
+      Pedrinho: { goals: 3, yellowCards: 1 },
     },
   });
 

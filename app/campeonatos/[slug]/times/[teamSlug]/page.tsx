@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { getChampionshipTeamPublicPageData } from "@/lib/championships";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
-import { getChampionshipBasePath, getChampionshipTeamBasePath } from "@/lib/routes";
+import { getChampionshipTeamBasePath } from "@/lib/routes";
 
 type Params = Promise<{
   slug: string;
@@ -70,85 +70,6 @@ export default async function ChampionshipTeamPublicPage({
   return (
     <main className="xv-page-shell-soft">
       <div className="xv-page-container xv-page-container-medium">
-        <section
-          className="overflow-hidden rounded-[24px] px-5 py-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8"
-          style={{
-            background: `linear-gradient(135deg, ${team.primaryColor || "#171717"} 0%, ${team.secondaryColor || "#B89020"} 100%)`,
-          }}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em]">
-                Time no campeonato
-              </div>
-              <div className="mt-4 flex items-center gap-4">
-                <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-white/30 bg-white text-4xl shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
-                  {team.icon || null}
-                </span>
-                <h1 className="text-[2rem] font-black tracking-tight sm:text-[2.6rem]">
-                  {team.shortName || team.name}
-                </h1>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/85">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">
-                  <span
-                    aria-hidden="true"
-                    className="h-3 w-3 rounded-full border border-white/40"
-                    style={{ backgroundColor: team.primaryColor || "#171717" }}
-                  />
-                  Cor do time
-                </span>
-                {team.shortName ? (
-                  <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">
-                    Sigla: {team.shortName}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-2 text-sm font-semibold uppercase tracking-[0.16em] text-white/80">
-                {championship.name}
-                {championship.seasonLabel ? ` • ${championship.seasonLabel}` : ""}
-              </p>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-white/85 sm:text-[1rem]">
-                Pagina publica do time com elenco atual, agenda de jogos e espaco pronto
-                para as estatisticas que vao crescer nas proximas etapas.
-              </p>
-            </div>
-
-            <div className="grid min-w-[220px] gap-3 sm:grid-cols-2">
-              <HeaderStat
-                label="Posicao"
-                value={standing?.rank ? `${standing.rank}º` : "-"}
-              />
-              <HeaderStat label="Pontos" value={String(standing?.points ?? 0)} />
-              <HeaderStat label="Elenco" value={String(team.players.length)} />
-              <HeaderStat
-                label="Jogos"
-                value={String(championship.teamMatches.length)}
-              />
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link
-              href={getChampionshipBasePath(championship.slug)}
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/20"
-            >
-              Voltar ao campeonato
-            </Link>
-            <Link
-              href={getChampionshipTeamBasePath(championship.slug, team.slug || teamSlug)}
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/20"
-            >
-              Atualizar pagina
-            </Link>
-          </div>
-
-          <div className="mt-5 xv-quick-nav">
-            <Link href="#elenco">Elenco</Link>
-            <Link href="#jogos">Jogos</Link>
-          </div>
-        </section>
-
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <article id="elenco" className="xv-card overflow-hidden scroll-mt-28">
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -400,17 +321,6 @@ export default async function ChampionshipTeamPublicPage({
         </section>
       </div>
     </main>
-  );
-}
-
-function HeaderStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3">
-      <div className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-white/70">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-black text-white">{value}</div>
-    </div>
   );
 }
 

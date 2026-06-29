@@ -2,16 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import type { ChampionshipFormat, ChampionshipRegistrationMode, ChampionshipStatus, MatchStatus, StandingMovement } from "@prisma/client";
+import type { MatchStatus, StandingMovement } from "@prisma/client";
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { getChampionshipPublicPageDataBySlug } from "@/lib/championships";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
-import {
-  CALENDARIO_XV_PATH,
-  getChampionshipRegistrationPath,
-  getChampionshipTeamBasePath,
-} from "@/lib/routes";
+import { getChampionshipTeamBasePath } from "@/lib/routes";
 import { MatchRoundCalendar } from "./match-round-calendar";
 
 type Params = Promise<{
@@ -77,13 +73,6 @@ export default async function ChampionshipPublicPage({
     notFound();
   }
 
-  const registrationPath = getChampionshipRegistrationPath(championship.slug);
-  const showRegistrationAction =
-    championship.registrationMode === "INDIVIDUAL" ||
-    championship.registrationMode === "POR_EQUIPES";
-  const heroDescription =
-    championship.description ||
-    "Esta é a nova base pública do campeonato. Ela já nasce pronta para concentrar classificação, jogos e evolução do torneio sem quebrar o fluxo atual.";
   const matchViews = buildMatchViews(championship.matches);
   const requestedViewIndex = Number.parseInt(String(resolvedSearchParams.view || "1"), 10);
   const currentViewIndex =
@@ -95,85 +84,58 @@ export default async function ChampionshipPublicPage({
     championship._count.teams >= 5 && championship.slug === "tio-hugo-2026" ? 4 : 0;
   const topScorers = buildTopScorers(championship.matches);
   const cardLeaders = buildCardLeaders(championship.matches);
+  const matchMvps = buildMatchMvps(championship.matches);
 
   return (
     <main className="xv-page-shell-soft">
       <PageContainer className="grid gap-4 md:gap-6">
-        <section className="overflow-hidden rounded-[20px] bg-[#171717] px-5 py-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8">
-          <div className="mb-4 inline-flex rounded-full border border-[#B89020]/40 bg-[#B89020]/15 px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.18em] text-[#F3D27A]">
-            Campeonato do Clube Quinze Veranistas
-          </div>
-
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <h1 className="xv-fluid-text text-[1.8rem] font-black leading-tight tracking-tight sm:text-[2.6rem]">
-                {championship.name}
-              </h1>
-              <p className="mt-3 max-w-3xl text-[0.98rem] leading-7 text-white/[0.82] sm:text-[1.05rem]">
-                {heroDescription}
-              </p>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <InfoPill label="Formato" value={getFormatLabel(championship.format)} />
-                <InfoPill label="Status" value={getStatusLabel(championship.status)} />
-                <InfoPill
-                  label="Inscrição"
-                  value={getRegistrationModeLabel(championship.registrationMode)}
-                />
-                <InfoPill
-                  label="Período"
-                  value={formatChampionshipWindow(
-                    championship.startsAt,
-                    championship.endsAt,
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3 lg:justify-end">
-              {showRegistrationAction ? (
-                <Link
-                  href={registrationPath}
-                  className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#E8C866] bg-gradient-to-b from-[#C49B25] to-[#8B6914] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_0_rgba(73,54,9,0.7)] transition hover:from-[#D3AB35] hover:to-[#9A7618] sm:w-auto"
-                >
-                  {championship.slug === "tio-hugo-2026"
-                    ? "Fazer inscrição"
-                    : "Acessar inscrição"}
-                </Link>
-              ) : null}
+        <section className="grid gap-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {championship.teams.map((championshipTeam) => (
               <Link
-                href={CALENDARIO_XV_PATH}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/16 sm:w-auto"
+                key={championshipTeam.id}
+                href={getChampionshipTeamBasePath(
+                  championship.slug,
+                  championshipTeam.team.slug || "",
+                )}
+                className="rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#D4B051] hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
               >
-                Ver calendário
+                <div className="flex items-center gap-3">
+                  <TeamIcon
+                    icon={championshipTeam.team.icon}
+                    primaryColor={championshipTeam.team.primaryColor}
+                    secondaryColor={championshipTeam.team.secondaryColor}
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-black text-[#101010]">
+                      {championshipTeam.team.shortName || championshipTeam.team.name}
+                    </div>
+                    {shouldShowSecondaryTeamName(
+                      championshipTeam.team.shortName || championshipTeam.team.name,
+                      championshipTeam.team.name,
+                    ) ? (
+                      <div className="truncate text-sm text-[#6B7280]">
+                        {championshipTeam.team.name}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </Link>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <HeroStat label="Inscritos" value={String(championship._count.registrations)} />
-            <HeroStat label="Times" value={String(championship._count.teams)} />
-            <HeroStat label="Jogos" value={String(championship._count.matches)} />
-            <HeroStat label="Elencos montados" value={String(championship._count.players)} />
-          </div>
-
-          <div className="mt-5 xv-quick-nav">
-            <Link href="#classificacao">Classificação</Link>
-            <Link href="#jogos">Jogos</Link>
+            ))}
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.95fr)_minmax(320px,0.8fr)] xl:items-start">
           <article id="classificacao" className="xv-card overflow-hidden scroll-mt-28">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div>
                 <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
                   Tabela real
                 </span>
-                <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
+                <h2 className="mt-3 text-[1.85rem] font-black tracking-tight text-[#101010]">
                   Classificação
                 </h2>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-[#4B5563]">
+                <p className="mt-2 max-w-2xl text-[1.02rem] leading-7 text-[#4B5563]">
                   Pontuação viva da fase classificatória, calculada a partir dos jogos finalizados.
                 </p>
               </div>
@@ -275,17 +237,19 @@ export default async function ChampionshipPublicPage({
                 </div>
 
                 <div className="hidden md:block xv-table-scroll">
-                <table className="min-w-full border-separate border-spacing-0 text-sm">
+                <table className="min-w-full border-separate border-spacing-0 text-[1.02rem]">
                   <thead>
                     <tr className="text-left text-[0.74rem] uppercase tracking-[0.14em] text-[#6B7280]">
-                      <th className="border-b border-[#E5E7EB] px-3 py-3">#</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3">Time</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3 text-center">Pts</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3 text-center">J</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3 text-center">V</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3 text-center">E</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3 text-center">D</th>
-                      <th className="border-b border-[#E5E7EB] px-3 py-3 text-center">SG</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4">#</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4">Time</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">Pts</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">J</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">V</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">E</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">D</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">GP</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">GC</th>
+                      <th className="border-b border-[#E5E7EB] px-4 py-4 text-center">SG</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -300,7 +264,7 @@ export default async function ChampionshipPublicPage({
                               : undefined,
                         }}
                       >
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 font-black text-[#101010]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-[1.15rem] font-black text-[#101010]">
                           <div className="flex items-center gap-2">
                             <span>{standing.rank ?? "-"}</span>
                             {qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff ? (
@@ -314,7 +278,7 @@ export default async function ChampionshipPublicPage({
                             )}
                           </div>
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5">
                           <div className="flex items-center gap-3">
                             <TeamIcon icon={standing.team.icon} compact />
                             <div>
@@ -323,29 +287,35 @@ export default async function ChampionshipPublicPage({
                               championship.slug,
                               standing.team.slug || "",
                             )}
-                            className="font-semibold text-[#101010] transition hover:text-[#8B6914]"
+                            className="text-[1.15rem] font-semibold text-[#101010] transition hover:text-[#8B6914]"
                           >
                             {standing.team.shortName || standing.team.name}
                           </Link>
                           </div>
                           </div>
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 text-center font-bold text-[#101010]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.15rem] font-bold text-[#101010]">
                           {standing.points}
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 text-center text-[#374151]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.1rem] text-[#374151]">
                           {standing.gamesPlayed}
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 text-center text-[#374151]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.1rem] text-[#374151]">
                           {standing.wins}
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 text-center text-[#374151]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.1rem] text-[#374151]">
                           {standing.draws}
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 text-center text-[#374151]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.1rem] text-[#374151]">
                           {standing.losses}
                         </td>
-                        <td className="border-b border-[#F1F5F9] px-3 py-3 text-center font-semibold text-[#374151]">
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.1rem] text-[#374151]">
+                          {standing.goalsFor}
+                        </td>
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.1rem] text-[#374151]">
+                          {standing.goalsAgainst}
+                        </td>
+                        <td className="border-b border-[#F1F5F9] px-4 py-5 text-center text-[1.15rem] font-semibold text-[#374151]">
                           {formatGoalDifference(standing.goalDifference)}
                         </td>
                       </tr>
@@ -362,6 +332,17 @@ export default async function ChampionshipPublicPage({
             )}
           </article>
 
+          <MatchRoundCalendar
+            championshipSlug={championship.slug}
+            matchViews={matchViews}
+            initialViewIndex={currentViewIndex}
+            totalMatches={championship.matches.length}
+            allTeams={championship.teams.map((championshipTeam) => championshipTeam.team)}
+            variant="sidebar"
+          />
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-3">
           <article className="xv-card">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -369,59 +350,82 @@ export default async function ChampionshipPublicPage({
                   Estatísticas
                 </span>
                 <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
-                  Artilharia e cartões
+                  Artilharia
                 </h2>
               </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4">
-                <h3 className="text-base font-black text-[#101010]">Artilheiros</h3>
-                <div className="mt-3 grid gap-2">
-                  {topScorers.length > 0 ? (
-                    topScorers.map((entry) => (
-                      <div key={entry.key} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-                        <span className="font-semibold text-[#101010]">{entry.name}</span>
-                        <span className="rounded-full bg-[#171717] px-3 py-1 text-sm font-black text-white">
-                          {entry.goals}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-[#6B7280]">Sem gols registrados ainda.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4">
-                <h3 className="text-base font-black text-[#101010]">Cartões</h3>
-                <div className="mt-3 grid gap-2">
-                  {cardLeaders.length > 0 ? (
-                    cardLeaders.map((entry) => (
-                      <div key={entry.key} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
-                        <span className="font-semibold text-[#101010]">{entry.name}</span>
-                        <span className="text-sm font-black text-[#101010]">
-                          {"🟨".repeat(entry.yellowCards)}
-                          {"🟥".repeat(entry.redCards)}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-[#6B7280]">Sem cartões registrados ainda.</p>
-                  )}
-                </div>
-              </div>
+            <div className="grid gap-2">
+              {topScorers.length > 0 ? (
+                topScorers.map((entry) => (
+                  <div key={entry.key} className="flex items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-[#FCFCFC] px-3 py-2">
+                    <span className="font-semibold text-[#101010]">{entry.name}</span>
+                    <span className="rounded-full bg-[#171717] px-3 py-1 text-sm font-black text-white">
+                      {entry.goals}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-[#6B7280]">Sem gols registrados ainda.</p>
+              )}
             </div>
           </article>
 
-        </section>
+          <article className="xv-card">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
+                  Disciplina
+                </span>
+                <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
+                  Cartões
+                </h2>
+              </div>
+            </div>
 
-        <MatchRoundCalendar
-          championshipSlug={championship.slug}
-          matchViews={matchViews}
-          initialViewIndex={currentViewIndex}
-          totalMatches={championship.matches.length}
-        />
+            <div className="grid gap-2">
+              {cardLeaders.length > 0 ? (
+                cardLeaders.map((entry) => (
+                  <div key={entry.key} className="flex items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-[#FCFCFC] px-3 py-2">
+                    <span className="font-semibold text-[#101010]">{entry.name}</span>
+                    <span className="text-sm font-black text-[#101010]">
+                      {"🟨".repeat(entry.yellowCards)}
+                      {"🟥".repeat(entry.redCards)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-[#6B7280]">Sem cartões registrados ainda.</p>
+              )}
+            </div>
+          </article>
+
+          <article className="xv-card">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
+                  Destaques
+                </span>
+                <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
+                  MVPs por jogo
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              {matchMvps.length > 0 ? (
+                matchMvps.map((entry) => (
+                  <div key={entry.key} className="rounded-xl border border-[#E5E7EB] bg-[#FCFCFC] px-3 py-3">
+                    <div className="text-sm font-black text-[#101010]">{entry.playerName}</div>
+                    <div className="mt-1 text-sm text-[#4B5563]">{entry.matchLabel}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-[#6B7280]">Sem MVPs registrados ainda.</p>
+              )}
+            </div>
+          </article>
+        </section>
       </PageContainer>
     </main>
   );
@@ -504,27 +508,6 @@ function buildMatchViews(
         return (a.roundNumber || 0) - (b.roundNumber || 0);
       }),
     }));
-}
-
-function HeroStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[18px] border border-white/10 bg-white/[0.06] px-4 py-3">
-      <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-white/[0.6]">
-        {label}
-      </div>
-      <div className="mt-1 text-[1.8rem] font-black leading-none text-white">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function InfoPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-full border border-white/[0.12] bg-white/[0.08] px-3 py-2 text-sm text-white/[0.88]">
-      <span className="font-bold text-white">{label}:</span> {value}
-    </div>
-  );
 }
 
 function EmptyPanel({
@@ -618,6 +601,40 @@ function buildCardLeaders(
   });
 }
 
+function buildMatchMvps(
+  matches: Array<{
+    id: string;
+    homeTeam: { shortName: string | null; name: string };
+    awayTeam: { shortName: string | null; name: string };
+    participations?: Array<{
+      player: { id: string; fullName: string };
+      mvp?: boolean;
+    }>;
+  }>,
+) {
+  const entries: Array<{ key: string; playerName: string; matchLabel: string }> = [];
+
+  for (const match of matches) {
+    const matchLabel = `${match.homeTeam.shortName || match.homeTeam.name} x ${
+      match.awayTeam.shortName || match.awayTeam.name
+    }`;
+
+    for (const participation of match.participations || []) {
+      if (!participation.mvp) {
+        continue;
+      }
+
+      entries.push({
+        key: `${match.id}-${participation.player.id}`,
+        playerName: participation.player.fullName,
+        matchLabel,
+      });
+    }
+  }
+
+  return entries;
+}
+
 function formatTeamDisplayName(name: string, icon?: string | null) {
   return icon ? `${icon} ${name}` : name;
 }
@@ -706,46 +723,6 @@ function MobileStandingStat({ label, value }: { label: string; value: string }) 
   );
 }
 
-function getFormatLabel(format: ChampionshipFormat) {
-  switch (format) {
-    case "PONTOS_CORRIDOS":
-      return "Pontos corridos";
-    case "MATA_MATA":
-      return "Mata-mata";
-    case "MISTO":
-      return "Misto";
-    default:
-      return format;
-  }
-}
-
-function getStatusLabel(status: ChampionshipStatus) {
-  switch (status) {
-    case "ATIVO":
-      return "Ativo";
-    case "FINALIZADO":
-      return "Finalizado";
-    case "CANCELADO":
-      return "Cancelado";
-    case "RASCUNHO":
-    default:
-      return "Em preparação";
-  }
-}
-
-function getRegistrationModeLabel(mode: ChampionshipRegistrationMode) {
-  switch (mode) {
-    case "INDIVIDUAL":
-      return "Individual";
-    case "POR_EQUIPES":
-      return "Por equipes";
-    case "FECHADO":
-      return "Fechado";
-    default:
-      return mode;
-  }
-}
-
 function getMovementIcon(movement: StandingMovement) {
   switch (movement) {
     case "SUBIU":
@@ -762,29 +739,139 @@ function formatGoalDifference(value: number) {
   return value > 0 ? `+${value}` : String(value);
 }
 
-function formatChampionshipWindow(startsAt?: Date | null, endsAt?: Date | null) {
-  if (startsAt && endsAt) {
-    return `${formatDate(startsAt)} a ${formatDate(endsAt)}`;
+function getByeTeamsForView<
+  T extends {
+    id: string;
+    shortName: string | null;
+    name: string;
+    icon: string | null;
+  },
+>(
+  matches: Array<{
+    homeTeam: { id: string };
+    awayTeam: { id: string };
+  }>,
+  teams: T[],
+) {
+  const activeTeamIds = new Set<string>();
+
+  for (const match of matches) {
+    activeTeamIds.add(match.homeTeam.id);
+    activeTeamIds.add(match.awayTeam.id);
   }
 
-  if (startsAt) {
-    return `A partir de ${formatDate(startsAt)}`;
-  }
-
-  if (endsAt) {
-    return `Até ${formatDate(endsAt)}`;
-  }
-
-  return "A definir";
+  return teams.filter((team) => !activeTeamIds.has(team.id));
 }
 
-function formatDate(date: Date) {
+function formatRoundDateLabel(
+  matches: Array<{
+    scheduledAt: Date | null;
+  }>,
+) {
+  const firstScheduledAt = matches.find((match) => match.scheduledAt)?.scheduledAt;
+
+  if (!firstScheduledAt) {
+    return "Data a definir";
+  }
+
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     timeZone: "America/Sao_Paulo",
+  }).format(firstScheduledAt);
+}
+
+function getMatchDateTimeInline(date: Date | null) {
+  if (!date) {
+    return "Data a definir";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
   }).format(date);
+}
+
+function getMatchStatusText(status: MatchStatus) {
+  switch (status) {
+    case "FINALIZADO":
+      return "Finalizado";
+    case "EM_ANDAMENTO":
+      return "Ao vivo";
+    case "CANCELADO":
+      return "Cancelado";
+    default:
+      return "Agendado";
+  }
+}
+
+function getMatchStatusBadgeClassName(status: MatchStatus) {
+  const base = "rounded-full px-2.5 py-1";
+
+  switch (status) {
+    case "FINALIZADO":
+      return `${base} bg-[#ECFDF3] text-[#047857]`;
+    case "EM_ANDAMENTO":
+      return `${base} bg-[#FEF3C7] text-[#92400E]`;
+    case "CANCELADO":
+      return `${base} bg-[#FEE2E2] text-[#991B1B]`;
+    default:
+      return `${base} bg-[#E9EEF9] text-[#3450A1]`;
+  }
+}
+
+function CompactTeamRow({
+  team,
+  align = "left",
+}: {
+  team: {
+    name: string;
+    shortName: string | null;
+    icon: string | null;
+    primaryColor: string | null;
+    secondaryColor: string | null;
+  };
+  align?: "left" | "right";
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${align === "right" ? "justify-end text-right" : ""}`}>
+      {align === "right" ? null : (
+        <TeamIcon
+          icon={team.icon}
+          primaryColor={team.primaryColor}
+          secondaryColor={team.secondaryColor}
+          compact
+        />
+      )}
+      <span className="truncate font-semibold text-[#101010]">
+        {team.shortName || team.name}
+      </span>
+      {align === "right" ? (
+        <TeamIcon
+          icon={team.icon}
+          primaryColor={team.primaryColor}
+          secondaryColor={team.secondaryColor}
+          compact
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function shouldShowSecondaryTeamName(primary: string, secondary: string) {
+  return normalizeTeamLabel(primary) !== normalizeTeamLabel(secondary);
+}
+
+function normalizeTeamLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function buildTeamBadgeBackground(
