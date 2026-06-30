@@ -242,7 +242,10 @@ async function registerTeamParticipations(args: {
   matchId: string;
   teamId: string;
   players: readonly string[];
-  stats?: Record<string, { goals?: number; yellowCards?: number; redCards?: number }>;
+  stats?: Record<
+    string,
+    { goals?: number; yellowCards?: number; redCards?: number; mvp?: boolean }
+  >;
 }) {
   for (const playerName of args.players) {
     const stats = args.stats?.[playerName];
@@ -254,6 +257,7 @@ async function registerTeamParticipations(args: {
       goals: stats?.goals ?? 0,
       yellowCards: stats?.yellowCards ?? 0,
       redCards: stats?.redCards ?? 0,
+      mvp: stats?.mvp ?? false,
     });
   }
 }
@@ -735,7 +739,7 @@ async function main() {
     players: caboVerdeTeam.players,
     stats: {
       Gordo: { goals: 1, yellowCards: 1 },
-      F2: { goals: 2 },
+      F2: { goals: 2, mvp: true },
       Iguin: { goals: 2 },
       Carlos: { yellowCards: 1 },
     },
@@ -748,7 +752,7 @@ async function main() {
     stats: {
       Dinho: { goals: 4 },
       Fred: { goals: 1 },
-      Pedrinho: { goals: 3, yellowCards: 1 },
+      Pedrinho: { goals: 3, yellowCards: 1, mvp: true },
     },
   });
 

@@ -12,6 +12,10 @@ const menuItems = [
     href: getChampionshipBasePath("tio-hugo-2026"),
     label: "Copa Tio Hugo 2026",
   },
+  {
+    href: getChampionshipBasePath("interno-campao-2026"),
+    label: "Campeonato Interno Campão 2026",
+  },
   { href: "/peladas", label: "Peladas" },
   { href: CALENDARIO_XV_PATH, label: "Calendário do XV" },
 ];
@@ -65,13 +69,15 @@ export function SiteHeader() {
                 ? pathname === "/"
                 : item.href === "/clube"
                   ? pathname.startsWith("/clube")
-                : item.href.startsWith("/campeonatos")
-                  ? pathname.startsWith("/campeonatos/tio-hugo-2026")
-                  : item.href.startsWith("/peladas")
-                    ? pathname.startsWith("/peladas")
-                    : item.href.startsWith(CALENDARIO_XV_PATH)
-                      ? pathname.startsWith(CALENDARIO_XV_PATH)
-                    : false;
+                  : item.href.endsWith("/tio-hugo-2026")
+                    ? pathname.startsWith("/campeonatos/tio-hugo-2026")
+                    : item.href.endsWith("/interno-campao-2026")
+                      ? pathname.startsWith("/campeonatos/interno-campao-2026")
+                      : item.href.startsWith("/peladas")
+                        ? pathname.startsWith("/peladas")
+                        : item.href.startsWith(CALENDARIO_XV_PATH)
+                          ? pathname.startsWith(CALENDARIO_XV_PATH)
+                          : false;
 
             return (
               <Link

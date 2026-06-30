@@ -6,6 +6,7 @@ import {
   ADMIN_CHAMPIONSHIP_BASE_PATH,
   ADMIN_REGISTRATIONS_PATH,
   ADMIN_PELADAS_PATH,
+  getAdminChampionshipRegistrationsPath,
 } from "@/lib/routes";
 
 const links = [
@@ -18,6 +19,12 @@ const links = [
     href: ADMIN_PELADAS_PATH,
     label: "Peladas",
     match: (pathname: string) => pathname.startsWith(ADMIN_PELADAS_PATH),
+  },
+  {
+    href: getAdminChampionshipRegistrationsPath("interno-campao-2026"),
+    label: "Campão 2026",
+    match: (pathname: string) =>
+      pathname.startsWith("/admin/interno-campao-2026"),
   },
 ];
 

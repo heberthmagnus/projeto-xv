@@ -4,15 +4,14 @@ import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNo
 import { PageContainer } from "@/components/ui/PageContainer";
 import { prisma } from "@/lib/prisma";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
-import { getChampionshipBasePath } from "@/lib/routes";
 
 const cards = [
   {
     id: "copa-tio-hugo",
-    title: "Copa Tio Hugo",
-    text: "Saiba tudo sobre o campeonato, regulamento e inscrições.",
+    title: "Campeonato Interno XV 2026",
+    text: "Veja as informações do campeonato e faça sua inscrição.",
     buttonLabel: "Saiba mais",
-    href: getChampionshipBasePath("tio-hugo-2026"),
+    href: "/campeonatos/interno-xv-2026/inscricao",
   },
   {
     id: "peladas",

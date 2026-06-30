@@ -211,6 +211,7 @@ model Registration {
   championshipId     String
   fullName           String
   nickname           String?
+  category           RegistrationCategory?
   preferredPosition  PreferredPosition
   birthDate          DateTime
   phone              String
@@ -226,6 +227,7 @@ model Registration {
   championship       Championship        @relation(fields: [championshipId], references: [id])
 
   @@index([championshipId])
+  @@index([championshipId, category])
   @@index([athleteProfileId])
 }
 
@@ -399,6 +401,11 @@ enum PlayerLevel {
 enum PaymentStatus {
   PENDENTE
   PAGO
+}
+
+enum RegistrationCategory {
+  ADULTO
+  MASTER
 }
 
 enum ChampionshipFormat {

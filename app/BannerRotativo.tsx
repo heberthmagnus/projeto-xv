@@ -26,9 +26,9 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
 
   const banners: BannerItem[] = [
     {
-      title: "🏆 Copa Tio Hugo 2026",
+      title: "🏆 Campeonato Interno XV 2026",
       ctaLabel: "Me inscrever",
-      href: "/campeonatos/tio-hugo-2026/inscricao",
+      href: "/campeonatos/interno-xv-2026/inscricao",
       image: "/banners/banner-tio-hugo-2026.webp",
     },
     {
@@ -168,11 +168,11 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
 }
 
 function getHeroCopy(href: string) {
-  if (href === "/campeonatos/tio-hugo-2026/inscricao") {
+  if (href === "/campeonatos/interno-xv-2026/inscricao") {
     return {
-      heading: "Participe da disputa mais tradicional do nosso calendário",
+      heading: "Garanta sua vaga no campeonato interno do XV",
       description:
-        "Garanta sua vaga na Copa Tio Hugo 2026 e entre em campo em um campeonato que movimenta o XV do início ao fim.",
+        "Inscreva-se no Campeonato Interno XV 2026 e escolha sua categoria para jogar de agosto a dezembro nos horários oficiais do clube.",
     };
   }
 

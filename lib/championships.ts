@@ -13,6 +13,7 @@ import {
 } from "@/lib/routes";
 
 export const TIO_HUGO_2026_SLUG = "tio-hugo-2026";
+export const INTERNO_CAMPAO_2026_SLUG = "interno-campao-2026";
 
 export const getChampionshipBySlug = cache(async (slug: string) => {
   return prisma.championship.findUnique({
@@ -39,6 +40,37 @@ export async function getRequiredChampionshipBySlug(slug: string) {
   }
 
   return championship;
+}
+
+export async function ensureInternoCampao2026Championship() {
+  return prisma.championship.upsert({
+    where: {
+      slug: INTERNO_CAMPAO_2026_SLUG,
+    },
+    update: {
+      name: "Campeonato Interno Campão 2026",
+      seasonLabel: "2026",
+      registrationMode: "INDIVIDUAL",
+    },
+    create: {
+      name: "Campeonato Interno Campão 2026",
+      slug: INTERNO_CAMPAO_2026_SLUG,
+      seasonLabel: "2026",
+      registrationMode: "INDIVIDUAL",
+      status: "RASCUNHO",
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      seasonLabel: true,
+      format: true,
+      status: true,
+      registrationMode: true,
+      startsAt: true,
+      endsAt: true,
+    },
+  });
 }
 
 export const getChampionshipTeamsWithPlayersBySlug = cache(async (slug: string) => {
@@ -749,6 +781,18 @@ export const getChampionshipTeamPublicPageData = cache(
 
 export function getTioHugoRegistrationPath() {
   return getChampionshipRegistrationPath(TIO_HUGO_2026_SLUG);
+}
+
+export function getInternoCampao2026RegistrationPath() {
+  return getChampionshipRegistrationPath(INTERNO_CAMPAO_2026_SLUG);
+}
+
+export function getInternoCampao2026BasePath() {
+  return getChampionshipBasePath(INTERNO_CAMPAO_2026_SLUG);
+}
+
+export function getInternoCampao2026AdminRegistrationsPath() {
+  return getAdminChampionshipRegistrationsPath(INTERNO_CAMPAO_2026_SLUG);
 }
 
 export function getTioHugoBasePath() {
