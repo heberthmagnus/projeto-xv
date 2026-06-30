@@ -27,10 +27,16 @@ export default function InternoCampaoInscricaoPage() {
 
         <div className="mb-6 rounded-xl border border-[#E5E7EB] border-l-4 border-l-[#B89020] bg-[#FAFAFA] p-4 text-sm leading-7 text-[#374151]">
           <p className="mb-2">
-            <strong className="text-[#101010]">📍 Capacidades</strong>
+            <strong className="text-[#101010]">📍 Informações do campeonato</strong>
           </p>
+          <p>• Jogos durante os meses de agosto até dezembro</p>
+          <p>• Partidas aos sábados à tarde e domingos de manhã</p>
+          <p>• Serão 2 jogos no sábado e 3 jogos no domingo</p>
+          <p>• Sábado: 14h e 15h30</p>
+          <p>• Domingo: 08h, 9h40 e 11h30</p>
           <p>• Adulto: 7 times, até 14 jogadores por time, total de 98 vagas</p>
           <p>• Master: 5 times, até 14 jogadores por time, total de 70 vagas</p>
+          <p>• Serão 7 times na categoria abaixo de 50 anos e 5 times acima de 50 anos</p>
           <p>• A categoria pode ser ajustada pela administração quando necessário</p>
         </div>
 
