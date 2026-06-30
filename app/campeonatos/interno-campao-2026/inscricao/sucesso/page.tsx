@@ -10,7 +10,7 @@ export default function InternoCampaoInscricaoSucessoPage() {
           Inscrição enviada
         </h1>
         <p className="mt-3 text-[#4B5563]">
-          Sua inscrição no Campeonato Interno Campão 2026 foi recebida com sucesso.
+          Sua inscrição no Campeonato Interno XV Campão 2026 foi recebida com sucesso.
         </p>
         <Link
           href={getInternoCampao2026RegistrationPath()}

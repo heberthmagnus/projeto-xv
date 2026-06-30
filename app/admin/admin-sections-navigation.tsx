@@ -22,7 +22,7 @@ const links = [
   },
   {
     href: getAdminChampionshipRegistrationsPath("interno-campao-2026"),
-    label: "Campão 2026",
+    label: "Interno XV Campão 2026",
     match: (pathname: string) =>
       pathname.startsWith("/admin/interno-campao-2026"),
   },

@@ -98,8 +98,8 @@ export function RegistrationForm() {
       >
         <input type="checkbox" name="confirmedRules" required style={{ marginTop: 3 }} />
         <span>
-          Confirmo que estou me inscrevendo no Campeonato Interno Campão 2026 e
-          que a categoria escolhida poderá ser ajustada pela administração.
+          Confirmo que estou me inscrevendo no Campeonato Interno XV Campão 2026
+          e que a categoria escolhida poderá ser ajustada pela administração.
         </span>
       </label>
 

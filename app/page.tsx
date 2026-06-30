@@ -8,10 +8,10 @@ import { executePrismaWithFallback } from "@/lib/prisma-safe";
 const cards = [
   {
     id: "copa-tio-hugo",
-    title: "Campeonato Interno XV 2026",
+    title: "Campeonato Interno XV Campão 2026",
     text: "Veja as informações do campeonato e faça sua inscrição.",
     buttonLabel: "Saiba mais",
-    href: "/campeonatos/interno-xv-2026/inscricao",
+    href: "/campeonatos/interno-campao-2026/inscricao",
   },
   {
     id: "peladas",

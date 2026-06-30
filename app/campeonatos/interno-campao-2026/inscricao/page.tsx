@@ -16,7 +16,7 @@ export default function InternoCampaoInscricaoPage() {
 
           <div>
             <h1 className="mb-1.5 text-[1.85rem] font-bold text-[#101010] sm:text-[28px]">
-              🥅 Campeonato Interno Campão 2026
+              🥅 Campeonato Interno XV Campão 2026
             </h1>
 
             <p className="m-0 leading-6 text-[#4B5563] sm:leading-7">
@@ -32,6 +32,14 @@ export default function InternoCampaoInscricaoPage() {
           <p>• Adulto: 7 times, até 14 jogadores por time, total de 98 vagas</p>
           <p>• Master: 5 times, até 14 jogadores por time, total de 70 vagas</p>
           <p>• A categoria pode ser ajustada pela administração quando necessário</p>
+        </div>
+
+        <div className="mb-6 rounded-xl border border-[#E5E7EB] bg-[#FCFCFC] p-4 text-sm leading-7 text-[#374151]">
+          <p>
+            <strong className="text-[#101010]">Importante:</strong> Inscrição exclusiva
+            para sócios do Clube XV. A taxa de inscrição é de R$ 300,00, podendo
+            ser dividida em até 2x.
+          </p>
         </div>
 
         <RegistrationForm />

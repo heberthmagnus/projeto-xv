@@ -48,12 +48,12 @@ export async function ensureInternoCampao2026Championship() {
       slug: INTERNO_CAMPAO_2026_SLUG,
     },
     update: {
-      name: "Campeonato Interno Campão 2026",
+      name: "Campeonato Interno XV Campão 2026",
       seasonLabel: "2026",
       registrationMode: "INDIVIDUAL",
     },
     create: {
-      name: "Campeonato Interno Campão 2026",
+      name: "Campeonato Interno XV Campão 2026",
       slug: INTERNO_CAMPAO_2026_SLUG,
       seasonLabel: "2026",
       registrationMode: "INDIVIDUAL",

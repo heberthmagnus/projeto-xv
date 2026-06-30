@@ -14,7 +14,7 @@ const menuItems = [
   },
   {
     href: getChampionshipBasePath("interno-campao-2026"),
-    label: "Campeonato Interno Campão 2026",
+    label: "Campeonato Interno XV Campão 2026",
   },
   { href: "/peladas", label: "Peladas" },
   { href: CALENDARIO_XV_PATH, label: "Calendário do XV" },

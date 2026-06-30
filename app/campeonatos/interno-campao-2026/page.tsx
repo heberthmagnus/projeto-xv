@@ -59,7 +59,7 @@ export default async function InternoCampaoTrackingPage() {
           <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-                Campeonato Interno Campão 2026
+                Campeonato Interno XV Campão 2026
               </div>
               <h1 className="mt-2 text-[1.8rem] font-black tracking-tight text-[#101010]">
                 Acompanhamento das inscrições
