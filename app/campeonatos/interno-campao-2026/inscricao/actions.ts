@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureInternoCampao2026Championship, getInternoCampao2026RegistrationPath } from "@/lib/championships";
 import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
@@ -83,6 +84,9 @@ export async function createRegistration(
         confirmedRules,
       },
     });
+
+    revalidatePath("/campeonatos/interno-campao-2026");
+    revalidatePath("/admin/interno-campao-2026/inscricoes");
   } catch (error) {
     const databaseMessage = getFriendlyDatabaseErrorMessage(error);
 

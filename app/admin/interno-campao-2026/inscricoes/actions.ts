@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
@@ -48,6 +49,9 @@ export async function updateRegistrationCategoryAndLevel(formData: FormData) {
     where: { id },
     data: { athleteProfileId },
   });
+
+  revalidatePath("/campeonatos/interno-campao-2026");
+  revalidatePath("/admin/interno-campao-2026/inscricoes");
 
   redirect(`${getInternoCampao2026AdminRegistrationsPath()}?success=save`);
 }

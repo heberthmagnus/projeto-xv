@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { PageContainer } from "@/components/ui/PageContainer";
 import {
@@ -11,7 +12,12 @@ import Link from "next/link";
 const ADULT_CAPACITY = 98;
 const MASTER_CAPACITY = 70;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function InternoCampaoTrackingPage() {
+  await connection();
+
   const { data, databaseUnavailable } = await executePrismaWithFallback<{
     registrations: Array<{
       id: string;
