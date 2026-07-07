@@ -678,27 +678,31 @@ async function main() {
       "Placeholder da final: atualizar finalistas após as semifinais. O melhor classificado na fase classificatória tem vantagem do empate.",
   });
 
-  console.log("📝 Registering Round 1 results, participations, and cards...");
+  console.log("📝 Registering Round 1 and 2 results, participations, and cards...");
 
   const jordania = teamByName.get("JORDÂNIA");
   const senegal = teamByName.get("SENEGAL");
   const caboVerde = teamByName.get("CABO VERDE");
   const curacao = teamByName.get("CURAÇAU");
+  const bosnia = teamByName.get("BÓSNIA");
 
-  if (!jordania || !senegal || !caboVerde || !curacao) {
-    throw new Error("Round 1 teams were not found.");
+  if (!jordania || !senegal || !caboVerde || !curacao || !bosnia) {
+    throw new Error("Round 1 and 2 teams were not found.");
   }
 
   const jordaniaTeam = teams.find((team) => team.name === "JORDÂNIA");
   const senegalTeam = teams.find((team) => team.name === "SENEGAL");
   const caboVerdeTeam = teams.find((team) => team.name === "CABO VERDE");
+  const bosniaTeam = teams.find((team) => team.name === "BÓSNIA");
 
-  if (!jordaniaTeam || !senegalTeam || !caboVerdeTeam) {
-    throw new Error("Round 1 roster definitions were not found.");
+  if (!jordaniaTeam || !senegalTeam || !caboVerdeTeam || !bosniaTeam) {
+    throw new Error("Round 1 and 2 roster definitions were not found.");
   }
 
   const jordaniaCaboVerde = await findMatch(championship.id, jordania.id, caboVerde.id);
   const senegalCuracao = await findMatch(championship.id, senegal.id, curacao.id);
+  const bosniaJordania = await findMatch(championship.id, bosnia.id, jordania.id);
+  const caboVerdeCuracao = await findMatch(championship.id, caboVerde.id, curacao.id);
 
   await prisma.match.update({
     where: { id: jordaniaCaboVerde.id },
@@ -775,6 +779,71 @@ async function main() {
     bionic: true,
   });
 
+  await prisma.match.update({
+    where: { id: bosniaJordania.id },
+    data: {
+      homeScore: 5,
+      awayScore: 2,
+      status: "FINALIZADO",
+      scheduledAt: atClubTime("2026-07-02", "19:15"),
+      notes: "Rodada 2. Folga: SENEGAL. Cartão azul: Rafa DJ (JORDÂNIA).",
+    },
+  });
+
+  await prisma.match.update({
+    where: { id: caboVerdeCuracao.id },
+    data: {
+      homeScore: 2,
+      awayScore: 3,
+      status: "FINALIZADO",
+      scheduledAt: atClubTime("2026-07-02", "20:15"),
+      notes: "Rodada 2. Folga: SENEGAL.",
+    },
+  });
+
+  await registerTeamParticipations({
+    matchId: bosniaJordania.id,
+    teamId: bosnia.id,
+    players: bosniaTeam.players,
+    stats: {
+      Edinho: { goals: 3, yellowCards: 1 },
+      Pepe: { goals: 1 },
+      Jairinho: { goals: 1 },
+    },
+  });
+
+  await registerTeamParticipations({
+    matchId: bosniaJordania.id,
+    teamId: jordania.id,
+    players: jordaniaTeam.players,
+    stats: {
+      Calango: { goals: 1 },
+      Damiany: { goals: 1 },
+      Haendel: { redCards: 1 },
+    },
+  });
+
+  await registerTeamParticipations({
+    matchId: caboVerdeCuracao.id,
+    teamId: caboVerde.id,
+    players: caboVerdeTeam.players,
+    stats: {
+      Saymon: { goals: 1, yellowCards: 1 },
+      Gordo: { goals: 1, yellowCards: 1 },
+    },
+  });
+
+  await registerTeamParticipations({
+    matchId: caboVerdeCuracao.id,
+    teamId: curacao.id,
+    players: ["Wandin", "Melinho", "Caverna", "Danny", "Lucca", "Gilbertinho", "Dadá"],
+    stats: {
+      Melinho: { goals: 1 },
+      Danny: { yellowCards: 1 },
+      Dadá: { goals: 2 },
+    },
+  });
+
   console.log("📊 Recalculating standings from finalized group matches...");
   await recalculateStandings(
     championship.id,
@@ -787,7 +856,7 @@ async function main() {
     }),
   );
 
-  console.log("✅ Copa Tio Hugo 2026 seed completed with schedule and Round 1 history.");
+  console.log("✅ Copa Tio Hugo 2026 seed completed with schedule and Round 1-2 history.");
 }
 
 main()
