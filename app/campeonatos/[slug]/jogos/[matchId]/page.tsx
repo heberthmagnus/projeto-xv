@@ -104,6 +104,19 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
           },
         },
       },
+      events: {
+        where: {
+          type: "CARTAO_AZUL",
+        },
+        orderBy: [{ player: "asc" }],
+        select: {
+          id: true,
+          player: true,
+          quantity: true,
+          teamId: true,
+          type: true,
+        },
+      },
     },
   });
 
@@ -115,6 +128,7 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
   const cardRows = match.participations.filter(
     (participation) => participation.yellowCards > 0 || participation.redCards > 0,
   );
+  const blueCardRows = match.events.filter((event) => event.quantity > 0);
   const homePlayers = match.participations.filter(
     (participation) => participation.teamId === match.homeTeam.id,
   );
@@ -166,13 +180,30 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
 
               <DetailBlock title="Cartões">
                 {cardRows.length > 0 ? (
-                  cardRows.map((participation) => (
+                  <>
+                    {cardRows.map((participation) => (
+                      <StatLine
+                        key={`card-${participation.id}`}
+                        label={participation.player.fullName}
+                        value={`${"🟨".repeat(participation.yellowCards)}${"🟥".repeat(
+                          participation.redCards,
+                        )}`}
+                      />
+                    ))}
+                    {blueCardRows.map((event) => (
+                      <StatLine
+                        key={`blue-card-${event.id}`}
+                        label={event.player}
+                        value={"🟦".repeat(event.quantity)}
+                      />
+                    ))}
+                  </>
+                ) : blueCardRows.length > 0 ? (
+                  blueCardRows.map((event) => (
                     <StatLine
-                      key={`card-${participation.id}`}
-                      label={participation.player.fullName}
-                      value={`${"🟨".repeat(participation.yellowCards)}${"🟥".repeat(
-                        participation.redCards,
-                      )}`}
+                      key={`blue-card-${event.id}`}
+                      label={event.player}
+                      value={"🟦".repeat(event.quantity)}
                     />
                   ))
                 ) : (

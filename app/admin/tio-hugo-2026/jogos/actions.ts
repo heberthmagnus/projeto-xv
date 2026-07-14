@@ -1,6 +1,6 @@
 "use server";
 
-import { MatchStatus } from "@prisma/client";
+import { MatchEventType, MatchStatus, Prisma, SuspensionStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import {
@@ -88,6 +88,226 @@ export async function updateChampionshipMatch(formData: FormData) {
   });
 
   redirect(`${getTioHugoAdminMatchesPath()}?success=update-match`);
+}
+
+export async function createMatchEvent(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const data = await parseMatchEventFormData(formData, championship.id);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.matchEvent.create({
+      data: {
+        matchId: data.matchId,
+        teamId: data.teamId,
+        playerId: data.playerId,
+        player: data.playerName,
+        type: data.type,
+        quantity: data.quantity,
+        minute: data.minute,
+        notes: data.notes,
+      },
+    });
+
+    await syncMatchParticipationsFromEvents(tx, data.matchId);
+  });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=create-event#match-${data.matchId}`);
+}
+
+export async function updateMatchEvent(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const eventId = String(formData.get("eventId") || "").trim();
+
+  if (!eventId) {
+    redirectWithError("Evento não encontrado para atualização.");
+  }
+
+  const existingEvent = await prisma.matchEvent.findUnique({
+    where: { id: eventId },
+    select: {
+      id: true,
+      matchId: true,
+      match: {
+        select: {
+          championshipId: true,
+        },
+      },
+    },
+  });
+
+  if (!existingEvent || existingEvent.match.championshipId !== championship.id) {
+    redirectWithError("Este evento não pertence à Copa Tio Hugo 2026.");
+  }
+
+  const data = await parseMatchEventFormData(formData, championship.id);
+
+  if (data.matchId !== existingEvent.matchId) {
+    redirectWithError("O jogo do evento não pode ser alterado nesta edição.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.matchEvent.update({
+      where: { id: eventId },
+      data: {
+        teamId: data.teamId,
+        playerId: data.playerId,
+        player: data.playerName,
+        type: data.type,
+        quantity: data.quantity,
+        minute: data.minute,
+        notes: data.notes,
+      },
+    });
+
+    await syncMatchParticipationsFromEvents(tx, data.matchId);
+  });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=update-event#match-${data.matchId}`);
+}
+
+export async function deleteMatchEvent(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const eventId = String(formData.get("eventId") || "").trim();
+
+  if (!eventId) {
+    redirectWithError("Evento não encontrado para remoção.");
+  }
+
+  const existingEvent = await prisma.matchEvent.findUnique({
+    where: { id: eventId },
+    select: {
+      id: true,
+      matchId: true,
+      match: { select: { championshipId: true } },
+    },
+  });
+
+  if (!existingEvent || existingEvent.match.championshipId !== championship.id) {
+    redirectWithError("Este evento não pertence à Copa Tio Hugo 2026.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.matchEvent.delete({ where: { id: eventId } });
+    await syncMatchParticipationsFromEvents(tx, existingEvent.matchId);
+  });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=delete-event#match-${existingEvent.matchId}`);
+}
+
+export async function createSuspension(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const data = await parseSuspensionFormData(formData, championship.id);
+
+  await prisma.suspension.create({
+    data: {
+      championshipId: championship.id,
+      playerId: data.playerId,
+      teamId: data.teamId,
+      reason: data.reason,
+      relatedEventId: data.relatedEventId,
+      relatedMatchId: data.relatedMatchId,
+      matchesSuspended: data.matchesSuspended,
+      status: data.status,
+    },
+  });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=create-suspension#suspensions`);
+}
+
+export async function updateSuspension(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const suspensionId = String(formData.get("suspensionId") || "").trim();
+
+  if (!suspensionId) {
+    redirectWithError("Suspensão não encontrada para atualização.");
+  }
+
+  const existingSuspension = await prisma.suspension.findUnique({
+    where: { id: suspensionId },
+    select: { id: true, championshipId: true },
+  });
+
+  if (!existingSuspension || existingSuspension.championshipId !== championship.id) {
+    redirectWithError("Esta suspensão não pertence à Copa Tio Hugo 2026.");
+  }
+
+  const data = await parseSuspensionFormData(formData, championship.id);
+
+  await prisma.suspension.update({
+    where: { id: suspensionId },
+    data: {
+      playerId: data.playerId,
+      teamId: data.teamId,
+      reason: data.reason,
+      relatedEventId: data.relatedEventId,
+      relatedMatchId: data.relatedMatchId,
+      matchesSuspended: data.matchesSuspended,
+      status: data.status,
+    },
+  });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=update-suspension#suspensions`);
+}
+
+export async function deleteSuspension(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const suspensionId = String(formData.get("suspensionId") || "").trim();
+
+  if (!suspensionId) {
+    redirectWithError("Suspensão não encontrada para remoção.");
+  }
+
+  const existingSuspension = await prisma.suspension.findUnique({
+    where: { id: suspensionId },
+    select: { id: true, championshipId: true },
+  });
+
+  if (!existingSuspension || existingSuspension.championshipId !== championship.id) {
+    redirectWithError("Esta suspensão não pertence à Copa Tio Hugo 2026.");
+  }
+
+  await prisma.suspension.delete({ where: { id: suspensionId } });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=delete-suspension#suspensions`);
+}
+
+export async function markSuspensionAsServed(formData: FormData) {
+  await requireAdmin();
+
+  const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
+  const suspensionId = String(formData.get("suspensionId") || "").trim();
+
+  if (!suspensionId) {
+    redirectWithError("Suspensão não encontrada para baixa.");
+  }
+
+  const existingSuspension = await prisma.suspension.findUnique({
+    where: { id: suspensionId },
+    select: { id: true, championshipId: true },
+  });
+
+  if (!existingSuspension || existingSuspension.championshipId !== championship.id) {
+    redirectWithError("Esta suspensão não pertence à Copa Tio Hugo 2026.");
+  }
+
+  await prisma.suspension.update({
+    where: { id: suspensionId },
+    data: { status: SuspensionStatus.CUMPRIDA },
+  });
+
+  redirect(`${getTioHugoAdminMatchesPath()}?success=serve-suspension#suspensions`);
 }
 
 export async function applyTioHugoBaseSchedule() {
@@ -444,4 +664,304 @@ function parseMatchStatus(value: FormDataEntryValue | null) {
   }
 
   return MatchStatus.AGENDADO;
+}
+
+async function parseMatchEventFormData(formData: FormData, championshipId: string) {
+  const matchId = String(formData.get("matchId") || "").trim();
+  const teamId = String(formData.get("teamId") || "").trim();
+  const playerId = String(formData.get("playerId") || "").trim();
+  const type = parseMatchEventType(formData.get("type"));
+  const quantity = parsePositiveInteger(formData.get("quantity"), 1);
+  const minute = parseOptionalPositiveInteger(formData.get("minute"));
+  const notes = normalizeNullableText(formData.get("notes"));
+
+  if (!matchId || !teamId || !playerId) {
+    redirectWithError("Selecione jogo, time e jogador para registrar o evento.");
+  }
+
+  const [match, player] = await Promise.all([
+    prisma.match.findFirst({
+      where: {
+        id: matchId,
+        championshipId,
+        OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+      },
+      select: { id: true },
+    }),
+    prisma.championshipPlayer.findFirst({
+      where: {
+        championshipId,
+        teamId,
+        registration: {
+          athleteProfileId: playerId,
+        },
+      },
+      select: {
+        registration: {
+          select: {
+            fullName: true,
+            nickname: true,
+            athleteProfileId: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  if (!match) {
+    redirectWithError("O time selecionado precisa participar deste jogo da Copa Tio Hugo 2026.");
+  }
+
+  if (!player?.registration.athleteProfileId) {
+    redirectWithError("O jogador selecionado precisa pertencer ao time escolhido.");
+  }
+
+  return {
+    matchId,
+    teamId,
+    playerId,
+    playerName: player.registration.nickname || player.registration.fullName,
+    type,
+    quantity,
+    minute,
+    notes,
+  };
+}
+
+async function parseSuspensionFormData(formData: FormData, championshipId: string) {
+  const teamId = String(formData.get("teamId") || "").trim();
+  const playerId = String(formData.get("playerId") || "").trim();
+  const reason = String(formData.get("reason") || "").trim();
+  const relatedEventId = normalizeNullableText(formData.get("relatedEventId"));
+  const relatedMatchId = normalizeNullableText(formData.get("relatedMatchId"));
+  const matchesSuspended = parsePositiveInteger(formData.get("matchesSuspended"), 1);
+  const status = parseSuspensionStatus(formData.get("status"));
+
+  if (!teamId || !playerId || !reason) {
+    redirectWithError("Selecione time, jogador e motivo da suspensão.");
+  }
+
+  const player = await prisma.championshipPlayer.findFirst({
+    where: {
+      championshipId,
+      teamId,
+      registration: {
+        athleteProfileId: playerId,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!player) {
+    redirectWithError("O jogador suspenso precisa pertencer ao time escolhido.");
+  }
+
+  if (relatedMatchId) {
+    const relatedMatch = await prisma.match.findFirst({
+      where: { id: relatedMatchId, championshipId },
+      select: { id: true },
+    });
+
+    if (!relatedMatch) {
+      redirectWithError("O jogo relacionado precisa pertencer à Copa Tio Hugo 2026.");
+    }
+  }
+
+  if (relatedEventId) {
+    const relatedEvent = await prisma.matchEvent.findFirst({
+      where: {
+        id: relatedEventId,
+        match: {
+          championshipId,
+        },
+      },
+      select: { id: true, matchId: true },
+    });
+
+    if (!relatedEvent) {
+      redirectWithError("O evento relacionado precisa pertencer à Copa Tio Hugo 2026.");
+    }
+  }
+
+  return {
+    teamId,
+    playerId,
+    reason,
+    relatedEventId,
+    relatedMatchId,
+    matchesSuspended,
+    status,
+  };
+}
+
+function parseMatchEventType(value: FormDataEntryValue | null) {
+  const raw = String(value || "").trim();
+
+  if (
+    raw === MatchEventType.GOL ||
+    raw === MatchEventType.CARTAO_AMARELO ||
+    raw === MatchEventType.CARTAO_VERMELHO ||
+    raw === MatchEventType.CARTAO_AZUL ||
+    raw === MatchEventType.OBSERVACAO
+  ) {
+    return raw;
+  }
+
+  return MatchEventType.GOL;
+}
+
+function parseSuspensionStatus(value: FormDataEntryValue | null) {
+  const raw = String(value || "").trim();
+
+  if (
+    raw === SuspensionStatus.ATIVA ||
+    raw === SuspensionStatus.CUMPRIDA ||
+    raw === SuspensionStatus.CANCELADA
+  ) {
+    return raw;
+  }
+
+  return SuspensionStatus.ATIVA;
+}
+
+async function syncMatchParticipationsFromEvents(
+  tx: Prisma.TransactionClient,
+  matchId: string,
+) {
+  const events = await tx.matchEvent.findMany({
+    where: {
+      matchId,
+      playerId: {
+        not: null,
+      },
+      type: {
+        in: [
+          MatchEventType.GOL,
+          MatchEventType.CARTAO_AMARELO,
+          MatchEventType.CARTAO_VERMELHO,
+        ],
+      },
+    },
+    select: {
+      playerId: true,
+      teamId: true,
+      type: true,
+      quantity: true,
+    },
+  });
+
+  const match = await tx.match.findUnique({
+    where: { id: matchId },
+    select: {
+      championshipId: true,
+      participations: {
+        select: {
+          id: true,
+          playerId: true,
+          teamId: true,
+        },
+      },
+    },
+  });
+
+  if (!match) {
+    return;
+  }
+
+  const stats = new Map<
+    string,
+    {
+      playerId: string;
+      teamId: string;
+      goals: number;
+      yellowCards: number;
+      redCards: number;
+    }
+  >();
+
+  for (const event of events) {
+    if (!event.playerId || !event.teamId) {
+      continue;
+    }
+
+    const key = `${event.playerId}:${event.teamId}`;
+    const entry =
+      stats.get(key) ||
+      {
+        playerId: event.playerId,
+        teamId: event.teamId,
+        goals: 0,
+        yellowCards: 0,
+        redCards: 0,
+      };
+
+    if (event.type === MatchEventType.GOL) {
+      entry.goals += event.quantity;
+    } else if (event.type === MatchEventType.CARTAO_AMARELO) {
+      entry.yellowCards += event.quantity;
+    } else if (event.type === MatchEventType.CARTAO_VERMELHO) {
+      entry.redCards += event.quantity;
+    }
+
+    stats.set(key, entry);
+  }
+
+  const touchedKeys = new Set([
+    ...match.participations.map(
+      (participation: { playerId: string; teamId: string }) =>
+        `${participation.playerId}:${participation.teamId}`,
+    ),
+    ...stats.keys(),
+  ]);
+
+  for (const key of touchedKeys) {
+    const entry = stats.get(key);
+    const participation = match.participations.find(
+      (item: { playerId: string; teamId: string }) =>
+        `${item.playerId}:${item.teamId}` === key,
+    );
+
+    if (!entry && participation) {
+      await tx.matchPlayerParticipation.update({
+        where: { id: participation.id },
+        data: {
+          goals: 0,
+          yellowCards: 0,
+          redCards: 0,
+        },
+      });
+      continue;
+    }
+
+    if (!entry) {
+      continue;
+    }
+
+    await tx.matchPlayerParticipation.upsert({
+      where: {
+        matchId_playerId_teamId: {
+          matchId,
+          playerId: entry.playerId,
+          teamId: entry.teamId,
+        },
+      },
+      update: {
+        goals: entry.goals,
+        yellowCards: entry.yellowCards,
+        redCards: entry.redCards,
+      },
+      create: {
+        matchId,
+        playerId: entry.playerId,
+        teamId: entry.teamId,
+        goals: entry.goals,
+        yellowCards: entry.yellowCards,
+        redCards: entry.redCards,
+      },
+    });
+  }
+}
+
+function redirectWithError(message: string): never {
+  redirect(`${getTioHugoAdminMatchesPath()}?error=${encodeURIComponent(message)}`);
 }

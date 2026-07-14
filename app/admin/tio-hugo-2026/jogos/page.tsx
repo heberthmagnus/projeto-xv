@@ -1,4 +1,4 @@
-import { MatchStatus } from "@prisma/client";
+import { MatchEventType, MatchStatus, SuspensionStatus } from "@prisma/client";
 import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { buildArrivalDateTimeInput } from "@/lib/peladas";
@@ -14,7 +14,14 @@ import { ADMIN_MATCHES_PATH } from "@/lib/routes";
 import {
   applyTioHugoBaseSchedule,
   createChampionshipMatch,
+  createMatchEvent,
+  createSuspension,
+  deleteMatchEvent,
+  deleteSuspension,
+  markSuspensionAsServed,
   updateChampionshipMatch,
+  updateMatchEvent,
+  updateSuspension,
 } from "./actions";
 
 type SearchParams = Promise<{
@@ -22,6 +29,53 @@ type SearchParams = Promise<{
   error?: string;
   warning?: string;
 }>;
+
+type AdminStage = {
+  id: string;
+  name: string;
+  order: number;
+  stageType: string;
+};
+
+type AdminMatch = {
+  id: string;
+  round: number;
+  roundNumber: number | null;
+  scheduledAt: Date | null;
+  location: string | null;
+  notes: string | null;
+  status: MatchStatus;
+  homeScore: number | null;
+  awayScore: number | null;
+  stageId: string | null;
+  stage: AdminStage | null;
+  homeTeam: { id: string; name: string; shortName: string | null };
+  awayTeam: { id: string; name: string; shortName: string | null };
+  events: Array<{
+    id: string;
+    player: string;
+    playerId: string | null;
+    teamId: string | null;
+    type: MatchEventType;
+    quantity: number;
+    minute: number | null;
+    notes: string | null;
+    team: { id: string; name: string; shortName: string | null } | null;
+  }>;
+};
+
+type AdminSuspension = {
+  id: string;
+  playerId: string;
+  teamId: string;
+  reason: string;
+  matchesSuspended: number;
+  status: SuspensionStatus;
+  relatedEventId: string | null;
+  relatedMatchId: string | null;
+  player: { fullName: string };
+  team: { id: string; name: string; shortName: string | null };
+};
 
 export default async function JogosAdminPage({
   searchParams,
@@ -32,13 +86,14 @@ export default async function JogosAdminPage({
   const adminUser = await getAuthenticatedAdmin();
   const { data, databaseUnavailable } = await executePrismaWithFallback<{
     championship: Awaited<ReturnType<typeof getRequiredChampionshipBySlug>> | null;
-    teams: Array<any>;
-    stages: Array<any>;
-    matches: Array<any>;
+    teams: TeamOption[];
+    stages: AdminStage[];
+    matches: AdminMatch[];
+    suspensions: AdminSuspension[];
   }>(
     async () => {
       const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
-      const [teams, stages, matches] = await Promise.all([
+      const [teams, stages, matches, suspensions] = await Promise.all([
         prisma.championshipTeam.findMany({
           where: {
             championshipId: championship.id,
@@ -53,6 +108,25 @@ export default async function JogosAdminPage({
                 id: true,
                 name: true,
                 shortName: true,
+                players: {
+                  where: {
+                    championshipId: championship.id,
+                  },
+                  orderBy: [
+                    { rosterOrder: "asc" },
+                    { squadNumber: "asc" },
+                    { createdAt: "asc" },
+                  ],
+                  select: {
+                    registration: {
+                      select: {
+                        fullName: true,
+                        nickname: true,
+                        athleteProfileId: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -112,16 +186,79 @@ export default async function JogosAdminPage({
                 shortName: true,
               },
             },
+            events: {
+              orderBy: [{ player: "asc" }, { id: "asc" }],
+              select: {
+                id: true,
+                player: true,
+                playerId: true,
+                teamId: true,
+                type: true,
+                quantity: true,
+                minute: true,
+                notes: true,
+                team: {
+                  select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+        prisma.suspension.findMany({
+          where: {
+            championshipId: championship.id,
+          },
+          orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+          select: {
+            id: true,
+            playerId: true,
+            teamId: true,
+            reason: true,
+            matchesSuspended: true,
+            status: true,
+            relatedEventId: true,
+            relatedMatchId: true,
+            player: {
+              select: {
+                fullName: true,
+              },
+            },
+            team: {
+              select: {
+                id: true,
+                name: true,
+                shortName: true,
+              },
+            },
+            relatedMatch: {
+              select: {
+                id: true,
+                round: true,
+                roundNumber: true,
+                homeTeam: { select: { shortName: true, name: true } },
+                awayTeam: { select: { shortName: true, name: true } },
+              },
+            },
           },
         }),
       ]);
 
-      return { championship, teams, stages, matches };
+      return {
+        championship,
+        teams: teams as TeamOption[],
+        stages: stages as AdminStage[],
+        matches: matches as AdminMatch[],
+        suspensions: suspensions as AdminSuspension[],
+      };
     },
-    { championship: null, teams: [], stages: [], matches: [] },
+    { championship: null, teams: [], stages: [], matches: [], suspensions: [] },
     "admin:championship-matches:list",
   );
-  const { championship, teams, stages, matches } = data;
+  const { championship, teams, stages, matches, suspensions } = data;
 
   if (!championship) {
     return (
@@ -334,6 +471,15 @@ export default async function JogosAdminPage({
                               Salvar jogo
                             </button>
                           </form>
+
+                          <MatchEventsAdmin
+                            match={match}
+                            teams={teams.filter(
+                              (team) =>
+                                team.team.id === match.homeTeam.id ||
+                                team.team.id === match.awayTeam.id,
+                            )}
+                          />
                         </details>
                       ))}
                     </div>
@@ -343,8 +489,480 @@ export default async function JogosAdminPage({
             )}
           </article>
         </section>
+
+        <SuspensionsAdmin
+          teams={teams}
+          matches={matches}
+          suspensions={suspensions}
+        />
       </div>
     </main>
+  );
+}
+
+function MatchEventsAdmin({
+  match,
+  teams,
+}: {
+  match: {
+    id: string;
+    homeTeam: { id: string; name: string; shortName: string | null };
+    awayTeam: { id: string; name: string; shortName: string | null };
+    events: Array<{
+      id: string;
+      player: string;
+      playerId: string | null;
+      teamId: string | null;
+      type: MatchEventType;
+      quantity: number;
+      minute: number | null;
+      notes: string | null;
+      team: { id: string; name: string; shortName: string | null } | null;
+    }>;
+  };
+  teams: TeamOption[];
+}) {
+  return (
+    <div className="mt-5 grid gap-4 border-t border-[#E5E7EB] pt-4">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8B6914]">
+          Eventos do jogo
+        </p>
+        <p className="mt-1 text-sm text-[#4B5563]">
+          Lance gols e cartões por jogador. Gols, amarelos e vermelhos atualizam as tabelas públicas já existentes.
+        </p>
+      </div>
+
+      <form action={createMatchEvent} className="grid gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] p-3">
+        <input type="hidden" name="matchId" value={match.id} />
+        <EventFormFields teams={teams} />
+        <button
+          type="submit"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#3450A1] px-4 py-2.5 font-bold text-white transition hover:bg-[#263D7B]"
+        >
+          Adicionar evento
+        </button>
+      </form>
+
+      {match.events.length === 0 ? (
+        <p className="text-sm text-[#6B7280]">Nenhum evento registrado para este jogo.</p>
+      ) : (
+        <div className="grid gap-2">
+          {match.events.map((event) => (
+            <div key={event.id} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-3">
+              <form action={updateMatchEvent} className="grid gap-3">
+                <input type="hidden" name="matchId" value={match.id} />
+                <input type="hidden" name="eventId" value={event.id} />
+                <EventFormFields
+                  teams={teams}
+                  initialValues={{
+                    teamId: event.teamId || "",
+                    playerId: event.playerId || "",
+                    type: event.type,
+                    quantity: event.quantity,
+                    minute: event.minute ?? "",
+                    notes: event.notes || "",
+                  }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#101010] px-4 py-2.5 font-bold text-white transition hover:bg-[#2C2C2C]"
+                  >
+                    Salvar evento
+                  </button>
+                  <button
+                    form={`delete-event-${event.id}`}
+                    type="submit"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#DC2626] px-4 py-2.5 font-bold text-[#DC2626] transition hover:bg-[#FEF2F2]"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </form>
+              <form id={`delete-event-${event.id}`} action={deleteMatchEvent}>
+                <input type="hidden" name="eventId" value={event.id} />
+              </form>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EventFormFields({
+  teams,
+  initialValues,
+}: {
+  teams: TeamOption[];
+  initialValues?: {
+    teamId: string;
+    playerId: string;
+    type: MatchEventType;
+    quantity: number | string;
+    minute: number | string;
+    notes: string;
+  };
+}) {
+  const selectedTeam = teams.find((team) => team.team.id === initialValues?.teamId);
+  const playerOptions = selectedTeam?.team.players.length
+    ? selectedTeam.team.players
+    : teams.flatMap((team) => team.team.players);
+
+  return (
+    <>
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_150px_100px_100px]">
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Time</span>
+          <select
+            name="teamId"
+            defaultValue={initialValues?.teamId || ""}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+            required
+          >
+            <option value="" disabled>
+              Selecionar time
+            </option>
+            {teams.map((team) => (
+              <option key={team.team.id} value={team.team.id}>
+                {team.team.shortName || team.team.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Jogador</span>
+          <select
+            name="playerId"
+            defaultValue={initialValues?.playerId || ""}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+            required
+          >
+            <option value="" disabled>
+              Selecionar jogador
+            </option>
+            {playerOptions.map((player) => (
+              <option
+                key={`${player.registration.athleteProfileId}-${player.registration.fullName}`}
+                value={player.registration.athleteProfileId || ""}
+                disabled={!player.registration.athleteProfileId}
+              >
+                {player.registration.nickname || player.registration.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Tipo</span>
+          <select
+            name="type"
+            defaultValue={initialValues?.type || MatchEventType.GOL}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+          >
+            <option value={MatchEventType.GOL}>Gol</option>
+            <option value={MatchEventType.CARTAO_AMARELO}>Cartão amarelo</option>
+            <option value={MatchEventType.CARTAO_VERMELHO}>Cartão vermelho</option>
+            <option value={MatchEventType.CARTAO_AZUL}>Cartão azul</option>
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Qtd.</span>
+          <input
+            type="number"
+            name="quantity"
+            min="1"
+            defaultValue={initialValues?.quantity || 1}
+            className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+            required
+          />
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Min.</span>
+          <input
+            type="number"
+            name="minute"
+            min="1"
+            defaultValue={initialValues?.minute || ""}
+            className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+          />
+        </label>
+      </div>
+
+      <label className="grid gap-1.5">
+        <span className="text-sm font-semibold text-[#101010]">Observação</span>
+        <input
+          type="text"
+          name="notes"
+          defaultValue={initialValues?.notes || ""}
+          placeholder="Opcional"
+          className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+        />
+      </label>
+    </>
+  );
+}
+
+function SuspensionFormFields({
+  teams,
+  matches,
+  initialValues,
+}: {
+  teams: TeamOption[];
+  matches: Array<{
+    id: string;
+    round: number;
+    roundNumber: number | null;
+    homeTeam: { name: string; shortName: string | null };
+    awayTeam: { name: string; shortName: string | null };
+    events: Array<{ id: string; player: string; type: MatchEventType }>;
+  }>;
+  initialValues?: {
+    playerId: string;
+    teamId: string;
+    reason: string;
+    matchesSuspended: number;
+    status: SuspensionStatus;
+    relatedEventId: string | null;
+    relatedMatchId: string | null;
+  };
+}) {
+  const selectedTeam = teams.find((team) => team.team.id === initialValues?.teamId);
+  const playerOptions = selectedTeam?.team.players.length
+    ? selectedTeam.team.players
+    : teams.flatMap((team) => team.team.players);
+  const eventOptions = matches.flatMap((match) =>
+    match.events.map((event) => ({
+      ...event,
+      matchLabel: formatMatchOptionLabel(match),
+    })),
+  );
+
+  return (
+    <>
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_130px_160px]">
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Time</span>
+          <select
+            name="teamId"
+            defaultValue={initialValues?.teamId || ""}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+            required
+          >
+            <option value="" disabled>
+              Selecionar time
+            </option>
+            {teams.map((team) => (
+              <option key={team.team.id} value={team.team.id}>
+                {team.team.shortName || team.team.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Jogador</span>
+          <select
+            name="playerId"
+            defaultValue={initialValues?.playerId || ""}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+            required
+          >
+            <option value="" disabled>
+              Selecionar jogador
+            </option>
+            {playerOptions.map((player) => (
+              <option
+                key={`${player.registration.athleteProfileId}-${player.registration.fullName}`}
+                value={player.registration.athleteProfileId || ""}
+                disabled={!player.registration.athleteProfileId}
+              >
+                {player.registration.nickname || player.registration.fullName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Jogos</span>
+          <input
+            type="number"
+            name="matchesSuspended"
+            min="1"
+            defaultValue={initialValues?.matchesSuspended || 1}
+            className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+            required
+          />
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Status</span>
+          <select
+            name="status"
+            defaultValue={initialValues?.status || SuspensionStatus.ATIVA}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+          >
+            <option value={SuspensionStatus.ATIVA}>Ativa</option>
+            <option value={SuspensionStatus.CUMPRIDA}>Cumprida</option>
+            <option value={SuspensionStatus.CANCELADA}>Cancelada</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Jogo relacionado</span>
+          <select
+            name="relatedMatchId"
+            defaultValue={initialValues?.relatedMatchId || ""}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+          >
+            <option value="">Sem jogo relacionado</option>
+            {matches.map((match) => (
+              <option key={match.id} value={match.id}>
+                {formatMatchOptionLabel(match)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-[#101010]">Evento relacionado</span>
+          <select
+            name="relatedEventId"
+            defaultValue={initialValues?.relatedEventId || ""}
+            className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+          >
+            <option value="">Sem evento relacionado</option>
+            {eventOptions.map((event) => (
+              <option key={event.id} value={event.id}>
+                {event.matchLabel} - {event.player} ({getMatchEventTypeLabel(event.type)})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <label className="grid gap-1.5">
+        <span className="text-sm font-semibold text-[#101010]">Motivo</span>
+        <input
+          type="text"
+          name="reason"
+          defaultValue={initialValues?.reason || ""}
+          placeholder="Ex.: Cartão vermelho direto"
+          className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#3450A1]"
+          required
+        />
+      </label>
+    </>
+  );
+}
+
+function SuspensionsAdmin({
+  teams,
+  matches,
+  suspensions,
+}: {
+  teams: TeamOption[];
+  matches: Array<{
+    id: string;
+    round: number;
+    roundNumber: number | null;
+    homeTeam: { name: string; shortName: string | null };
+    awayTeam: { name: string; shortName: string | null };
+    events: Array<{ id: string; player: string; type: MatchEventType }>;
+  }>;
+  suspensions: Array<{
+    id: string;
+    playerId: string;
+    teamId: string;
+    reason: string;
+    matchesSuspended: number;
+    status: SuspensionStatus;
+    relatedEventId: string | null;
+    relatedMatchId: string | null;
+    player: { fullName: string };
+    team: { id: string; name: string; shortName: string | null };
+  }>;
+}) {
+  return (
+    <section id="suspensions" className="xv-card">
+      <div className="mb-5">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#B89020]">
+          Suspensões
+        </p>
+        <h2 className="mt-1 text-[1.45rem] font-black tracking-tight text-[#101010]">
+          Controle manual
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[#4B5563]">
+          Cadastre, altere, remova ou marque suspensões como cumpridas sem cálculo automático.
+        </p>
+      </div>
+
+      <form action={createSuspension} className="mb-5 grid gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] p-4">
+        <SuspensionFormFields teams={teams} matches={matches} />
+        <button
+          type="submit"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#3450A1] px-4 py-3 font-bold text-white transition hover:bg-[#263D7B]"
+        >
+          Adicionar suspensão
+        </button>
+      </form>
+
+      {suspensions.length === 0 ? (
+        <EmptyState
+          title="Nenhuma suspensão cadastrada"
+          description="As suspensões manuais da Copa Tio Hugo 2026 aparecerão aqui."
+        />
+      ) : (
+        <div className="grid gap-3">
+          {suspensions.map((suspension) => (
+            <article key={suspension.id} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4">
+              <form action={updateSuspension} className="grid gap-3">
+                <input type="hidden" name="suspensionId" value={suspension.id} />
+                <SuspensionFormFields
+                  teams={teams}
+                  matches={matches}
+                  initialValues={suspension}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#101010] px-4 py-2.5 font-bold text-white transition hover:bg-[#2C2C2C]"
+                  >
+                    Salvar suspensão
+                  </button>
+                  <button
+                    form={`serve-suspension-${suspension.id}`}
+                    type="submit"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#047857] px-4 py-2.5 font-bold text-[#047857] transition hover:bg-[#ECFDF5]"
+                  >
+                    Marcar cumprida
+                  </button>
+                  <button
+                    form={`delete-suspension-${suspension.id}`}
+                    type="submit"
+                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#DC2626] px-4 py-2.5 font-bold text-[#DC2626] transition hover:bg-[#FEF2F2]"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </form>
+              <form id={`serve-suspension-${suspension.id}`} action={markSuspensionAsServed}>
+                <input type="hidden" name="suspensionId" value={suspension.id} />
+              </form>
+              <form id={`delete-suspension-${suspension.id}`} action={deleteSuspension}>
+                <input type="hidden" name="suspensionId" value={suspension.id} />
+              </form>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -375,8 +993,8 @@ function MatchFormFields({
     location: string;
     notes: string;
     status: MatchStatus;
-    homeScore: number | string;
-    awayScore: number | string;
+    homeScore: number | string | null;
+    awayScore: number | string | null;
   };
 }) {
   return (
@@ -545,6 +1163,21 @@ function MatchFormFields({
   );
 }
 
+type TeamOption = {
+  team: {
+    id: string;
+    name: string;
+    shortName: string | null;
+    players: Array<{
+      registration: {
+        fullName: string;
+        nickname: string | null;
+        athleteProfileId: string | null;
+      };
+    }>;
+  };
+};
+
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
@@ -580,8 +1213,8 @@ function groupMatchesByStageAndRound(
     location: string | null;
     notes: string | null;
     status: MatchStatus;
-    homeScore: number;
-    awayScore: number;
+    homeScore: number | null;
+    awayScore: number | null;
     stageId: string | null;
     stage: {
       id: string;
@@ -599,6 +1232,7 @@ function groupMatchesByStageAndRound(
       name: string;
       shortName: string | null;
     };
+    events: AdminMatch["events"];
   }>,
 ) {
   const groups = new Map<
@@ -661,6 +1295,34 @@ function getMatchStatusLabel(status: MatchStatus) {
     default:
       return status;
   }
+}
+
+function getMatchEventTypeLabel(type: MatchEventType) {
+  switch (type) {
+    case MatchEventType.GOL:
+      return "Gol";
+    case MatchEventType.CARTAO_AMARELO:
+      return "Cartão amarelo";
+    case MatchEventType.CARTAO_VERMELHO:
+      return "Cartão vermelho";
+    case MatchEventType.CARTAO_AZUL:
+      return "Cartão azul";
+    case MatchEventType.OBSERVACAO:
+      return "Observação";
+    default:
+      return String(type);
+  }
+}
+
+function formatMatchOptionLabel(match: {
+  round: number;
+  roundNumber: number | null;
+  homeTeam: { name: string; shortName: string | null };
+  awayTeam: { name: string; shortName: string | null };
+}) {
+  return `Rodada ${match.round}${match.roundNumber ? ` - Jogo ${match.roundNumber}` : ""}: ${
+    match.homeTeam.shortName || match.homeTeam.name
+  } x ${match.awayTeam.shortName || match.awayTeam.name}`;
 }
 
 function getStatusBadgeClassName(status: MatchStatus) {

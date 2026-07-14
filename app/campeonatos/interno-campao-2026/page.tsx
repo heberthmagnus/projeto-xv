@@ -20,9 +20,6 @@ export default async function InternoCampaoTrackingPage() {
 
   const { data, databaseUnavailable } = await executePrismaWithFallback<{
     registrations: Array<{
-      id: string;
-      fullName: string;
-      nickname: string | null;
       category: "ADULTO" | "MASTER" | null;
     }>;
   }>(
@@ -32,11 +29,7 @@ export default async function InternoCampaoTrackingPage() {
         where: {
           championshipId: championship.id,
         },
-        orderBy: [{ category: "asc" }, { fullName: "asc" }],
         select: {
-          id: true,
-          fullName: true,
-          nickname: true,
           category: true,
         },
       });
@@ -104,9 +97,7 @@ function CategoryCard({
 }: {
   title: string;
   registrations: Array<{
-    id: string;
-    fullName: string;
-    nickname: string | null;
+    category: "ADULTO" | "MASTER" | null;
   }>;
   capacity: number;
 }) {
@@ -124,29 +115,6 @@ function CategoryCard({
         <SummaryBox label="Vagas restantes" value={String(remainingSpots)} />
       </div>
 
-      <div className="mt-4 rounded-2xl border border-[#E5E7EB] bg-white p-4">
-        <h2 className="text-base font-black text-[#101010]">Lista de inscritos</h2>
-
-        {registrations.length === 0 ? (
-          <p className="mt-3 text-sm text-[#6B7280]">Nenhum inscrito até o momento.</p>
-        ) : (
-          <div className="mt-3 grid gap-2">
-            {registrations.map((registration) => (
-              <div
-                key={registration.id}
-                className="rounded-xl border border-[#E5E7EB] bg-[#FCFCFC] px-3 py-2"
-              >
-                <div className="font-semibold text-[#101010]">
-                  {registration.fullName}
-                </div>
-                {registration.nickname ? (
-                  <div className="text-sm text-[#6B7280]">{registration.nickname}</div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </article>
   );
 }

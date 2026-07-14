@@ -85,6 +85,9 @@ export default async function ChampionshipPublicPage({
   const topScorers = buildTopScorers(championship.matches);
   const cardLeaders = buildCardLeaders(championship.matches);
   const matchMvps = buildMatchMvps(championship.matches);
+  const activeSuspensions = (championship.suspensions || []).filter(
+    (suspension) => suspension.status === "ATIVA",
+  );
 
   return (
     <main className="xv-page-shell-soft">
@@ -342,7 +345,7 @@ export default async function ChampionshipPublicPage({
           />
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-3">
+        <section className="grid gap-4 xl:grid-cols-4">
           <article className="xv-card">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -391,11 +394,44 @@ export default async function ChampionshipPublicPage({
                     <span className="text-sm font-black text-[#101010]">
                       {"🟨".repeat(entry.yellowCards)}
                       {"🟥".repeat(entry.redCards)}
+                      {"🟦".repeat(entry.blueCards)}
                     </span>
                   </div>
                 ))
               ) : (
                 <p className="text-sm text-[#6B7280]">Sem cartões registrados ainda.</p>
+              )}
+            </div>
+          </article>
+
+          <article className="xv-card">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex rounded-full bg-[#F6E8BD] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
+                  Disciplina
+                </span>
+                <h2 className="mt-3 text-[1.55rem] font-black tracking-tight text-[#101010]">
+                  Suspensões
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              {activeSuspensions.length > 0 ? (
+                activeSuspensions.map((suspension) => (
+                  <div key={suspension.id} className="rounded-xl border border-[#E5E7EB] bg-[#FCFCFC] px-3 py-3">
+                    <div className="font-semibold text-[#101010]">
+                      {suspension.player.fullName}
+                    </div>
+                    <div className="mt-1 text-sm text-[#4B5563]">
+                      {suspension.team.shortName || suspension.team.name} •{" "}
+                      {suspension.matchesSuspended} jogo
+                      {suspension.matchesSuspended === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-[#6B7280]">Sem suspensões ativas.</p>
               )}
             </div>
           </article>
@@ -562,6 +598,12 @@ function buildTopScorers(
 
 function buildCardLeaders(
   matches: Array<{
+    events?: Array<{
+      player: string;
+      playerId: string | null;
+      quantity: number;
+      type: string;
+    }>;
     participations?: Array<{
       player: { id: string; fullName: string };
       yellowCards: number;
@@ -571,7 +613,7 @@ function buildCardLeaders(
 ) {
   const players = new Map<
     string,
-    { key: string; name: string; yellowCards: number; redCards: number }
+    { key: string; name: string; yellowCards: number; redCards: number; blueCards: number }
   >();
 
   for (const match of matches) {
@@ -586,16 +628,35 @@ function buildCardLeaders(
           name: participation.player.fullName,
           yellowCards: 0,
           redCards: 0,
+          blueCards: 0,
         };
       current.yellowCards += participation.yellowCards;
       current.redCards += participation.redCards;
       players.set(participation.player.id, current);
     }
+
+    for (const event of match.events || []) {
+      if (event.type !== "CARTAO_AZUL" || event.quantity <= 0) {
+        continue;
+      }
+
+      const key = event.playerId || `blue-${event.player}`;
+      const current =
+        players.get(key) || {
+          key,
+          name: event.player,
+          yellowCards: 0,
+          redCards: 0,
+          blueCards: 0,
+        };
+      current.blueCards += event.quantity;
+      players.set(key, current);
+    }
   }
 
   return Array.from(players.values()).sort((left, right) => {
-    const rightTotal = right.yellowCards + right.redCards;
-    const leftTotal = left.yellowCards + left.redCards;
+    const rightTotal = right.yellowCards + right.redCards + right.blueCards;
+    const leftTotal = left.yellowCards + left.redCards + left.blueCards;
     if (rightTotal !== leftTotal) return rightTotal - leftTotal;
     return left.name.localeCompare(right.name, "pt-BR");
   });

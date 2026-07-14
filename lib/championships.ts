@@ -353,6 +353,41 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               },
             },
           },
+          events: {
+            where: {
+              type: "CARTAO_AZUL",
+            },
+            select: {
+              id: true,
+              player: true,
+              playerId: true,
+              quantity: true,
+              type: true,
+            },
+          },
+        },
+      },
+      suspensions: {
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          reason: true,
+          matchesSuspended: true,
+          status: true,
+          player: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+          team: {
+            select: {
+              id: true,
+              name: true,
+              shortName: true,
+              icon: true,
+            },
+          },
         },
       },
     },

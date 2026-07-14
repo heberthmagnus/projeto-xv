@@ -17,9 +17,9 @@ model User {
 }
 
 model AthleteProfile {
-  id                  String               @id @default(uuid())
+  id                  String                     @id @default(uuid())
   fullName            String
-  normalizedFullName  String               @unique
+  normalizedFullName  String                     @unique
   nickname            String?
   preferredPosition   PreferredPosition?
   birthDate           DateTime?
@@ -27,12 +27,14 @@ model AthleteProfile {
   defaultLevel        PlayerLevel?
   phone               String?
   email               String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
   peladaArrivals      PeladaArrival[]
   peladaConfirmations PeladaConfirmation[]
   registrations       Registration[]
+  matchEvents         MatchEvent[]
   matchParticipations MatchPlayerParticipation[]
+  suspensions         Suspension[]
 }
 
 model Championship {
@@ -54,26 +56,28 @@ model Championship {
   matches          Match[]
   registrations    Registration[]
   standings        Standing[]
+  suspensions      Suspension[]
 }
 
 model Team {
-  id             String               @id @default(uuid())
-  name           String
-  createdAt      DateTime             @default(now())
-  crestUrl       String?
-  icon           String?
-  primaryColor   String?
-  secondaryColor String?
-  shortName      String?
-  slug           String?              @unique
-  updatedAt      DateTime             @default(now()) @updatedAt
-  players        ChampionshipPlayer[]
-  championships  ChampionshipTeam[]
-  awayMatches    Match[]              @relation("AwayTeam")
-  homeMatches    Match[]              @relation("HomeTeam")
-  events         MatchEvent[]
+  id                  String                     @id @default(uuid())
+  name                String
+  createdAt           DateTime                   @default(now())
+  crestUrl            String?
+  icon                String?
+  primaryColor        String?
+  secondaryColor      String?
+  shortName           String?
+  slug                String?                    @unique
+  updatedAt           DateTime                   @default(now()) @updatedAt
+  players             ChampionshipPlayer[]
+  championships       ChampionshipTeam[]
+  awayMatches         Match[]                    @relation("AwayTeam")
+  homeMatches         Match[]                    @relation("HomeTeam")
+  events              MatchEvent[]
   matchParticipations MatchPlayerParticipation[]
-  standings      Standing[]
+  standings           Standing[]
+  suspensions         Suspension[]
 }
 
 model ChampionshipTeam {
@@ -124,28 +128,29 @@ model ChampionshipPlayer {
 }
 
 model Match {
-  id             String             @id @default(uuid())
+  id             String                     @id @default(uuid())
   championshipId String
   homeTeamId     String
   awayTeamId     String
   homeScore      Int?
   awayScore      Int?
   round          Int
-  createdAt      DateTime           @default(now())
+  createdAt      DateTime                   @default(now())
   location       String?
   notes          String?
   referee        String?
   roundNumber    Int?
   scheduledAt    DateTime?
   stageId        String?
-  status         MatchStatus        @default(AGENDADO)
-  updatedAt      DateTime           @default(now()) @updatedAt
-  awayTeam       Team               @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  championship   Championship       @relation(fields: [championshipId], references: [id])
-  homeTeam       Team               @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  stage          ChampionshipStage? @relation(fields: [stageId], references: [id])
+  status         MatchStatus                @default(AGENDADO)
+  updatedAt      DateTime                   @default(now()) @updatedAt
+  awayTeam       Team                       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  championship   Championship               @relation(fields: [championshipId], references: [id])
+  homeTeam       Team                       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  stage          ChampionshipStage?         @relation(fields: [stageId], references: [id])
   events         MatchEvent[]
   participations MatchPlayerParticipation[]
+  suspensions    Suspension[]
 }
 
 model Standing {
@@ -170,15 +175,48 @@ model Standing {
 }
 
 model MatchEvent {
-  id      String         @id @default(uuid())
-  matchId String
-  player  String
-  minute  Int?
-  notes   String?
-  teamId  String?
-  type    MatchEventType
-  match   Match          @relation(fields: [matchId], references: [id])
-  team    Team?          @relation(fields: [teamId], references: [id])
+  id          String          @id @default(uuid())
+  matchId     String
+  player      String
+  minute      Int?
+  notes       String?
+  quantity    Int             @default(1)
+  teamId      String?
+  playerId    String?
+  type        MatchEventType
+  match       Match           @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team        Team?           @relation(fields: [teamId], references: [id])
+  athlete     AthleteProfile? @relation(fields: [playerId], references: [id])
+  suspensions Suspension[]
+
+  @@index([matchId])
+  @@index([playerId])
+  @@index([teamId])
+}
+
+model Suspension {
+  id               String           @id @default(uuid())
+  championshipId   String
+  playerId         String
+  teamId           String
+  reason           String
+  relatedEventId   String?
+  relatedMatchId   String?
+  matchesSuspended Int              @default(1)
+  status           SuspensionStatus @default(ATIVA)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  championship     Championship     @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  player           AthleteProfile   @relation(fields: [playerId], references: [id])
+  team             Team             @relation(fields: [teamId], references: [id])
+  relatedEvent     MatchEvent?      @relation(fields: [relatedEventId], references: [id])
+  relatedMatch     Match?           @relation(fields: [relatedMatchId], references: [id])
+
+  @@index([championshipId, status])
+  @@index([playerId])
+  @@index([teamId])
+  @@index([relatedEventId])
+  @@index([relatedMatchId])
 }
 
 model MatchPlayerParticipation {
@@ -207,7 +245,7 @@ model MatchPlayerParticipation {
 }
 
 model Registration {
-  id                 String              @id @default(uuid())
+  id                 String                @id @default(uuid())
   championshipId     String
   fullName           String
   nickname           String?
@@ -218,13 +256,13 @@ model Registration {
   email              String?
   level              PlayerLevel?
   confirmedRules     Boolean
-  createdAt          DateTime            @default(now())
+  createdAt          DateTime              @default(now())
   paidAt             DateTime?
-  paymentStatus      PaymentStatus       @default(PENDENTE)
+  paymentStatus      PaymentStatus         @default(PENDENTE)
   athleteProfileId   String?
   championshipPlayer ChampionshipPlayer?
-  athleteProfile     AthleteProfile?     @relation(fields: [athleteProfileId], references: [id])
-  championship       Championship        @relation(fields: [championshipId], references: [id])
+  athleteProfile     AthleteProfile?       @relation(fields: [athleteProfileId], references: [id])
+  championship       Championship          @relation(fields: [championshipId], references: [id])
 
   @@index([championshipId])
   @@index([championshipId, category])
@@ -447,7 +485,14 @@ enum MatchEventType {
   GOL
   CARTAO_AMARELO
   CARTAO_VERMELHO
+  CARTAO_AZUL
   OBSERVACAO
+}
+
+enum SuspensionStatus {
+  ATIVA
+  CUMPRIDA
+  CANCELADA
 }
 
 enum StandingMovement {
