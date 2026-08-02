@@ -34,8 +34,8 @@ export default function InternoCampaoInscricaoPage() {
           <p>• Serão 2 jogos no sábado e 3 jogos no domingo</p>
           <p>• Sábado: 14h e 15h30</p>
           <p>• Domingo: 08h, 9h40 e 11h30</p>
-          <p>• Adulto: 7 times, até 14 jogadores por time, total de 98 vagas</p>
-          <p>• Master: 5 times, até 14 jogadores por time, total de 70 vagas</p>
+          <p>• Adulto: total de 91 vagas</p>
+          <p>• Master: total de 65 vagas</p>
           <p>• Serão 7 times na categoria abaixo de 50 anos e 5 times acima de 50 anos</p>
           <p>• A categoria pode ser ajustada pela administração quando necessário</p>
         </div>
