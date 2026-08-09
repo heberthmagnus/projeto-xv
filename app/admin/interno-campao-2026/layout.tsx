@@ -1,4 +1,4 @@
-export default function TioHugoAdminLayout({
+export default function InternoCampaoAdminLayout({
   children,
 }: {
   children: React.ReactNode;

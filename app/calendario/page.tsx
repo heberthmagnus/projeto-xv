@@ -812,14 +812,22 @@ function getCopaCalendarTitle(match: {
   round: number;
   roundNumber: number | null;
   stage: { name: string; stageType: string } | null;
+  homeScore: number | null;
+  awayScore: number | null;
   homeTeam: { name: string; shortName: string | null; icon: string | null };
   awayTeam: { name: string; shortName: string | null; icon: string | null };
 }) {
-  return `Copa • ${getCopaFixtureLabel(match)}`;
+  const fixture = getCopaFixtureLabel(match);
+
+  if (match.homeScore === null || match.awayScore === null) {
+    return `Copa • ${fixture}`;
+  }
+
+  return `Copa • ${fixture} • ${match.homeScore} x ${match.awayScore}`;
 }
 
 function getCopaCalendarDescription(match: { notes: string | null }) {
-  return getByeFromNotes(match.notes) ? `Folga: ${getByeFromNotes(match.notes)}` : undefined;
+  return match.notes || undefined;
 }
 
 function getCopaFixtureLabel(match: {
@@ -829,14 +837,6 @@ function getCopaFixtureLabel(match: {
   homeTeam: { name: string; shortName: string | null; icon: string | null };
   awayTeam: { name: string; shortName: string | null; icon: string | null };
 }) {
-  if (match.stage?.stageType === "SEMIFINAL") {
-    return match.roundNumber === 2 ? "2º x 3º" : "1º x 4º";
-  }
-
-  if (match.stage?.stageType === "FINAL") {
-    return "Winner SF1 x Winner SF2";
-  }
-
   return `${formatTeamDisplayName(
     match.homeTeam.shortName || match.homeTeam.name,
     match.homeTeam.icon,

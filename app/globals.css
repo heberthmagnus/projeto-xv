@@ -94,6 +94,16 @@ strong {
   max-width: 1080px;
 }
 
+.xv-admin-content .xv-page-shell {
+  padding: 0;
+}
+
+.xv-admin-content .xv-page-container {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .xv-card {
   background: #FFFFFF;
   border-radius: 16px;

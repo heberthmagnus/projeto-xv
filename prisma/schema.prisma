@@ -38,25 +38,27 @@ model AthleteProfile {
 }
 
 model Championship {
-  id               String                       @id @default(uuid())
-  name             String
-  slug             String                       @unique
-  createdAt        DateTime                     @default(now())
-  description      String?
-  endsAt           DateTime?
-  format           ChampionshipFormat           @default(PONTOS_CORRIDOS)
-  registrationMode ChampionshipRegistrationMode @default(INDIVIDUAL)
-  seasonLabel      String?
-  startsAt         DateTime?
-  status           ChampionshipStatus           @default(RASCUNHO)
-  updatedAt        DateTime                     @default(now()) @updatedAt
-  players          ChampionshipPlayer[]
-  stages           ChampionshipStage[]
-  teams            ChampionshipTeam[]
-  matches          Match[]
-  registrations    Registration[]
-  standings        Standing[]
-  suspensions      Suspension[]
+  id                String                       @id @default(uuid())
+  name              String
+  slug              String                       @unique
+  createdAt         DateTime                     @default(now())
+  description       String?
+  endsAt            DateTime?
+  format            ChampionshipFormat           @default(PONTOS_CORRIDOS)
+  registrationMode  ChampionshipRegistrationMode @default(INDIVIDUAL)
+  seasonLabel       String?
+  startsAt          DateTime?
+  status            ChampionshipStatus           @default(RASCUNHO)
+  updatedAt         DateTime                     @default(now()) @updatedAt
+  players           ChampionshipPlayer[]
+  stages            ChampionshipStage[]
+  teams             ChampionshipTeam[]
+  matches           Match[]
+  registrations     Registration[]
+  standings         Standing[]
+  suspensions       Suspension[]
+  teamRelationships TeamRelationship[]
+  teamSimulations   TeamSimulation[]
 }
 
 model Team {
@@ -263,10 +265,50 @@ model Registration {
   championshipPlayer ChampionshipPlayer?
   athleteProfile     AthleteProfile?       @relation(fields: [athleteProfileId], references: [id])
   championship       Championship          @relation(fields: [championshipId], references: [id])
+  relationshipsAsA   TeamRelationship[]    @relation("RelationshipPlayerA")
+  relationshipsAsB   TeamRelationship[]    @relation("RelationshipPlayerB")
 
   @@index([championshipId])
   @@index([championshipId, category])
   @@index([athleteProfileId])
+}
+
+/// A category-scoped, extensible link between two championship registrations.
+/// `relationshipType` is deliberately a string so new business labels require no migration.
+model TeamRelationship {
+  id               String               @id @default(uuid())
+  championshipId   String
+  category         RegistrationCategory
+  playerAId        String
+  playerBId        String
+  relationshipType String
+  priorityWeight   Int                  @default(1)
+  notes            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  championship     Championship         @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  playerA          Registration         @relation("RelationshipPlayerA", fields: [playerAId], references: [id], onDelete: Cascade)
+  playerB          Registration         @relation("RelationshipPlayerB", fields: [playerBId], references: [id], onDelete: Cascade)
+
+  @@unique([championshipId, playerAId, playerBId])
+  @@index([championshipId, category])
+}
+
+/// Snapshot of an explicitly saved in-memory Campão simulation.
+model TeamSimulation {
+  id             String               @id @default(uuid())
+  championshipId String
+  category       RegistrationCategory
+  name           String
+  settings       Json
+  teams          Json
+  statistics     Json
+  balanceScore   Int
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  championship   Championship         @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  @@index([championshipId, category, updatedAt])
 }
 
 model Pelada {

@@ -61,10 +61,12 @@ export default async function AdminLayout({
   }
 
   return (
-    <>
-      <AdminSectionsNavigation />
-      {children}
-    </>
+    <div className="xv-page-shell">
+      <div className="flex w-full flex-col gap-5 px-3 py-5 lg:flex-row lg:items-stretch lg:px-5">
+        <AdminSectionsNavigation />
+        <div className="xv-admin-content min-w-0 flex-1">{children}</div>
+      </div>
+    </div>
   );
 }
 
