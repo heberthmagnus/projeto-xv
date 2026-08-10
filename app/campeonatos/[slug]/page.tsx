@@ -74,11 +74,17 @@ export default async function ChampionshipPublicPage({
   }
 
   const matchViews = buildMatchViews(championship.matches);
-  const requestedViewIndex = Number.parseInt(String(resolvedSearchParams.view || "1"), 10);
+  const requestedViewIndex = resolvedSearchParams.view
+    ? Number.parseInt(resolvedSearchParams.view, 10)
+    : Number.NaN;
+  const finalViewIndex = matchViews.findIndex((view) =>
+    view.matches.some((match) => match.stage?.stageType === "FINAL"),
+  );
+  const defaultViewIndex = finalViewIndex >= 0 ? finalViewIndex + 1 : 1;
   const currentViewIndex =
     Number.isInteger(requestedViewIndex) && requestedViewIndex > 0
       ? Math.min(requestedViewIndex, Math.max(matchViews.length, 1))
-      : 1;
+      : defaultViewIndex;
   const groupStandings = championship.standings.filter((standing) => standing.gamesPlayed > 0);
   const qualifiedCutoff =
     championship._count.teams >= 5 && championship.slug === "tio-hugo-2026" ? 4 : 0;
@@ -88,20 +94,39 @@ export default async function ChampionshipPublicPage({
   const activeSuspensions = (championship.suspensions || []).filter(
     (suspension) => suspension.status === "ATIVA",
   );
+  const finalMatch = championship.matches.find(
+    (match) =>
+      match.stage?.stageType === "FINAL" &&
+      match.status === "FINALIZADO" &&
+      match.homeScore !== null &&
+      match.awayScore !== null &&
+      match.homeScore !== match.awayScore,
+  );
+  const championTeamId = finalMatch
+    ? finalMatch.homeScore! > finalMatch.awayScore!
+      ? finalMatch.homeTeam.id
+      : finalMatch.awayTeam.id
+    : null;
+  const championStanding = championship.standings.find(
+    (standing) => standing.team.id === championTeamId,
+  );
 
   return (
     <main className="xv-page-shell-soft">
       <PageContainer className="grid gap-4 md:gap-6">
         <section className="grid gap-3">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {championship.teams.map((championshipTeam) => (
+            {championship.teams.map((championshipTeam) => {
+              const isChampion = championshipTeam.team.id === championTeamId;
+
+              return (
               <Link
                 key={championshipTeam.id}
                 href={getChampionshipTeamBasePath(
                   championship.slug,
                   championshipTeam.team.slug || "",
                 )}
-                className="rounded-[18px] border border-[#E5E7EB] bg-white px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#D4B051] hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
+                className={`rounded-[18px] border px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-[#D4B051] hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)] ${isChampion ? "border-[#D4B051] bg-[#FFFCF2]" : "border-[#E5E7EB] bg-white"}`}
               >
                 <div className="flex items-center gap-3">
                   <TeamIcon
@@ -121,10 +146,12 @@ export default async function ChampionshipPublicPage({
                         {championshipTeam.team.name}
                       </div>
                     ) : null}
+                    {isChampion ? <div className="mt-1 text-[0.7rem] font-black uppercase tracking-[0.12em] text-[#8B6914]">🏆 Campeão</div> : null}
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -156,13 +183,13 @@ export default async function ChampionshipPublicPage({
               <div className="grid gap-4">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <TableStatCard
-                    label="Líder"
+                    label={championStanding ? "Campeão" : "Líder"}
                     value={
-                      championship.standings[0]
+                      championStanding || championship.standings[0]
                         ? formatTeamDisplayName(
-                            championship.standings[0].team.shortName ||
-                              championship.standings[0].team.name,
-                            championship.standings[0].team.icon,
+                            (championStanding || championship.standings[0]).team.shortName ||
+                              (championStanding || championship.standings[0]).team.name,
+                            (championStanding || championship.standings[0]).team.icon,
                           )
                         : "-"
                     }
@@ -189,13 +216,18 @@ export default async function ChampionshipPublicPage({
                 ) : null}
 
                 <div className="xv-mobile-card-grid md:hidden">
-                  {championship.standings.map((standing) => (
+                  {championship.standings.map((standing) => {
+                    const isChampion = standing.team.id === championTeamId;
+
+                    return (
                     <article
                       key={`${standing.id}-mobile`}
                       className="rounded-[18px] border border-[#E5E7EB] bg-[#FCFCFC] p-4"
                       style={{
                         boxShadow:
-                          qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff
+                          isChampion
+                            ? "inset 4px 0 0 #B89020"
+                            : qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff
                             ? "inset 4px 0 0 #B89020"
                             : undefined,
                       }}
@@ -216,6 +248,7 @@ export default async function ChampionshipPublicPage({
                           >
                             {standing.team.shortName || standing.team.name}
                           </Link>
+                          {isChampion ? <div className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#8B6914]">🏆 Campeão</div> : null}
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#171717] px-3 py-2 text-center text-white">
@@ -236,7 +269,8 @@ export default async function ChampionshipPublicPage({
                         />
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="hidden md:block xv-table-scroll">
@@ -256,13 +290,18 @@ export default async function ChampionshipPublicPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {championship.standings.map((standing) => (
+                    {championship.standings.map((standing) => {
+                      const isChampion = standing.team.id === championTeamId;
+
+                      return (
                       <tr
                         key={standing.id}
                         className="bg-white even:bg-[#FCFCFC]"
                         style={{
                           boxShadow:
-                            qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff
+                            isChampion
+                              ? "inset 4px 0 0 #B89020"
+                              : qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff
                               ? "inset 4px 0 0 #B89020"
                               : undefined,
                         }}
@@ -270,7 +309,11 @@ export default async function ChampionshipPublicPage({
                         <td className="border-b border-[#F1F5F9] px-4 py-5 text-[1.15rem] font-black text-[#101010]">
                           <div className="flex items-center gap-2">
                             <span>{standing.rank ?? "-"}</span>
-                            {qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff ? (
+                            {isChampion ? (
+                              <span className="rounded-full bg-[#B89020] px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white">
+                                🏆 Campeão
+                              </span>
+                            ) : qualifiedCutoff && (standing.rank || 99) <= qualifiedCutoff ? (
                               <span className="rounded-full bg-[#F6E8BD] px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[#8B6914]">
                                 Classifica
                               </span>
@@ -322,7 +365,8 @@ export default async function ChampionshipPublicPage({
                           {formatGoalDifference(standing.goalDifference)}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 </div>

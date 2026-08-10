@@ -1,7 +1,7 @@
 export type CampaoCategory = "ADULTO" | "MASTER";
 export type CampaoPosition = "GOLEIRO" | "ZAGUEIRO" | "LATERAL" | "VOLANTE" | "MEIA" | "ATACANTE";
 export type CampaoLevel = "A" | "B" | "C" | "D" | "E";
-export type CampaoPlayer = { id: string; fullName: string; age: number; position: CampaoPosition; level: CampaoLevel | null };
+export type CampaoPlayer = { id: string; fullName: string; age: number; phone: string; position: CampaoPosition; level: CampaoLevel | null };
 export type CampaoRelationship = { id: string; playerAId: string; playerBId: string; relationshipType: string; priorityWeight: number; notes?: string | null };
 export type CampaoTeam = { id: number; name: string; playerIds: string[] };
 export type CampaoState = { players: CampaoPlayer[]; relationships: CampaoRelationship[]; teams: CampaoTeam[] };

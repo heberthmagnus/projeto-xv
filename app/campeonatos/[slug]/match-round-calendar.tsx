@@ -60,13 +60,16 @@ export function MatchRoundCalendar({
   const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
   const currentMatchView = matchViews[viewIndex - 1] || null;
   const isSidebar = variant === "sidebar";
+  const isKnockoutView = Boolean(
+    currentMatchView?.matches.some((match) => match.stage?.stageType !== "GRUPO"),
+  );
   const currentViewFinishedMatches = useMemo(
     () =>
       currentMatchView?.matches.filter((match) => match.status === "FINALIZADO")
         .length || 0,
     [currentMatchView],
   );
-  const byeTeams = useMemo(() => {
+  const inactiveTeams = useMemo(() => {
     if (!currentMatchView) {
       return [];
     }
@@ -218,10 +221,10 @@ export function MatchRoundCalendar({
               />
               {!isSidebar ? null : (
                 <RoundStatCard
-                  label="Bye"
+                  label={isKnockoutView ? "Eliminados" : "Folga"}
                   value={
-                    byeTeams.length > 0
-                      ? byeTeams.map((team) => team.shortName || team.name).join(", ")
+                    inactiveTeams.length > 0
+                      ? inactiveTeams.map((team) => team.shortName || team.name).join(", ")
                       : "—"
                   }
                 />
@@ -229,10 +232,10 @@ export function MatchRoundCalendar({
             </div>
           </div>
 
-          {byeTeams.length > 0 ? (
+          {inactiveTeams.length > 0 ? (
             <div className="rounded-[18px] border border-dashed border-[#D1D5DB] bg-[#FCFCFC] px-4 py-3 text-sm text-[#4B5563]">
-              <strong className="text-[#101010]">Folga:</strong>{" "}
-              {byeTeams
+              <strong className="text-[#101010]">{isKnockoutView ? "Eliminados:" : "Folga:"}</strong>{" "}
+              {inactiveTeams
                 .map((team) => formatTeamDisplayName(team.shortName || team.name, team.icon))
                 .join(", ")}
             </div>
