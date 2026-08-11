@@ -11,7 +11,7 @@ type SearchParams = Promise<{ success?: string }>;
 type Registration = {
   id: string; fullName: string; nickname: string | null; preferredPosition: string;
   birthDate: Date; phone: string; email: string | null; category: "ADULTO" | "MASTER" | null;
-  level: "A" | "B" | "C" | "D" | "E" | null; createdAt: Date;
+  level: "A" | "B" | "C" | "D" | "E" | null; adminNotes: string | null; createdAt: Date;
 };
 
 export default async function InternoCampaoAdminRegistrationsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -22,13 +22,14 @@ export default async function InternoCampaoAdminRegistrationsPage({ searchParams
       const championship = await ensureInternoCampao2026Championship();
       const registrations = await prisma.registration.findMany({
         where: { championshipId: championship.id }, orderBy: [{ createdAt: "desc" }],
-        select: { id: true, fullName: true, nickname: true, preferredPosition: true, birthDate: true, phone: true, email: true, category: true, level: true, createdAt: true },
+        select: { id: true, fullName: true, nickname: true, preferredPosition: true, birthDate: true, phone: true, email: true, category: true, level: true, adminNotes: true, createdAt: true },
       });
       return { registrations };
     }, { registrations: [] }, "admin:interno-campao-2026:registrations",
   );
-  const adult = data.registrations.filter((r) => r.category === "ADULTO");
-  const master = data.registrations.filter((r) => r.category === "MASTER");
+  const goalkeepers = data.registrations.filter((r) => r.preferredPosition === "GOLEIRO");
+  const adult = data.registrations.filter((r) => r.category === "ADULTO" && r.preferredPosition !== "GOLEIRO");
+  const master = data.registrations.filter((r) => r.category === "MASTER" && r.preferredPosition !== "GOLEIRO");
   const uncategorized = data.registrations.filter((r) => r.category == null);
 
   return <main className="xv-page-shell"><div className="xv-page-container">
@@ -41,15 +42,15 @@ export default async function InternoCampaoAdminRegistrationsPage({ searchParams
       {params.success === "save" ? <Success>Categoria e nível atualizados com sucesso.</Success> : null}
       {params.success === "edit" ? <Success>Inscrição atualizada com sucesso.</Success> : null}
       {params.success === "delete" ? <Success>Inscrição excluída com sucesso.</Success> : null}
-      <div className="mb-5 grid gap-3 sm:grid-cols-2"><SummaryBox label="Adulto" value={`${adult.length} inscritos • ${Math.max(ADULT_CAPACITY - adult.length, 0)} vagas`} /><SummaryBox label="Master" value={`${master.length} inscritos • ${Math.max(MASTER_CAPACITY - master.length, 0)} vagas`} /></div>
-      <div className="grid gap-5"><RegistrationSection title="Categoria Adulto" tone="adult" registrations={adult} exportCategory="ADULTO" /><RegistrationSection title="Categoria Master" tone="master" registrations={master} exportCategory="MASTER" /><RegistrationSection title="Categoria Undefined" tone="neutral" registrations={uncategorized} /></div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-3"><SummaryBox label="Adulto — linha" value={`${adult.length}/91 jogadores • ${Math.max(ADULT_CAPACITY - adult.length, 0)} vagas`} /><SummaryBox label="Master — linha" value={`${master.length}/65 jogadores • ${Math.max(MASTER_CAPACITY - master.length, 0)} vagas`} /><SummaryBox label="Goleiros" value={`${goalkeepers.length} inscritos • fora da contagem de linha`} /></div>
+      <div className="grid gap-5"><RegistrationSection title="Categoria Adulto — jogadores de linha" tone="adult" registrations={adult} exportCategory="ADULTO" /><RegistrationSection title="Categoria Master — jogadores de linha" tone="master" registrations={master} exportCategory="MASTER" /><RegistrationSection title="Goleiros (Adulto e Master)" tone="neutral" registrations={goalkeepers} /><RegistrationSection title="Categoria Undefined" tone="neutral" registrations={uncategorized} /></div>
     </section>
   </div></main>;
 }
 
 function RegistrationSection({ title, tone, registrations, exportCategory }: { title: string; tone: "adult" | "master" | "neutral"; registrations: Registration[]; exportCategory?: "ADULTO" | "MASTER" }) {
   const toneClasses = tone === "adult" ? "border-[#D6C087] bg-[#FFF9EA]" : tone === "master" ? "border-[#C9D6F8] bg-[#F5F8FF]" : "border-[#E5E7EB] bg-[#FAFAFA]";
-  return <section className={`rounded-2xl border p-4 ${toneClasses}`}><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black text-[#101010]">{title}</h2><p className="text-sm text-[#6B7280]">{registrations.length} inscrito{registrations.length === 1 ? "" : "s"}</p></div>{exportCategory ? <a href={`${getInternoCampao2026AdminRegistrationsPath()}/export?category=${exportCategory}`} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#B89020] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#9F7C18]">Exportar CSV</a> : null}</div><div className="overflow-x-auto rounded-2xl border border-[#E5E7EB] bg-white"><table className="min-w-full border-separate border-spacing-0 text-sm"><thead><tr className="text-left text-[0.74rem] uppercase tracking-[0.14em] text-[#6B7280]">{["Nome", "Apelido", "Posição", "Telefone", "E-mail", "Categoria", "Nível", "Inscrição", "Ações"].map((label) => <th key={label} className="border-b border-[#E5E7EB] px-4 py-3">{label}</th>)}</tr></thead><tbody>{registrations.length === 0 ? <tr><td colSpan={9} className="px-4 py-6 text-center text-[#6B7280]">Nenhuma inscrição nesta seção.</td></tr> : registrations.map((registration) => <RegistrationRow key={registration.id} registration={registration} />)}</tbody></table></div></section>;
+  return <section className={`rounded-2xl border p-4 ${toneClasses}`}><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black text-[#101010]">{title}</h2><p className="text-sm text-[#6B7280]">{registrations.length} inscrito{registrations.length === 1 ? "" : "s"}</p></div>{exportCategory ? <a href={`${getInternoCampao2026AdminRegistrationsPath()}/export?category=${exportCategory}`} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#B89020] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#9F7C18]">Exportar CSV</a> : null}</div><div className="overflow-x-auto rounded-2xl border border-[#E5E7EB] bg-white"><table className="min-w-full border-separate border-spacing-0 text-sm"><thead><tr className="text-left text-[0.74rem] uppercase tracking-[0.14em] text-[#6B7280]">{["Nome", "Apelido", "Idade", "Posição", "Telefone", "E-mail", "Categoria", "Nível", "Observações", "Inscrição", "Ações"].map((label) => <th key={label} className="border-b border-[#E5E7EB] px-4 py-3">{label}</th>)}</tr></thead><tbody>{registrations.length === 0 ? <tr><td colSpan={11} className="px-4 py-6 text-center text-[#6B7280]">Nenhuma inscrição nesta seção.</td></tr> : registrations.map((registration) => <RegistrationRow key={registration.id} registration={registration} />)}</tbody></table></div></section>;
 }
 
 function Success({ children }: { children: React.ReactNode }) { return <div className="mb-4 rounded-xl border border-[#D1FAE5] bg-[#ECFDF5] px-4 py-3 text-sm text-[#065F46]">{children}</div>; }

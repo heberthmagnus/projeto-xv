@@ -89,6 +89,7 @@ export async function updateRegistration(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const rawCategory = String(formData.get("category") || "").trim();
   const rawLevel = String(formData.get("level") || "").trim();
+  const adminNotes = String(formData.get("adminNotes") || "").trim();
 
   if (!id || !fullName || !birthDate || !phone) throw new Error("Preencha os campos obrigatórios.");
   if (!POSITIONS.includes(preferredPosition as (typeof POSITIONS)[number])) throw new Error("Posição inválida.");
@@ -125,6 +126,7 @@ export async function updateRegistration(formData: FormData) {
       email: email || null,
       category,
       level,
+      adminNotes: adminNotes || null,
     },
   });
 

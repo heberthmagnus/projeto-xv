@@ -257,6 +257,7 @@ model Registration {
   phone              String
   email              String?
   level              PlayerLevel?
+  adminNotes         String?
   confirmedRules     Boolean
   createdAt          DateTime              @default(now())
   paidAt             DateTime?

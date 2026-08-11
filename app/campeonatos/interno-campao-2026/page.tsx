@@ -21,6 +21,7 @@ export default async function InternoCampaoTrackingPage() {
   const { data, databaseUnavailable } = await executePrismaWithFallback<{
     registrations: Array<{
       category: "ADULTO" | "MASTER" | null;
+      preferredPosition: string;
     }>;
   }>(
     async () => {
@@ -31,6 +32,7 @@ export default async function InternoCampaoTrackingPage() {
         },
         select: {
           category: true,
+          preferredPosition: true,
         },
       });
 
@@ -41,10 +43,10 @@ export default async function InternoCampaoTrackingPage() {
   );
 
   const adultRegistrations = data.registrations.filter(
-    (registration) => registration.category === "ADULTO",
+    (registration) => registration.category === "ADULTO" && registration.preferredPosition !== "GOLEIRO",
   );
   const masterRegistrations = data.registrations.filter(
-    (registration) => registration.category === "MASTER",
+    (registration) => registration.category === "MASTER" && registration.preferredPosition !== "GOLEIRO",
   );
 
   return (
@@ -84,6 +86,9 @@ export default async function InternoCampaoTrackingPage() {
               capacity={MASTER_CAPACITY}
             />
           </div>
+          <p className="mt-4 text-sm text-[#6B7280]">
+            As vagas acompanham apenas jogadores de linha. Goleiros permanecem na categoria Adulto ou Master, mas são organizados separadamente.
+          </p>
         </section>
       </PageContainer>
     </main>
@@ -98,6 +103,7 @@ function CategoryCard({
   title: string;
   registrations: Array<{
     category: "ADULTO" | "MASTER" | null;
+    preferredPosition: string;
   }>;
   capacity: number;
 }) {
@@ -110,8 +116,8 @@ function CategoryCard({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <SummaryBox label="Inscritos" value={String(registrations.length)} />
-        <SummaryBox label="Capacidade" value={String(capacity)} />
+        <SummaryBox label="Jogadores de linha inscritos" value={String(registrations.length)} />
+        <SummaryBox label="Capacidade (linha)" value={String(capacity)} />
         <SummaryBox label="Vagas restantes" value={String(remainingSpots)} />
       </div>
 

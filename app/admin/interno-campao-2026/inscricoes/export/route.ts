@@ -55,6 +55,7 @@ export async function GET(request: Request) {
         phone: true,
         email: true,
         level: true,
+        adminNotes: true,
         paymentStatus: true,
         createdAt: true,
       },
@@ -69,6 +70,7 @@ export async function GET(request: Request) {
       "Telefone",
       "E-mail",
       "Nível",
+      "Observações administrativas",
       "Pagamento",
       "Data da inscrição",
     ];
@@ -81,6 +83,7 @@ export async function GET(request: Request) {
       escapeCsv(registration.phone),
       escapeCsv(registration.email),
       escapeCsv(registration.level),
+      escapeCsv(registration.adminNotes),
       escapeCsv(registration.paymentStatus === "PAGO" ? "Pago" : "Pendente"),
       escapeCsv(registration.createdAt),
     ]);

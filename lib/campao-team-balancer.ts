@@ -1,19 +1,19 @@
 export type CampaoCategory = "ADULTO" | "MASTER";
 export type CampaoPosition = "GOLEIRO" | "ZAGUEIRO" | "LATERAL" | "VOLANTE" | "MEIA" | "ATACANTE";
 export type CampaoLevel = "A" | "B" | "C" | "D" | "E";
-export type CampaoPlayer = { id: string; fullName: string; age: number; phone: string; position: CampaoPosition; level: CampaoLevel | null };
+export type CampaoPlayer = { id: string; fullName: string; age: number; phone: string; position: CampaoPosition; level: CampaoLevel | null; adminNotes?: string | null };
 export type CampaoRelationship = { id: string; playerAId: string; playerBId: string; relationshipType: string; priorityWeight: number; notes?: string | null };
 export type CampaoTeam = { id: number; name: string; playerIds: string[] };
 export type CampaoState = { players: CampaoPlayer[]; relationships: CampaoRelationship[]; teams: CampaoTeam[] };
 
-export const CAMPAO_COMPOSITION: Record<CampaoPosition, number> = { GOLEIRO: 1, ZAGUEIRO: 2, LATERAL: 2, VOLANTE: 1, MEIA: 2, ATACANTE: 1 };
+export const LINE_PLAYERS_PER_TEAM = 13;
+export const CAMPAO_COMPOSITION: Record<CampaoPosition, number> = { GOLEIRO: 1, ZAGUEIRO: 2, LATERAL: 3, VOLANTE: 2, MEIA: 3, ATACANTE: 3 };
 const points: Record<CampaoLevel, number> = { A: 5, B: 4, C: 3, D: 2, E: 1 };
 
-export function generateCampaoTeams(state: CampaoState) {
+export function generateCampaoTeams(state: CampaoState, teamCount: number) {
   if (state.players.some((player) => !player.level)) {
     throw new Error("Todos os jogadores precisam ter nível definido antes do sorteio.");
   }
-  const teamCount = Math.max(1, Math.ceil(state.players.length / 9));
   const teams: CampaoTeam[] = Array.from({ length: teamCount }, (_, index) => ({ id: index + 1, name: `Time ${index + 1}`, playerIds: [] }));
   const playerMap = new Map(state.players.map((p) => [p.id, p]));
   const mandatory = state.relationships.filter((r) => r.priorityWeight === 3);
@@ -37,7 +37,8 @@ function placementCost(team: CampaoTeam, ids: string[], players: Map<string, Cam
   const roster = [...team.playerIds, ...ids].map((id) => players.get(id)!);
   const score = roster.reduce((sum, p) => sum + points[p.level!], 0);
   const age = roster.reduce((sum, p) => sum + p.age, 0) / roster.length;
-  const overflow = Math.max(0, roster.length - 9) * 50;
+  const linePlayers = roster.filter((player) => player.position !== "GOLEIRO");
+  const overflow = Math.max(0, linePlayers.length - LINE_PLAYERS_PER_TEAM) * 50;
   const positionPenalty = (Object.entries(CAMPAO_COMPOSITION) as [CampaoPosition, number][]).reduce((sum, [position, expected]) => sum + Math.max(0, roster.filter((p) => p.position === position).length - expected) * 8, 0);
   return score * 3 + age + overflow + positionPenalty;
 }
@@ -48,7 +49,8 @@ export function getCampaoTeamStats(state: CampaoState, team: CampaoTeam) {
   const positions = Object.fromEntries((Object.keys(CAMPAO_COMPOSITION) as CampaoPosition[]).map((position) => [position, players.filter((p) => p.position === position).length]));
   const averageAge = players.length ? players.reduce((sum, p) => sum + p.age, 0) / players.length : 0;
   const issues = Object.entries(CAMPAO_COMPOSITION).flatMap(([position, expected]) => positions[position as CampaoPosition] === expected ? [] : [`${position}: ${positions[position as CampaoPosition]}/${expected}`]);
-  if (players.length !== 9) issues.push(`${players.length}/9 jogadores`);
+  const linePlayers = players.filter((player) => player.position !== "GOLEIRO");
+  if (linePlayers.length !== LINE_PLAYERS_PER_TEAM) issues.push(`${linePlayers.length}/${LINE_PLAYERS_PER_TEAM} jogadores de linha`);
   const satisfied = state.relationships.filter((r) => team.playerIds.includes(r.playerAId) && team.playerIds.includes(r.playerBId));
   const broken = state.relationships.filter((r) => (team.playerIds.includes(r.playerAId) ? !team.playerIds.includes(r.playerBId) : false));
   return { players, levelCounts, positions, averageAge, issues, satisfied, broken };
