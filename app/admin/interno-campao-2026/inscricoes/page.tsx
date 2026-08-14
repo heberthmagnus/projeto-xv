@@ -3,16 +3,12 @@ import { requireAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship, getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
-import { RegistrationRow } from "./registration-row";
+import { RegistrationTable, type RegistrationTableItem } from "./registration-table";
 
 const ADULT_CAPACITY = 91;
 const MASTER_CAPACITY = 65;
 type SearchParams = Promise<{ success?: string }>;
-type Registration = {
-  id: string; fullName: string; nickname: string | null; preferredPosition: string;
-  birthDate: Date; phone: string; email: string | null; category: "ADULTO" | "MASTER" | null;
-  level: "A" | "B" | "C" | "D" | "E" | null; adminNotes: string | null; createdAt: Date;
-};
+type Registration = RegistrationTableItem;
 
 export default async function InternoCampaoAdminRegistrationsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
@@ -50,7 +46,7 @@ export default async function InternoCampaoAdminRegistrationsPage({ searchParams
 
 function RegistrationSection({ title, tone, registrations, exportCategory }: { title: string; tone: "adult" | "master" | "neutral"; registrations: Registration[]; exportCategory?: "ADULTO" | "MASTER" }) {
   const toneClasses = tone === "adult" ? "border-[#D6C087] bg-[#FFF9EA]" : tone === "master" ? "border-[#C9D6F8] bg-[#F5F8FF]" : "border-[#E5E7EB] bg-[#FAFAFA]";
-  return <section className={`rounded-2xl border p-4 ${toneClasses}`}><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black text-[#101010]">{title}</h2><p className="text-sm text-[#6B7280]">{registrations.length} inscrito{registrations.length === 1 ? "" : "s"}</p></div>{exportCategory ? <a href={`${getInternoCampao2026AdminRegistrationsPath()}/export?category=${exportCategory}`} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#B89020] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#9F7C18]">Exportar CSV</a> : null}</div><div className="overflow-x-auto rounded-2xl border border-[#E5E7EB] bg-white"><table className="min-w-full border-separate border-spacing-0 text-sm"><thead><tr className="text-left text-[0.74rem] uppercase tracking-[0.14em] text-[#6B7280]">{["Nome", "Apelido", "Idade", "Posição", "Telefone", "E-mail", "Categoria", "Nível", "Observações", "Inscrição", "Ações"].map((label) => <th key={label} className="border-b border-[#E5E7EB] px-4 py-3">{label}</th>)}</tr></thead><tbody>{registrations.length === 0 ? <tr><td colSpan={11} className="px-4 py-6 text-center text-[#6B7280]">Nenhuma inscrição nesta seção.</td></tr> : registrations.map((registration) => <RegistrationRow key={registration.id} registration={registration} />)}</tbody></table></div></section>;
+  return <section className={`rounded-2xl border p-4 ${toneClasses}`}><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black text-[#101010]">{title}</h2><p className="text-sm text-[#6B7280]">{registrations.length} inscrito{registrations.length === 1 ? "" : "s"}</p></div>{exportCategory ? <a href={`${getInternoCampao2026AdminRegistrationsPath()}/export?category=${exportCategory}`} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#B89020] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#9F7C18]">Exportar CSV</a> : null}</div><RegistrationTable registrations={registrations} /></section>;
 }
 
 function Success({ children }: { children: React.ReactNode }) { return <div className="mb-4 rounded-xl border border-[#D1FAE5] bg-[#ECFDF5] px-4 py-3 text-sm text-[#065F46]">{children}</div>; }

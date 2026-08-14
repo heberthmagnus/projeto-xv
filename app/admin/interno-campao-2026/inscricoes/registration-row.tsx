@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { PhoneInput } from "@/app/components/phone-input";
 import { deleteRegistration, updateRegistration } from "./actions";
 
@@ -19,6 +20,8 @@ type Registration = {
 
 export function RegistrationRow({ registration }: { registration: Registration }) {
   const [editing, setEditing] = useState(false);
+  const pathname = usePathname(); const searchParams = useSearchParams();
+  const returnTo = `${pathname}${searchParams.size ? `?${searchParams}` : ""}`;
 
   return (
     <>
@@ -40,6 +43,7 @@ export function RegistrationRow({ registration }: { registration: Registration }
             </button>
             <form action={deleteRegistration} onSubmit={(event) => { if (!window.confirm("Tem certeza que deseja excluir esta inscrição?")) event.preventDefault(); }}>
               <input type="hidden" name="id" value={registration.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
               <button type="submit" className="rounded-lg bg-[#B91C1C] px-3 py-2 text-sm font-semibold text-white">Excluir</button>
             </form>
           </div>
@@ -50,6 +54,7 @@ export function RegistrationRow({ registration }: { registration: Registration }
           <td colSpan={11} className="border-b border-[#E5E7EB] p-4">
             <form action={updateRegistration} className="grid gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
               <input type="hidden" name="id" value={registration.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
               <Field label="Nome completo *"><input name="fullName" defaultValue={registration.fullName} required className={inputClass} /></Field>
               <Field label="Apelido"><input name="nickname" defaultValue={registration.nickname || ""} className={inputClass} /></Field>
               <Field label="Posição *"><PositionSelect value={registration.preferredPosition} /></Field>

@@ -24,6 +24,26 @@ type NavigationItem = {
 
 const links: NavigationItem[] = [
   {
+    label: "Interno XV Campão 2026",
+    match: (pathname: string) =>
+      pathname.startsWith("/admin/interno-campao-2026"),
+    children: [
+      {
+        label: "Inscrições",
+        href: getAdminChampionshipRegistrationsPath("interno-campao-2026"),
+      },
+      {
+        label: "Simulação",
+        href: getAdminChampionshipAdvancedSimulationPath("interno-campao-2026"),
+      },
+    ],
+  },
+  {
+    href: "/admin/atletas",
+    label: "Cadastro de atletas",
+    match: (pathname: string) => pathname.startsWith("/admin/atletas"),
+  },
+  {
     label: "Copa Tio Hugo 2026",
     match: (pathname: string) => pathname.startsWith(ADMIN_CHAMPIONSHIP_BASE_PATH),
     children: [
@@ -38,21 +58,6 @@ const links: NavigationItem[] = [
     href: ADMIN_PELADAS_PATH,
     label: "Peladas",
     match: (pathname: string) => pathname.startsWith(ADMIN_PELADAS_PATH),
-  },
-  {
-    label: "Interno XV Campão 2026",
-    match: (pathname: string) =>
-      pathname.startsWith("/admin/interno-campao-2026"),
-    children: [
-      {
-        label: "Inscrições",
-        href: getAdminChampionshipRegistrationsPath("interno-campao-2026"),
-      },
-      {
-        label: "Simulação",
-        href: getAdminChampionshipAdvancedSimulationPath("interno-campao-2026"),
-      },
-    ],
   },
 ];
 

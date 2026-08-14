@@ -12,6 +12,14 @@ import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 
 const POSITIONS = ["GOLEIRO", "LATERAL", "ZAGUEIRO", "VOLANTE", "MEIA", "ATACANTE"] as const;
+const registrationsPath = getInternoCampao2026AdminRegistrationsPath();
+
+function redirectBack(formData: FormData, success: string) {
+  const returnTo = String(formData.get("returnTo") || "");
+  const safePath = returnTo.startsWith(`${registrationsPath}?`) || returnTo === registrationsPath ? returnTo : registrationsPath;
+  const separator = safePath.includes("?") ? "&" : "?";
+  redirect(`${safePath}${separator}success=${success}`);
+}
 
 function parseCategory(value: string) {
   if (value === "UNDEFINED" || value === "") return null;
@@ -74,7 +82,7 @@ export async function updateRegistrationCategoryAndLevel(formData: FormData) {
   revalidatePath("/campeonatos/interno-campao-2026");
   revalidatePath("/admin/interno-campao-2026/inscricoes");
 
-  redirect(`${getInternoCampao2026AdminRegistrationsPath()}?success=save`);
+  redirectBack(formData, "save");
 }
 
 export async function updateRegistration(formData: FormData) {
@@ -96,7 +104,13 @@ export async function updateRegistration(formData: FormData) {
   const category = parseCategory(rawCategory);
   if (!isValidBrazilPhone(phone)) throw new Error(PHONE_ERROR_MESSAGE);
 
-  const parsedBirthDate = new Date(`${birthDate}T12:00:00`);
+  // Browsers submit YYYY-MM-DD, but an edited value can also arrive as an ISO
+  // timestamp after hydration. Keep only the calendar date before parsing it.
+  const birthDateOnly = birthDate.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDateOnly)) {
+    throw new Error("Data de nascimento inválida.");
+  }
+  const parsedBirthDate = new Date(`${birthDateOnly}T12:00:00`);
   if (Number.isNaN(parsedBirthDate.getTime())) throw new Error("Data de nascimento inválida.");
 
   const level = rawLevel && ["A", "B", "C", "D", "E"].includes(rawLevel)
@@ -132,7 +146,7 @@ export async function updateRegistration(formData: FormData) {
 
   revalidatePath("/campeonatos/interno-campao-2026");
   revalidatePath("/admin/interno-campao-2026/inscricoes");
-  redirect(`${getInternoCampao2026AdminRegistrationsPath()}?success=edit`);
+  redirectBack(formData, "edit");
 }
 
 export async function deleteRegistration(formData: FormData) {
@@ -145,5 +159,5 @@ export async function deleteRegistration(formData: FormData) {
 
   revalidatePath("/campeonatos/interno-campao-2026");
   revalidatePath("/admin/interno-campao-2026/inscricoes");
-  redirect(`${getInternoCampao2026AdminRegistrationsPath()}?success=delete`);
+  redirectBack(formData, "delete");
 }
