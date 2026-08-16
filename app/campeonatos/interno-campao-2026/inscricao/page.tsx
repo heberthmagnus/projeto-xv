@@ -34,8 +34,8 @@ export default function InternoCampaoInscricaoPage() {
           <p>• Serão 2 jogos no sábado e 3 jogos no domingo</p>
           <p>• Sábado: 14h e 15h30</p>
           <p>• Domingo: 08h, 9h40 e 11h30</p>
-          <p>• Adulto: 7 times com 13 jogadores de linha cada (91 vagas de linha)</p>
-          <p>• Master: 5 times com 13 jogadores de linha cada (65 vagas de linha)</p>
+          <p>• Adulto: 6 times com 13 jogadores de linha cada (78 vagas de linha)</p>
+          <p>• Master: 6 times com 13 jogadores de linha cada (78 vagas de linha)</p>
           <p>• Goleiros são cadastrados na categoria etária, mas não entram na contagem de vagas de jogadores de linha</p>
           <p>• A categoria pode ser ajustada pela administração quando necessário</p>
         </div>

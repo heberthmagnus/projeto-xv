@@ -9,8 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import Link from "next/link";
 
-const ADULT_CAPACITY = 91;
-const MASTER_CAPACITY = 65;
+const ADULT_CAPACITY = 78;
+const MASTER_CAPACITY = 78;
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { RegistrationTable, type RegistrationTableItem } from "./registration-table";
 
-const ADULT_CAPACITY = 91;
-const MASTER_CAPACITY = 65;
+const ADULT_CAPACITY = 78;
+const MASTER_CAPACITY = 78;
 type SearchParams = Promise<{ success?: string }>;
 type Registration = RegistrationTableItem;
 
@@ -38,7 +38,7 @@ export default async function InternoCampaoAdminRegistrationsPage({ searchParams
       {params.success === "save" ? <Success>Categoria e nível atualizados com sucesso.</Success> : null}
       {params.success === "edit" ? <Success>Inscrição atualizada com sucesso.</Success> : null}
       {params.success === "delete" ? <Success>Inscrição excluída com sucesso.</Success> : null}
-      <div className="mb-5 grid gap-3 sm:grid-cols-3"><SummaryBox label="Adulto — linha" value={`${adult.length}/91 jogadores • ${Math.max(ADULT_CAPACITY - adult.length, 0)} vagas`} /><SummaryBox label="Master — linha" value={`${master.length}/65 jogadores • ${Math.max(MASTER_CAPACITY - master.length, 0)} vagas`} /><SummaryBox label="Goleiros" value={`${goalkeepers.length} inscritos • fora da contagem de linha`} /></div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-3"><SummaryBox label="Adulto — linha" value={`${adult.length}/78 jogadores • ${Math.max(ADULT_CAPACITY - adult.length, 0)} vagas`} /><SummaryBox label="Master — linha" value={`${master.length}/78 jogadores • ${Math.max(MASTER_CAPACITY - master.length, 0)} vagas`} /><SummaryBox label="Goleiros" value={`${goalkeepers.length} inscritos • fora da contagem de linha`} /></div>
       <div className="grid gap-5"><RegistrationSection title="Categoria Adulto — jogadores de linha" tone="adult" registrations={adult} exportCategory="ADULTO" /><RegistrationSection title="Categoria Master — jogadores de linha" tone="master" registrations={master} exportCategory="MASTER" /><RegistrationSection title="Goleiros (Adulto e Master)" tone="neutral" registrations={goalkeepers} /><RegistrationSection title="Categoria Undefined" tone="neutral" registrations={uncategorized} /></div>
     </section>
   </div></main>;
