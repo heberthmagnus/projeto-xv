@@ -5,7 +5,7 @@ import {
   AuthDatabaseUnavailableError,
   getAuthenticatedAdmin,
 } from "@/lib/auth";
-import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
+import { getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
@@ -26,7 +26,7 @@ export default async function LoginPage() {
   }
 
   if (user) {
-    redirect(getTioHugoAdminRegistrationsPath());
+    redirect(getInternoCampao2026AdminRegistrationsPath());
   }
 
   return (

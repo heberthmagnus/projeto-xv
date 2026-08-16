@@ -10,7 +10,7 @@ import {
   isAdminRole,
   verifyStoredPassword,
 } from "@/lib/auth";
-import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
+import { getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { executePrisma, getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { LoginFormState } from "./form-state";
@@ -75,7 +75,7 @@ export async function login(
     throw error;
   }
 
-  redirect(getTioHugoAdminRegistrationsPath());
+  redirect(getInternoCampao2026AdminRegistrationsPath());
 }
 
 export async function logout() {
