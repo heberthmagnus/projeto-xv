@@ -15,7 +15,7 @@ const links = [
   },
   {
     href: getAdminChampionshipAdvancedSimulationPath(championshipSlug),
-    label: "Simulação",
+    label: "Divisão dos Times",
   },
 ];
 

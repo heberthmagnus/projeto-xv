@@ -33,7 +33,7 @@ const links: NavigationItem[] = [
         href: getAdminChampionshipRegistrationsPath("interno-campao-2026"),
       },
       {
-        label: "Simulação",
+        label: "Divisão dos Times",
         href: getAdminChampionshipAdvancedSimulationPath("interno-campao-2026"),
       },
     ],

@@ -23,6 +23,6 @@ export async function deleteCampaoRelationship(id: string) { await requireAdmin(
 
 export async function saveCampaoSimulation(input: { category: "ADULTO" | "MASTER"; name: string; teams: unknown; statistics: unknown; balanceScore: number }) {
   await requireAdmin(); const championship = await ensureInternoCampao2026Championship();
-  await prisma.teamSimulation.create({ data: { championshipId: championship.id, category: input.category, name: input.name.trim() || `Simulação ${new Date().toLocaleString("pt-BR")}`, settings: { composition: "1-2-2-1-2-1" }, teams: input.teams as object, statistics: input.statistics as object, balanceScore: input.balanceScore } });
+  await prisma.teamSimulation.create({ data: { championshipId: championship.id, category: input.category, name: input.name.trim() || `Divisão ${new Date().toLocaleString("pt-BR")}`, settings: { starters: "2-2-1-2-1", reserves: 5 }, teams: input.teams as object, statistics: input.statistics as object, balanceScore: input.balanceScore } });
   revalidatePath(path);
 }
