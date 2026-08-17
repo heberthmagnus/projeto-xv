@@ -13,7 +13,7 @@ export const STARTER_COMPOSITION: Record<Exclude<CampaoPosition, "GOLEIRO">, num
 export const CAMPAO_COMPOSITION: Record<CampaoPosition, number> = { GOLEIRO: 1, ...STARTER_COMPOSITION };
 
 const points: Record<CampaoLevel, number> = { A: 5, B: 4, C: 3, D: 2, E: 1 };
-const adultEliteIds = ["85d1662f-564d-41bf-a1b7-06089ea64a36", "265e1e24-602f-4fb8-be59-e4268eafe8f8", "b3104c6e-c0cd-4537-a3e4-954c549dd886", "5e7f5372-6cd8-449d-bebb-ee9c4f162cc7", "43707176-1e1e-497a-aa47-5eb8b03be264", "a7dd9266-71ae-4a0f-81e9-a7e6576e4326"];
+const adultEliteIds = ["85d1662f-564d-41bf-a1b7-06089ea64a36", "91894447-3246-4269-9c2c-7bd4a1783df4", "b3104c6e-c0cd-4537-a3e4-954c549dd886", "5e7f5372-6cd8-449d-bebb-ee9c4f162cc7", "43707176-1e1e-497a-aa47-5eb8b03be264", "a7dd9266-71ae-4a0f-81e9-a7e6576e4326"];
 const masterEliteIds = ["daa8fe0b-3a89-471c-a239-27088e192de9", "14825f98-fe77-4216-8487-fce76482b4aa", "56359dfd-64a1-4a86-8058-d33d300448ce", "092db02b-95e6-4d91-bea9-a0092d339758", "24c4adc1-1018-463b-83d4-6663ed1c62a7", "375b30d6-e0f2-408d-aeb7-499ab1dc493c"];
 const masterCenterBackIds = ["db454af0-418e-4029-af22-4687ed174e76", "23c9e222-76e6-4817-a1ea-a06cc03fa9b7", "e87d42a3-3984-4be4-ac9a-cb8d9a415d21", "fdf030ca-e76f-4e13-a57f-e450e94e8f70", "0d64ff56-6a14-4eb7-8c39-0c90f66d6da7", "024d4981-b373-4b75-8e97-591f2efae48a"];
 
@@ -43,7 +43,7 @@ function generateCandidate(state: CampaoState, teamCount: number) {
   const putStarter = (playerId: string, team: CampaoTeam) => { if (!seeded.has(playerId)) { team.playerIds.push(playerId); team.starterIds!.push(playerId); seeded.add(playerId); } };
   const eliteIds = state.players.some((player) => adultEliteIds.includes(player.id)) ? adultEliteIds : masterEliteIds;
   shuffle(eliteIds.filter((id) => playerById.has(id))).slice(0, teamCount).forEach((id, index) => putStarter(id, teams[index]));
-  if (eliteIds === masterEliteIds) shuffle(masterCenterBackIds.filter((id) => playerById.has(id))).slice(0, teamCount).forEach((id, index) => putStarter(id, teams[index]));
+  if (eliteIds === masterEliteIds) seedMasterCenterBackPairs(teams, state.players, playerById, seeded, putStarter);
 
   (Object.keys(STARTER_COMPOSITION) as Array<Exclude<CampaoPosition, "GOLEIRO">>).forEach((position) => {
     const required = STARTER_COMPOSITION[position];
@@ -65,6 +65,31 @@ function generateCandidate(state: CampaoState, teamCount: number) {
   shuffle(state.players.filter((player) => player.position === "GOLEIRO" && !seeded.has(player.id))).forEach((player, index) => { const team = teams[index % teams.length]; team.playerIds.push(player.id); seeded.add(player.id); });
   repairMandatoryRelationships(teams, state, playerById);
   return { ...state, teams };
+}
+
+/** Master: uma referência A de zaga por time e a segunda vaga preferencialmente B/C.
+ * Isso é intencionalmente diferente do Adulto, cuja distribuição continua genérica. */
+function seedMasterCenterBackPairs(teams: CampaoTeam[], players: CampaoPlayer[], playerById: Map<string, CampaoPlayer>, seeded: Set<string>, putStarter: (playerId: string, team: CampaoTeam) => void) {
+  const isA = (player: CampaoPlayer) => player.position === "ZAGUEIRO" && player.level === "A";
+  const hasAZagueiro = (team: CampaoTeam) => team.starterIds!.some((id) => { const player = playerById.get(id); return player ? isA(player) : false; });
+  const referenceA = masterCenterBackIds.map((id) => playerById.get(id)).filter((player): player is CampaoPlayer => Boolean(player) && isA(player!));
+  const otherA = players.filter((player) => isA(player) && !masterCenterBackIds.includes(player.id));
+  const aPool = shuffle([...referenceA, ...otherA].filter((player) => !seeded.has(player.id)));
+
+  teams.filter((team) => !hasAZagueiro(team)).forEach((team) => {
+    const player = aPool.shift();
+    if (player) putStarter(player.id, team);
+  });
+
+  // Depois de fixar a referência A, compõe a dupla com B/C. As opções mais baixas
+  // são colocadas nos times que já ficaram tecnicamente mais fortes, formando pares complementares.
+  const companions = players.filter((player) => player.position === "ZAGUEIRO" && (player.level === "B" || player.level === "C") && !seeded.has(player.id)).sort((first, second) => strength(first) - strength(second));
+  teams.filter((team) => starterPositionCount(team, "ZAGUEIRO", playerById) < 2).forEach((team) => {
+    if (!companions.length) return;
+    const strongestTeamWithGap = teams.filter((candidate) => starterPositionCount(candidate, "ZAGUEIRO", playerById) < 2).reduce((strongest, candidate) => starterStrength(candidate, playerById) > starterStrength(strongest, playerById) ? candidate : strongest, team);
+    const companion = companions.shift()!;
+    putStarter(companion.id, strongestTeamWithGap);
+  });
 }
 
 function repairMandatoryRelationships(teams: CampaoTeam[], state: CampaoState, playerById: Map<string, CampaoPlayer>) {
