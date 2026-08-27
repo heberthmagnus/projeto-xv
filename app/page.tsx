@@ -9,9 +9,9 @@ const cards = [
   {
     id: "copa-tio-hugo",
     title: "Campeonato Interno XV Campão 2026",
-    text: "Veja as informações do campeonato e faça sua inscrição.",
-    buttonLabel: "Saiba mais",
-    href: "/campeonatos/interno-campao-2026/inscricao",
+    text: "Acompanhe a tabela, os jogos e as informações do campeonato.",
+    buttonLabel: "Ver campeonato",
+    href: "/campeonatos/interno-campao-2026",
   },
   {
     id: "peladas",

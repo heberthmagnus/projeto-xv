@@ -21,14 +21,15 @@ export function generateCampaoTeams(state: CampaoState, teamCount = TEAM_COUNT) 
   if (state.players.some((player) => !player.level)) throw new Error("Todos os jogadores precisam ter nível definido antes do sorteio.");
   const candidateCount = 18;
   const candidates = Array.from({ length: candidateCount }, () => generateCandidate(state, teamCount));
-  candidates.sort((first, second) => getCampaoBalanceScore(second) - getCampaoBalanceScore(first));
+  const brokenCount = (candidate: CampaoState) => getCampaoDiagnostics(candidate)?.brokenMandatory ?? 0;
+  candidates.sort((first, second) => brokenCount(first) - brokenCount(second) || getCampaoBalanceScore(second) - getCampaoBalanceScore(first));
   // Vínculos são regra de elegibilidade: alternativas que os rompem não entram
   // na escolha quando existe uma divisão que os preserva integralmente.
   const validCandidates = candidates.filter((candidate) => getCampaoDiagnostics(candidate)?.brokenMandatory === 0);
   if (!validCandidates.length) {
-    const closestAttempt = candidates[0];
-    const blocked = state.relationships.filter((relationship) => closestAttempt.teams.some((team) => team.playerIds.includes(relationship.playerAId) && !team.playerIds.includes(relationship.playerBId))).map((relationship) => relationship.id);
-    throw new CampaoDivisionError("Não foi possível gerar uma divisão sem romper vínculos.", blocked);
+    // Não bloqueia o trabalho do administrador: devolve a alternativa mais
+    // próxima e deixa as inconsistências explícitas na tela para remanejamento.
+    return candidates[0];
   }
   const eligibleCandidates = validCandidates;
   const bestScore = getCampaoBalanceScore(eligibleCandidates[0]);
@@ -64,6 +65,7 @@ function generateCandidate(state: CampaoState, teamCount: number) {
   });
   shuffle(state.players.filter((player) => player.position === "GOLEIRO" && !seeded.has(player.id))).forEach((player, index) => { const team = teams[index % teams.length]; team.playerIds.push(player.id); seeded.add(player.id); });
   repairMandatoryRelationships(teams, state, playerById);
+  consolidateMandatoryRelationshipGroups(teams, state.relationships);
   return { ...state, teams };
 }
 
@@ -101,15 +103,48 @@ function repairMandatoryRelationships(teams: CampaoTeam[], state: CampaoState, p
     if (!firstTeam || !secondTeam || firstTeam === secondTeam) return;
     const target = starterStrength(firstTeam, playerById) <= starterStrength(secondTeam, playerById) ? firstTeam : secondTeam;
     const source = target === firstTeam ? secondTeam : firstTeam; const movingId = target === firstTeam ? relationship.playerBId : relationship.playerAId;
-    const movingPlayer = playerById.get(movingId); if (!movingPlayer) return;
+    const movingPlayer = playerById.get(movingId); if (!movingPlayer || isProtectedElite(movingId)) return;
     const replacementId = target.playerIds.find((id) => { const player = playerById.get(id); return player && player.position === movingPlayer.position && !isMandatoryMember(id, mandatory); });
     if (!replacementId) return;
     exchange(source, target, movingId, replacementId);
   });
 }
 
+// Consolida cadeias como A↔B e B↔C no mesmo time. Para respeitar o vínculo,
+// aceita desorganizar posição, esqueleto ou equilíbrio: esses impactos seguem
+// para a tela como pontos de atenção a serem ajustados manualmente.
+function consolidateMandatoryRelationshipGroups(teams: CampaoTeam[], relationships: CampaoRelationship[]) {
+  const groups = buildRelationshipGroups(relationships);
+  for (let pass = 0; pass < groups.length * 3; pass += 1) {
+    let changed = false;
+    groups.forEach((group) => {
+      const placements = teams.map((team) => ({ team, members: team.playerIds.filter((id) => group.has(id)) }));
+      const occupied = placements.filter((placement) => placement.members.length);
+      if (occupied.length < 2) return;
+      const target = [...occupied].sort((first, second) => Number(second.members.some(isProtectedElite)) - Number(first.members.some(isProtectedElite)) || second.members.length - first.members.length)[0].team;
+      occupied.filter((placement) => placement.team.id !== target.id).forEach(({ team: source, members }) => members.forEach((memberId) => {
+        if (isProtectedElite(memberId)) return;
+        const replacementId = target.playerIds.find((id) => !group.has(id) && !isProtectedElite(id));
+        if (!replacementId) return;
+        exchange(source, target, memberId, replacementId);
+        changed = true;
+      }));
+    });
+    if (!changed) break;
+  }
+}
+
+function buildRelationshipGroups(relationships: CampaoRelationship[]) {
+  const adjacent = new Map<string, Set<string>>();
+  relationships.forEach((relationship) => { (adjacent.get(relationship.playerAId) ?? adjacent.set(relationship.playerAId, new Set()).get(relationship.playerAId)!).add(relationship.playerBId); (adjacent.get(relationship.playerBId) ?? adjacent.set(relationship.playerBId, new Set()).get(relationship.playerBId)!).add(relationship.playerAId); });
+  const visited = new Set<string>(); const groups: Set<string>[] = [];
+  adjacent.forEach((_, playerId) => { if (visited.has(playerId)) return; const group = new Set<string>(); const queue = [playerId]; visited.add(playerId); while (queue.length) { const current = queue.shift()!; group.add(current); adjacent.get(current)?.forEach((next) => { if (!visited.has(next)) { visited.add(next); queue.push(next); } }); } groups.push(group); });
+  return groups;
+}
+
 function exchange(first: CampaoTeam, second: CampaoTeam, firstId: string, secondId: string) { first.playerIds = first.playerIds.map((id) => id === firstId ? secondId : id); second.playerIds = second.playerIds.map((id) => id === secondId ? firstId : id); [first.starterIds, first.reserveIds, second.starterIds, second.reserveIds].forEach((ids) => { if (ids) { const firstIndex = ids.indexOf(firstId); const secondIndex = ids.indexOf(secondId); if (firstIndex >= 0) ids[firstIndex] = secondId; if (secondIndex >= 0) ids[secondIndex] = firstId; } }); }
 function isMandatoryMember(id: string, relationships: CampaoRelationship[]) { return relationships.some((relationship) => relationship.playerAId === id || relationship.playerBId === id); }
+function isProtectedElite(id: string) { return adultEliteIds.includes(id) || masterEliteIds.includes(id) || masterCenterBackIds.includes(id); }
 function pickLowest<T>(items: T[], value: (item: T) => number) { return items.reduce((best, item) => value(item) < value(best) ? item : best); }
 function shuffle<T>(items: T[]) { return [...items].sort(() => Math.random() - 0.5); }
 function strength(player: CampaoPlayer) { return points[player.level!] || 0; }

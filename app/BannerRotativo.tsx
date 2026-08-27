@@ -27,8 +27,8 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
   const banners: BannerItem[] = [
     {
       title: "🏆 Campeonato Interno XV Campão 2026",
-      ctaLabel: "Me inscrever",
-      href: "/campeonatos/interno-campao-2026/inscricao",
+      ctaLabel: "Ver tabela",
+      href: "/campeonatos/interno-campao-2026",
       image: "/banners/banner-tio-hugo-2026.webp",
     },
     {
@@ -168,11 +168,11 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
 }
 
 function getHeroCopy(href: string) {
-  if (href === "/campeonatos/interno-campao-2026/inscricao") {
+  if (href === "/campeonatos/interno-campao-2026") {
     return {
-      heading: "Garanta sua vaga no campeonato interno do XV",
+      heading: "Acompanhe o Campeonato Interno XV Campão 2026",
       description:
-        "Inscreva-se no Campeonato Interno XV Campão 2026 e escolha sua categoria para jogar de agosto a dezembro nos horários oficiais do clube.",
+        "Veja a tabela, os jogos e as atualizações do Campeonato Interno XV Campão 2026.",
     };
   }
 
