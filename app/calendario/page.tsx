@@ -19,7 +19,12 @@ import {
   type CalendarEventItem,
   type CalendarEventType,
 } from "@/lib/calendar";
-import { getTioHugoBasePath, TIO_HUGO_2026_SLUG } from "@/lib/championships";
+import {
+  getInternoCampao2026BasePath,
+  getTioHugoBasePath,
+  INTERNO_CAMPAO_2026_SLUG,
+  TIO_HUGO_2026_SLUG,
+} from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { CALENDARIO_XV_PATH } from "@/lib/routes";
@@ -166,12 +171,41 @@ export default async function CalendarioPage({
             },
           },
         }),
+        prisma.championship.findUnique({
+          where: { slug: INTERNO_CAMPAO_2026_SLUG },
+          select: {
+            matches: {
+              orderBy: [
+                { scheduledAt: "asc" },
+                { round: "asc" },
+                { roundNumber: "asc" },
+                { createdAt: "asc" },
+              ],
+              select: {
+                id: true,
+                round: true,
+                roundNumber: true,
+                scheduledAt: true,
+                notes: true,
+                homeScore: true,
+                awayScore: true,
+                homeTeam: {
+                  select: { name: true, shortName: true, icon: true },
+                },
+                awayTeam: {
+                  select: { name: true, shortName: true, icon: true },
+                },
+              },
+            },
+          },
+        }),
       ]),
-    [[], null],
+    [[], null, null],
     "calendario:eventos",
   );
-  const [peladas, copaChampionship] = data;
+  const [peladas, copaChampionship, campaoChampionship] = data;
   const copaMatches = copaChampionship?.matches || [];
+  const campaoMatches = campaoChampionship?.matches || [];
 
   const peladaEvents = peladas.map<CalendarEventItem>((pelada) => ({
     id: pelada.id,
@@ -190,10 +224,21 @@ export default async function CalendarioPage({
       startsAt: match.scheduledAt as Date,
       href: `${getTioHugoBasePath()}?view=${match.stage?.stageType === "FINAL" ? 7 : match.round}`,
     }));
+  const campaoEvents = campaoMatches
+    .filter((match) => match.scheduledAt)
+    .map<CalendarEventItem>((match) => ({
+      id: `campao-interno-2026-${match.id}`,
+      type: "CAMPAO_INTERNO",
+      title: getCampaoCalendarTitle(match),
+      description: match.notes || undefined,
+      startsAt: match.scheduledAt as Date,
+      href: getInternoCampao2026BasePath(),
+    }));
 
   const allEvents = [
     ...peladaEvents,
     ...copaEvents,
+    ...campaoEvents,
     ...INTERCLUBES_2026_EVENTS,
   ].sort(
     (left, right) => left.startsAt.getTime() - right.startsAt.getTime(),
@@ -206,6 +251,11 @@ export default async function CalendarioPage({
   const todayKey = getCalendarDateKey(new Date());
   const copaEventsInMonth = filterCalendarEventsByMonth(
     copaEvents,
+    year,
+    month,
+  );
+  const campaoEventsInMonth = filterCalendarEventsByMonth(
+    campaoEvents,
     year,
     month,
   );
@@ -338,16 +388,19 @@ export default async function CalendarioPage({
             </div>
             <div style={monthSummaryCardStyle}>
               <span style={monthSummaryLabelStyle}>Campão interno</span>
-              <strong style={monthSummaryValueStyle}>Em breve</strong>
+              <strong style={monthSummaryValueStyle}>
+                {view === "month"
+                  ? campaoEventsInMonth.length
+                  : filterCalendarEventsByYear(campaoEvents, year).length}
+              </strong>
             </div>
           </div>
 
           <div className="xv-calendar-note" style={infoNoticeStyle}>
             <strong style={infoNoticeTitleStyle}>Campão interno</strong>
             <p style={infoNoticeTextStyle}>
-              A janela prevista segue entre agosto e o segundo domingo de dezembro.
-              Assim que as datas forem fechadas, esse bloco entra no calendário com
-              a cor verde já reservada na legenda.
+              Jogos do Adulto e Master já estão lançados conforme a tabela oficial,
+              identificados pela cor verde e pelas bandeiras das seleções.
             </p>
           </div>
 
@@ -828,6 +881,30 @@ function getCopaCalendarTitle(match: {
 
 function getCopaCalendarDescription(match: { notes: string | null }) {
   return match.notes || undefined;
+}
+
+function getCampaoCalendarTitle(match: {
+  round: number;
+  notes: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTeam: { name: string; shortName: string | null; icon: string | null };
+  awayTeam: { name: string; shortName: string | null; icon: string | null };
+}) {
+  const category = match.notes?.includes("MASTER") ? "Master" : "Adulto";
+  const fixture = `${formatTeamDisplayName(
+    match.homeTeam.shortName || match.homeTeam.name,
+    match.homeTeam.icon,
+  )} x ${formatTeamDisplayName(
+    match.awayTeam.shortName || match.awayTeam.name,
+    match.awayTeam.icon,
+  )}`;
+  const score =
+    match.homeScore === null || match.awayScore === null
+      ? ""
+      : ` • ${match.homeScore} x ${match.awayScore}`;
+
+  return `Campão ${category} • Rodada ${match.round} • ${fixture}${score}`;
 }
 
 function getCopaFixtureLabel(match: {

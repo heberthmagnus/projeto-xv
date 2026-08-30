@@ -634,6 +634,7 @@ export const getChampionshipTeamPublicPageData = cache(
           id: true,
           seed: true,
           displayOrder: true,
+          groupLabel: true,
           team: {
             select: {
               id: true,
@@ -666,7 +667,6 @@ export const getChampionshipTeamPublicPageData = cache(
                       fullName: true,
                       nickname: true,
                       preferredPosition: true,
-                      level: true,
                     },
                   },
                 },

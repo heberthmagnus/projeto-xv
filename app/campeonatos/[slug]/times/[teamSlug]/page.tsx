@@ -6,6 +6,7 @@ import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNo
 import { getChampionshipTeamPublicPageData } from "@/lib/championships";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipTeamBasePath } from "@/lib/routes";
+import { CampaoTeamHubHeader } from "@/app/campeonatos/interno-campao-2026/team-hub-header";
 
 type Params = Promise<{
   slug: string;
@@ -66,10 +67,12 @@ export default async function ChampionshipTeamPublicPage({
 
   const team = championship.teamEntry.team;
   const standing = championship.currentStanding;
+  const isCampao = slug === "interno-campao-2026";
 
   return (
     <main className="xv-page-shell-soft">
       <div className="xv-page-container xv-page-container-medium">
+        {isCampao ? <CampaoTeamHubHeader category={championship.teamEntry.groupLabel === "MASTER" ? "MASTER" : "ADULTO"} /> : null}
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <article id="elenco" className="xv-card overflow-hidden scroll-mt-28">
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -125,14 +128,10 @@ export default async function ChampionshipTeamPublicPage({
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="mt-4 grid gap-2">
                         <MobilePlayerStat
                           label="Posição"
                           value={getPositionLabel(player.registration.preferredPosition)}
-                        />
-                        <MobilePlayerStat
-                          label="Nível"
-                          value={player.registration.level || "-"}
                         />
                       </div>
                     </article>
@@ -146,7 +145,6 @@ export default async function ChampionshipTeamPublicPage({
                         <th className="border-b border-[#E5E7EB] px-3 py-3">Camisa</th>
                         <th className="border-b border-[#E5E7EB] px-3 py-3">Jogador</th>
                         <th className="border-b border-[#E5E7EB] px-3 py-3">Posicao</th>
-                        <th className="border-b border-[#E5E7EB] px-3 py-3">Nivel</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -167,9 +165,6 @@ export default async function ChampionshipTeamPublicPage({
                           </td>
                           <td className="border-b border-[#F1F5F9] px-3 py-3 text-[#374151]">
                             {getPositionLabel(player.registration.preferredPosition)}
-                          </td>
-                          <td className="border-b border-[#F1F5F9] px-3 py-3 text-[#374151]">
-                            {player.registration.level || "-"}
                           </td>
                         </tr>
                       ))}
