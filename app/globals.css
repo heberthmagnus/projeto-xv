@@ -410,9 +410,19 @@ strong {
 }
 
 @media (max-width: 767px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
   .xv-page-shell,
   .xv-page-shell-soft {
-    padding: 24px 0 28px;
+    padding: 20px 0 max(28px, env(safe-area-inset-bottom));
   }
 
   .xv-page-container {
@@ -422,6 +432,30 @@ strong {
 
   .xv-card {
     border-radius: 14px;
+    padding: 16px;
+  }
+
+  .xv-table-scroll,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .xv-table-scroll::after {
+    content: "Deslize para ver mais colunas";
+    display: block;
+    width: max-content;
+    padding: 8px 2px 2px;
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  button,
+  a[role="button"],
+  input[type="submit"],
+  input[type="button"] {
+    min-height: 40px;
   }
 
   .xv-feedback-banner {
