@@ -8,11 +8,25 @@ import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 import { getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { RegistrationFormState } from "./form-state";
+import { isRateLimited } from "@/lib/request-rate-limit";
+
+const validPositions = new Set([
+  "GOLEIRO",
+  "LATERAL",
+  "ZAGUEIRO",
+  "VOLANTE",
+  "MEIA",
+  "ATACANTE",
+]);
 
 export async function createRegistration(
   _prevState: RegistrationFormState,
   formData: FormData,
 ) {
+  if (await isRateLimited("campao-registration", 10, 60 * 60 * 1000)) {
+    return { error: "Muitas tentativas de inscrição. Tente novamente mais tarde." };
+  }
+
   const fullName = String(formData.get("fullName") || "").trim();
   const nickname = String(formData.get("nickname") || "").trim();
   const preferredPosition = String(formData.get("preferredPosition") || "").trim();
@@ -22,6 +36,8 @@ export async function createRegistration(
   const rawCategory = String(formData.get("category") || "").trim();
   const confirmedRules = formData.get("confirmedRules") === "on";
 
+  const parsedBirthDate = new Date(`${birthDate}T12:00:00`);
+
   if (!fullName) {
     return { error: "Informe seu nome completo." };
   }
@@ -30,8 +46,20 @@ export async function createRegistration(
     return { error: "Selecione sua posição preferida." };
   }
 
+  if (!validPositions.has(preferredPosition)) {
+    return { error: "Selecione uma posição válida." };
+  }
+
   if (!birthDate) {
     return { error: "Informe sua data de nascimento." };
+  }
+
+  if (Number.isNaN(parsedBirthDate.getTime())) {
+    return { error: "Informe uma data de nascimento válida." };
+  }
+
+  if (fullName.length > 120 || nickname.length > 80 || phone.length > 32 || email.length > 160) {
+    return { error: "Uma das informações excede o tamanho permitido." };
   }
 
   if (!isValidBrazilPhone(phone)) {
@@ -58,7 +86,7 @@ export async function createRegistration(
         | "VOLANTE"
         | "MEIA"
         | "ATACANTE",
-      birthDate: new Date(birthDate),
+      birthDate: parsedBirthDate,
       phone,
       email: email || null,
       level: null,
@@ -78,7 +106,7 @@ export async function createRegistration(
           | "VOLANTE"
           | "MEIA"
           | "ATACANTE",
-        birthDate: new Date(birthDate),
+        birthDate: parsedBirthDate,
         phone,
         email: email || null,
         confirmedRules,

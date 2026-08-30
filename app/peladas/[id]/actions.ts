@@ -7,6 +7,7 @@ import { generateCancelToken } from "@/lib/pelada-confirmations";
 import { prisma } from "@/lib/prisma";
 import { getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { PeladaConfirmationFormState } from "./form-state";
+import { isRateLimited } from "@/lib/request-rate-limit";
 
 type Params = {
   peladaId: string;
@@ -34,6 +35,10 @@ export async function createPeladaConfirmation(
   _prevState: PeladaConfirmationFormState,
   formData: FormData,
 ) {
+  if (await isRateLimited("pelada-confirmation", 10, 60 * 60 * 1000)) {
+    return { error: "Muitas tentativas de confirmação. Tente novamente mais tarde." };
+  }
+
   const fullName = String(formData.get("fullName") || "").trim();
   const preferredPosition = String(
     formData.get("preferredPosition") || "",
@@ -46,6 +51,10 @@ export async function createPeladaConfirmation(
 
   if (!fullName) {
     return { error: "Informe seu nome ou apelido." };
+  }
+
+  if (fullName.length > 120) {
+    return { error: "O nome informado excede o tamanho permitido." };
   }
 
   if (!preferredPosition) {
@@ -83,6 +92,10 @@ export async function createPeladaConfirmation(
 
     if (!guestFullName) {
       return { error: `Informe o nome ou apelido do convidado ${guestOrder}.` };
+    }
+
+    if (guestFullName.length > 120) {
+      return { error: `O nome do convidado ${guestOrder} excede o tamanho permitido.` };
     }
 
     if (!parsedGuestPreferredPosition) {

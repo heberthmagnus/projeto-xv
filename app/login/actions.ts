@@ -14,11 +14,16 @@ import { getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships"
 import { prisma } from "@/lib/prisma";
 import { executePrisma, getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { LoginFormState } from "./form-state";
+import { isRateLimited } from "@/lib/request-rate-limit";
 
 export async function login(
   _prevState: LoginFormState,
   formData: FormData,
 ) {
+  if (await isRateLimited("login", 10, 15 * 60 * 1000)) {
+    return { error: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
+  }
+
   const email = String(formData.get("email") || "")
     .trim()
     .toLowerCase();

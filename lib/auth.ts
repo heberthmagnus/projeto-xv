@@ -193,7 +193,9 @@ export async function verifyStoredPassword(
     return bcrypt.compare(password, normalizeBcryptHash(normalizedPassword));
   }
 
-  return safeEqual(normalizedPassword, password);
+  // Passwords stored without a recognized one-way hash are deliberately
+  // rejected. Legacy plaintext values are migrated separately before deploy.
+  return false;
 }
 
 export function isAdminRole(role: string | null | undefined) {
