@@ -16,6 +16,21 @@ model User {
   createdAt DateTime @default(now())
 }
 
+model SiteSuggestion {
+  id           String   @id @default(uuid())
+  name         String?
+  contact      String?
+  subject      String
+  message      String
+  allowContact Boolean  @default(false)
+  status       String   @default("NOVO")
+  adminNotes   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
 model AthleteProfile {
   id                  String                     @id @default(uuid())
   fullName            String

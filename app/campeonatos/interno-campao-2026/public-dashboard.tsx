@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { SuggestionForm } from "./suggestion-form";
 
 type Category = "ADULTO" | "MASTER";
-type Tab = "CLASSIFICACAO" | "ARTILHARIA" | "CARTOES" | "ELENCOS" | "REGULAMENTO";
+type Tab = "CLASSIFICACAO" | "ARTILHARIA" | "CARTOES" | "ELENCOS" | "REGULAMENTO" | "FALE_CONOSCO";
 
 type Team = { category: Category; order: number; name: string; slug: string | null; icon: string | null; players: string[] };
 type Game = {
@@ -28,6 +29,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "CARTOES", label: "Cartões e suspensões" },
   { id: "ELENCOS", label: "Elencos" },
   { id: "REGULAMENTO", label: "Regulamento" },
+  { id: "FALE_CONOSCO", label: "Fale conosco" },
 ];
 
 export function CampaoPublicDashboard({ teams, matches }: Props) {
@@ -107,6 +109,7 @@ export function CampaoPublicDashboard({ teams, matches }: Props) {
       {tab === "CARTOES" ? <EmptyModule title={`Cartões e suspensões ${label}`} description="Cartões, cumprimento de suspensão e jogadores pendurados serão centralizados neste painel." /> : null}
       {tab === "ELENCOS" ? <RosterModule teams={categoryTeams} label={label} /> : null}
       {tab === "REGULAMENTO" ? <RulesModule /> : null}
+      {tab === "FALE_CONOSCO" ? <SuggestionForm /> : null}
     </div>
   );
 }
