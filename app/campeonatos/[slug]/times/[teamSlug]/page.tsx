@@ -212,7 +212,7 @@ export default async function ChampionshipTeamPublicPage({
           </div>
         </section>
 
-        <section id="jogos" className="xv-card scroll-mt-28">
+        {isCampao ? <CampaoTeamMatchesPanel team={team} matches={championship.teamMatches} championshipSlug={championship.slug} /> : <section id="jogos" className="xv-card scroll-mt-28">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <span className="inline-flex rounded-full bg-[#E9EEF9] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#3450A1]">
@@ -313,11 +313,17 @@ export default async function ChampionshipTeamPublicPage({
               ))}
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </main>
   );
 }
+
+function CampaoTeamMatchesPanel({ team, matches, championshipSlug }: { team: { name: string; shortName: string | null; slug: string | null; icon: string | null }; championshipSlug: string; matches: Array<{ id: string; scheduledAt: Date | null; isHome: boolean; opponent: { name: string; shortName: string | null; slug: string | null; icon: string | null } }> }) {
+  return <section id="jogos" className="xv-card scroll-mt-28"><div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Jogos de {team.shortName || team.name}</p><h2 className="mt-1 text-2xl font-black tracking-tight">Calendário</h2></div><span className="rounded-xl border border-[#D4D4D8] px-4 py-2 text-sm font-bold">{matches.length} partidas</span></div><div className="divide-y divide-[#E5E7EB]">{matches.map((match) => { const home = match.isHome ? team : match.opponent; const away = match.isHome ? match.opponent : team; return <article key={match.id} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{formatCampaoMatchDateTime(match.scheduledAt)}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_1.25rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{home.shortName || home.name}</span><span className="text-2xl leading-none" aria-hidden>{home.icon}</span><strong className="text-center text-[#A3A3A3]">×</strong><span className="text-2xl leading-none" aria-hidden>{away.icon}</span><span className="truncate text-left font-semibold">{away.slug ? <Link href={getChampionshipTeamBasePath(championshipSlug, away.slug)} className="hover:text-[#8B6914] hover:underline">{away.shortName || away.name}</Link> : away.shortName || away.name}</span></div></article>})}</div></section>;
+}
+
+function formatCampaoMatchDateTime(date: Date | null) { return date ? new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(date) : "Data a definir"; }
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
