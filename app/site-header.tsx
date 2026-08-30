@@ -14,10 +14,11 @@ const menuItems = [
   },
   {
     href: getChampionshipBasePath("interno-campao-2026"),
-    label: "Campeonato Interno XV Campão 2026",
+    label: "Copa do Mundo XV 2026",
   },
   { href: "/peladas", label: "Peladas" },
   { href: CALENDARIO_XV_PATH, label: "Calendário do XV" },
+  { href: "/fale-conosco", label: "Fale conosco" },
 ];
 
 export function SiteHeader() {
@@ -77,6 +78,8 @@ export function SiteHeader() {
                         ? pathname.startsWith("/peladas")
                         : item.href.startsWith(CALENDARIO_XV_PATH)
                           ? pathname.startsWith(CALENDARIO_XV_PATH)
+                          : item.href === "/fale-conosco"
+                            ? pathname.startsWith("/fale-conosco")
                           : false;
 
             return (
