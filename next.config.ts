@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
@@ -19,7 +21,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; font-src 'self' data:",
+              `default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}; connect-src 'self' https://*.supabase.co; font-src 'self' data:`,
           },
         ],
       },

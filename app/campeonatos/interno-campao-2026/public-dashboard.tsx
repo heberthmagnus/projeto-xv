@@ -12,12 +12,17 @@ type Game = {
   round: number;
   order: number;
   scheduledAt: string | null;
+  status: "AGENDADO" | "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO";
+  homeScore: number | null;
+  awayScore: number | null;
   home: string;
   homeSlug: string | null;
   homeIcon: string | null;
   away: string;
   awaySlug: string | null;
   awayIcon: string | null;
+  scorers: Array<{ name: string; team: string; quantity: number }>;
+  cards: Array<{ name: string; team: string; quantity: number; type: "AMARELO" | "AZUL" | "VERMELHO" }>;
 };
 
 type Props = { teams: Team[]; matches: Game[] };
@@ -92,7 +97,7 @@ export function CampaoPublicDashboard({ teams, matches }: Props) {
 
       {tab === "CLASSIFICACAO" ? (
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.8fr)]">
-          <StandingsTable label={label} teams={categoryTeams} />
+          <StandingsTable label={label} teams={categoryTeams} matches={categoryMatches} />
           <RoundPanel
             label={label}
             games={games}
@@ -103,15 +108,30 @@ export function CampaoPublicDashboard({ teams, matches }: Props) {
         </section>
       ) : null}
 
-      {tab === "ARTILHARIA" ? <EmptyModule title={`Artilharia ${label}`} description="Os gols lançados nas partidas aparecerão aqui, com jogador, seleção e total de gols." /> : null}
-      {tab === "CARTOES" ? <EmptyModule title={`Cartões e suspensões ${label}`} description="Cartões, cumprimento de suspensão e jogadores pendurados serão centralizados neste painel." /> : null}
+      {tab === "ARTILHARIA" ? <ScorersModule label={label} matches={categoryMatches} /> : null}
+      {tab === "CARTOES" ? <CardsModule label={label} matches={categoryMatches} /> : null}
       {tab === "ELENCOS" ? <RosterModule teams={categoryTeams} label={label} /> : null}
       {tab === "REGULAMENTO" ? <RulesModule /> : null}
     </div>
   );
 }
 
-function StandingsTable({ label, teams }: { label: string; teams: Team[] }) {
+function StandingsTable({ label, teams, matches }: { label: string; teams: Team[]; matches: Game[] }) {
+  const standings = useMemo(() => {
+    const table = new Map(teams.map((team) => [team.name, { team, points: 0, games: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 }]));
+    for (const match of matches) {
+      if (match.status !== "FINALIZADO" || match.homeScore === null || match.awayScore === null) continue;
+      const home = table.get(match.home); const away = table.get(match.away);
+      if (!home || !away) continue;
+      home.games += 1; away.games += 1;
+      home.goalsFor += match.homeScore; home.goalsAgainst += match.awayScore;
+      away.goalsFor += match.awayScore; away.goalsAgainst += match.homeScore;
+      if (match.homeScore > match.awayScore) { home.wins += 1; home.points += 3; away.losses += 1; }
+      else if (match.homeScore < match.awayScore) { away.wins += 1; away.points += 3; home.losses += 1; }
+      else { home.draws += 1; away.draws += 1; home.points += 1; away.points += 1; }
+    }
+    return Array.from(table.values()).sort((left, right) => right.points - left.points || (right.goalsFor - right.goalsAgainst) - (left.goalsFor - left.goalsAgainst) || right.goalsFor - left.goalsFor || left.team.order - right.team.order);
+  }, [teams, matches]);
   return (
     <section className="xv-card overflow-hidden">
       <div className="border-b border-[#E5E7EB] pb-3">
@@ -135,8 +155,10 @@ function StandingsTable({ label, teams }: { label: string; teams: Team[] }) {
             </tr>
           </thead>
           <tbody>
-            {teams.map((team, index) => (
-              <tr key={team.name} className="border-b border-[#E5E7EB] text-[#444]">
+            {standings.map((entry, index) => {
+              const { team } = entry; const goalDifference = entry.goalsFor - entry.goalsAgainst;
+              const winRate = entry.games ? Math.round((entry.points / (entry.games * 3)) * 100) : 0;
+              return <tr key={team.name} className="border-b border-[#E5E7EB] text-[#444]">
                 <td className="py-3 pr-3 text-lg font-medium text-[#303030]">
                   <span className="inline-flex items-center">
                     <span className={`w-9 shrink-0 font-normal ${index < 4 ? "text-[#1267E8]" : "text-[#159447]"}`}>{index + 1}</span>
@@ -144,17 +166,17 @@ function StandingsTable({ label, teams }: { label: string; teams: Team[] }) {
                     {team.slug ? <Link href={`/campeonatos/interno-campao-2026/times/${team.slug}`} className="hover:text-[#8B6914] hover:underline">{team.name}</Link> : <span>{team.name}</span>}
                   </span>
                 </td>
-                <td className="bg-[#F4F4F5] px-4 py-3 text-center text-lg font-black">0</td>
-                <td className="px-4 py-3 text-center">0</td>
-                <td className="bg-[#F4F4F5] px-4 py-3 text-center">0</td>
-                <td className="px-4 py-3 text-center">0</td>
-                <td className="bg-[#F4F4F5] px-4 py-3 text-center">0</td>
-                <td className="px-4 py-3 text-center">0</td>
-                <td className="bg-[#F4F4F5] px-4 py-3 text-center">0</td>
-                <td className="px-4 py-3 text-center">0</td>
-                <td className="bg-[#F4F4F5] px-4 py-3 text-center">0</td>
-              </tr>
-            ))}
+                <td className="bg-[#F4F4F5] px-4 py-3 text-center text-lg font-black">{entry.points}</td>
+                <td className="px-4 py-3 text-center">{entry.games}</td>
+                <td className="bg-[#F4F4F5] px-4 py-3 text-center">{entry.wins}</td>
+                <td className="px-4 py-3 text-center">{entry.draws}</td>
+                <td className="bg-[#F4F4F5] px-4 py-3 text-center">{entry.losses}</td>
+                <td className="px-4 py-3 text-center">{entry.goalsFor}</td>
+                <td className="bg-[#F4F4F5] px-4 py-3 text-center">{entry.goalsAgainst}</td>
+                <td className="px-4 py-3 text-center">{goalDifference}</td>
+                <td className="bg-[#F4F4F5] px-4 py-3 text-center">{winRate}</td>
+              </tr>;
+            })}
           </tbody>
         </table>
       </div>
@@ -175,7 +197,7 @@ function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: str
         </select>
       </div>
       <div className="divide-y divide-[#E5E7EB]">
-        {games.map((game) => <article key={`${game.home}-${game.away}`} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{game.scheduledAt ? new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(game.scheduledAt)) : "Data a definir"}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_1.25rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{game.homeSlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.homeSlug}`}>{game.home}</Link> : game.home}</span><span className="text-2xl leading-none" aria-hidden>{game.homeIcon}</span><strong className="text-center text-[#A3A3A3]">×</strong><span className="text-2xl leading-none" aria-hidden>{game.awayIcon}</span><span className="truncate text-left font-semibold">{game.awaySlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.awaySlug}`}>{game.away}</Link> : game.away}</span></div></article>)}
+        {games.map((game) => <article key={`${game.home}-${game.away}`} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{game.scheduledAt ? new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(game.scheduledAt)) : "Data a definir"}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_1.25rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{game.homeSlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.homeSlug}`}>{game.home}</Link> : game.home}</span><span className="text-2xl leading-none" aria-hidden>{game.homeIcon}</span><strong className="text-center text-[#A3A3A3]">{game.status === "FINALIZADO" ? `${game.homeScore} × ${game.awayScore}` : "×"}</strong><span className="text-2xl leading-none" aria-hidden>{game.awayIcon}</span><span className="truncate text-left font-semibold">{game.awaySlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.awaySlug}`}>{game.away}</Link> : game.away}</span></div></article>)}
       </div>
     </section>
   );
@@ -183,6 +205,25 @@ function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: str
 
 function EmptyModule({ title, description }: { title: string; description: string }) {
   return <section className="xv-card py-12 text-center"><h2 className="text-2xl font-black">{title}</h2><p className="mx-auto mt-3 max-w-xl text-[#6B7280]">{description}</p></section>;
+}
+
+function ScorersModule({ label, matches }: { label: string; matches: Game[] }) {
+  const scorers = useMemo(() => {
+    const totals = new Map<string, { name: string; team: string; goals: number }>();
+    matches.flatMap((match) => match.scorers).forEach((item) => { const key = `${item.name}:${item.team}`; const current = totals.get(key) || { ...item, goals: 0 }; current.goals += item.quantity; totals.set(key, current); });
+    return Array.from(totals.values()).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "pt-BR"));
+  }, [matches]);
+  return <StatsModule title={`Artilharia ${label}`} empty="Nenhum gol lançado ainda." rows={scorers.map((item) => ({ label: `${item.name} · ${item.team}`, value: `⚽ ${item.goals}` }))} />;
+}
+
+function CardsModule({ label, matches }: { label: string; matches: Game[] }) {
+  const cards = useMemo(() => matches.flatMap((match) => match.cards || []).filter((item) => item?.name && item?.type).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [matches]);
+  const icon = { AMARELO: "🟨", AZUL: "🟦", VERMELHO: "🟥" } as const;
+  return <StatsModule title={`Cartões e suspensões ${label}`} empty="Nenhum cartão lançado ainda." rows={cards.map((item) => ({ label: `${item.name} · ${item.team}`, value: `${icon[item.type]} ${item.quantity}` }))} />;
+}
+
+function StatsModule({ title, empty, rows }: { title: string; empty: string; rows: Array<{ label: string; value: string }> }) {
+  return <section className="xv-card"><h2 className="text-center text-2xl font-black">{title}</h2>{rows.length ? <div className="mx-auto mt-5 max-w-2xl divide-y divide-[#E5E7EB]">{rows.map((row, index) => <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-4 px-3 py-3"><span className="font-semibold text-[#303030]">{row.label}</span><strong>{row.value}</strong></div>)}</div> : <p className="py-10 text-center text-[#6B7280]">{empty}</p>}</section>;
 }
 
 function RosterModule({ teams, label }: { teams: Team[]; label: string }) {
