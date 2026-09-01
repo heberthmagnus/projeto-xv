@@ -1,7 +1,12 @@
+import { InternoCampaoAdminNavigation } from "./admin-navigation";
+
 export default function InternoCampaoAdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <>
+    <InternoCampaoAdminNavigation />
+    {children}
+  </>;
 }

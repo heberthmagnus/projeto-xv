@@ -17,6 +17,7 @@ const links = [
     href: getAdminChampionshipAdvancedSimulationPath(championshipSlug),
     label: "Divisão dos Times",
   },
+  { href: "/admin/interno-campao-2026/jogos", label: "Lançar resultados" },
   { href: "/admin/interno-campao-2026/sugestoes", label: "Fale conosco" },
 ];
 
