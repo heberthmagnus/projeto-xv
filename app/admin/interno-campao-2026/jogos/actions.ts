@@ -20,6 +20,17 @@ export async function saveMatchResult(formData: FormData) {
   revalidatePath(basePath); revalidatePath("/campeonatos/interno-campao-2026");
 }
 
+export async function saveMatchSchedule(formData: FormData) {
+  await requireAdmin();
+  const championship = await ensureInternoCampao2026Championship();
+  const id = String(formData.get("matchId") || "");
+  const rawScheduledAt = String(formData.get("scheduledAt") || "");
+  const scheduledAt = rawScheduledAt ? new Date(`${rawScheduledAt}:00-03:00`) : null;
+  if (!id || (scheduledAt && Number.isNaN(scheduledAt.getTime()))) throw new Error("Informe uma data e horário válidos.");
+  await prisma.match.updateMany({ where: { id, championshipId: championship.id }, data: { scheduledAt } });
+  revalidatePath(basePath); revalidatePath("/campeonatos/interno-campao-2026");
+}
+
 export async function addMatchEvent(formData: FormData) {
   await requireAdmin();
   const championship = await ensureInternoCampao2026Championship();

@@ -2,7 +2,7 @@ import { MatchEventType } from "@prisma/client";
 import { requireAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
-import { addMatchEvent, deleteMatchEvent, registerMatchParticipation, saveMatchResult, updateMatchEvent } from "./actions";
+import { addMatchEvent, deleteMatchEvent, registerMatchParticipation, saveMatchResult, saveMatchSchedule, updateMatchEvent } from "./actions";
 import { TeamPlayerSelect } from "./team-player-select";
 
 const eventTypes = [
@@ -37,7 +37,7 @@ export default async function JogosInternoAdminPage() {
       const playerOptions = players.map(({ team, player }) => ({ id: player.id, teamId: team.id, teamName: team.shortName || team.name, name: player.registration.nickname || player.registration.fullName }));
       return <section key={match.id} className="xv-card">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#8B6914]">{category} · Rodada {match.round}</p><h2 className="text-xl font-black">{match.homeTeam.shortName || match.homeTeam.name} x {match.awayTeam.shortName || match.awayTeam.name}</h2></div><span className="rounded-full bg-[#F4F4F5] px-3 py-1 text-sm font-bold">{match.status}</span></div>
-        <form action={saveMatchResult} className="mt-4 flex flex-wrap items-end gap-3"><input type="hidden" name="matchId" value={match.id}/><label className="grid gap-1 text-sm font-bold">{match.homeTeam.shortName || match.homeTeam.name}<input name="homeScore" type="number" min="0" defaultValue={match.homeScore ?? ""} className="w-20 rounded-lg border p-2"/></label><label className="grid gap-1 text-sm font-bold">{match.awayTeam.shortName || match.awayTeam.name}<input name="awayScore" type="number" min="0" defaultValue={match.awayScore ?? ""} className="w-20 rounded-lg border p-2"/></label><button className="rounded-lg bg-[#B89020] px-4 py-2 font-bold text-white">Salvar placar</button></form>
+        <div className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-2"><form action={saveMatchResult} className="flex flex-wrap items-end gap-3"><input type="hidden" name="matchId" value={match.id}/><label className="grid gap-1 text-sm font-bold">{match.homeTeam.shortName || match.homeTeam.name}<input name="homeScore" type="number" min="0" defaultValue={match.homeScore ?? ""} className="w-20 rounded-lg border p-2"/></label><label className="grid gap-1 text-sm font-bold">{match.awayTeam.shortName || match.awayTeam.name}<input name="awayScore" type="number" min="0" defaultValue={match.awayScore ?? ""} className="w-20 rounded-lg border p-2"/></label><button className="rounded-lg bg-[#B89020] px-4 py-2 font-bold text-white">Salvar placar</button></form><form action={saveMatchSchedule} className="flex flex-wrap items-end gap-3"><input type="hidden" name="matchId" value={match.id}/><label className="grid gap-1 text-sm font-bold">Data e horário<input name="scheduledAt" type="datetime-local" defaultValue={toLocalDateTimeInput(match.scheduledAt)} className="rounded-lg border p-2"/></label><button className="rounded-lg border border-[#B89020] px-4 py-2 font-bold text-[#8B6914]">Salvar horário</button></form></div>
         <div className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-2">
           <form action={registerMatchParticipation} className="grid gap-2"><input type="hidden" name="matchId" value={match.id}/><p className="text-sm font-bold">Participação (jogos feitos)</p><TeamPlayerSelect players={playerOptions}/><button className="rounded-lg border border-[#B89020] px-4 py-2 font-bold text-[#8B6914]">Registrar participação</button></form>
           <form action={addMatchEvent} className="grid gap-2"><input type="hidden" name="matchId" value={match.id}/><p className="text-sm font-bold">Novo gol ou cartão</p><TeamPlayerSelect players={playerOptions}/><EventFields/><button className="rounded-lg border border-[#B89020] px-4 py-2 font-bold text-[#8B6914]">Lançar evento</button></form>
@@ -50,4 +50,11 @@ export default async function JogosInternoAdminPage() {
 
 function EventFields() {
   return <div className="grid grid-cols-[1fr_80px] gap-2"><select name="type" className="rounded-lg border p-2">{eventTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><input name="quantity" type="number" min="1" defaultValue="1" className="rounded-lg border p-2"/></div>;
+}
+
+function toLocalDateTimeInput(value: Date | null) {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 }

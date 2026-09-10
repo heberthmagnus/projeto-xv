@@ -162,7 +162,7 @@ function StandingsTable({ label, teams, matches }: { label: string; teams: Team[
                 <td className="py-3 pr-3 text-lg font-medium text-[#303030]">
                   <span className="inline-flex items-center">
                     <span className={`w-9 shrink-0 font-normal ${index < 4 ? "text-[#1267E8]" : "text-[#159447]"}`}>{index + 1}</span>
-                    <span aria-hidden className="inline-flex w-7 shrink-0 justify-center leading-none">{team.icon}</span>
+                    <CountryFlag icon={team.icon} name={team.name} className="w-7 shrink-0" />
                     {team.slug ? <Link href={`/campeonatos/interno-campao-2026/times/${team.slug}`} className="hover:text-[#8B6914] hover:underline">{team.name}</Link> : <span>{team.name}</span>}
                   </span>
                 </td>
@@ -197,7 +197,7 @@ function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: str
         </select>
       </div>
       <div className="divide-y divide-[#E5E7EB]">
-        {games.map((game) => <article key={`${game.home}-${game.away}`} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{game.scheduledAt ? new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(game.scheduledAt)) : "Data a definir"}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_1.25rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{game.homeSlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.homeSlug}`}>{game.home}</Link> : game.home}</span><span className="text-2xl leading-none" aria-hidden>{game.homeIcon}</span><strong className="text-center text-[#A3A3A3]">{game.status === "FINALIZADO" ? `${game.homeScore} × ${game.awayScore}` : "×"}</strong><span className="text-2xl leading-none" aria-hidden>{game.awayIcon}</span><span className="truncate text-left font-semibold">{game.awaySlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.awaySlug}`}>{game.away}</Link> : game.away}</span></div></article>)}
+        {games.map((game) => <article key={`${game.home}-${game.away}`} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{formatGameDateTime(game.scheduledAt)}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_3.75rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{game.homeSlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.homeSlug}`}>{game.home}</Link> : game.home}</span><CountryFlag icon={game.homeIcon} name={game.home} className="text-2xl"/><strong className="whitespace-nowrap text-center text-[#A3A3A3]">{game.status === "FINALIZADO" ? `${game.homeScore} × ${game.awayScore}` : "×"}</strong><CountryFlag icon={game.awayIcon} name={game.away} className="text-2xl"/><span className="truncate text-left font-semibold">{game.awaySlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.awaySlug}`}>{game.away}</Link> : game.away}</span></div></article>)}
       </div>
     </section>
   );
@@ -227,7 +227,16 @@ function StatsModule({ title, empty, rows }: { title: string; empty: string; row
 }
 
 function RosterModule({ teams, label }: { teams: Team[]; label: string }) {
-  return <section className="xv-card"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p><h2 className="mt-1 text-2xl font-black">Elencos</h2><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{teams.map((team) => <article key={team.name} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4"><h3 className="font-black"><span className="mr-2 text-xl" aria-hidden>{team.icon}</span>{team.slug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${team.slug}`}>{team.name}</Link> : team.name}</h3><ol className="mt-3 grid gap-1.5 text-sm text-[#374151]">{team.players.map((player, index) => <li key={`${team.name}-${player}`}><span className="mr-2 text-[#8B6914]">{index + 1}.</span>{player}</li>)}</ol></article>)}</div></section>;
+  return <section className="xv-card"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p><h2 className="mt-1 text-2xl font-black">Elencos</h2><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{teams.map((team) => <article key={team.name} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4"><h3 className="flex items-center gap-2 font-black"><CountryFlag icon={team.icon} name={team.name} className="text-xl"/>{team.slug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${team.slug}`}>{team.name}</Link> : team.name}</h3><ol className="mt-3 grid gap-1.5 text-sm text-[#374151]">{team.players.map((player, index) => <li key={`${team.name}-${player}`}><span className="mr-2 text-[#8B6914]">{index + 1}.</span>{player}</li>)}</ol></article>)}</div></section>;
+}
+
+function CountryFlag({ icon, name, className = "" }: { icon: string | null; name: string; className?: string }) {
+  return <span aria-label={`Bandeira da ${name}`} className={`inline-flex items-center justify-center leading-none ${className}`}>{icon}</span>;
+}
+
+function formatGameDateTime(value: string | null) {
+  if (!value) return "Data a definir";
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 }
 
 function RulesModule() {
