@@ -63,10 +63,14 @@ function findPossibleDuplicates(athletes: Athlete[]) {
   const pairs: PossibleDuplicate[] = [];
   for (let index = 0; index < athletes.length; index += 1) for (let otherIndex = index + 1; otherIndex < athletes.length; otherIndex += 1) {
     const first = athletes[index]; const second = athletes[otherIndex]; const reasons: string[] = [];
+    // Nome é a primeira barreira: contatos podem ser de pais, responsáveis ou
+    // cadastros compartilhados e, isoladamente, não identificam um atleta.
+    if (!hasSimilarName(first.fullName, second.fullName)) continue;
+    reasons.push("nome muito parecido");
     if (samePhone(first.phone, second.phone)) reasons.push("mesmo telefone");
     if (sameEmail(first.email, second.email)) reasons.push("mesmo e-mail");
-    if (sameBirthDate(first.birthDate, second.birthDate) && hasSimilarName(first.fullName, second.fullName)) reasons.push("mesma data de nascimento e nome parecido");
-    if (hasSimilarName(first.fullName, second.fullName)) reasons.push("nome muito parecido");
+    if (sameBirthDate(first.birthDate, second.birthDate)) reasons.push("mesma data de nascimento");
+    if (sameKnownAge(first.lastKnownAge, second.lastKnownAge)) reasons.push("mesma idade");
     if (reasons.length) pairs.push({ first, second, reasons: [...new Set(reasons)] });
   }
   return pairs;
@@ -75,14 +79,32 @@ function findPossibleDuplicates(athletes: Athlete[]) {
 function samePhone(first: string | null, second: string | null) {
   const normalizedFirst = first?.replace(/\D/g, "") ?? "";
   const normalizedSecond = second?.replace(/\D/g, "") ?? "";
-  return Boolean(normalizedFirst && normalizedSecond && normalizedFirst === normalizedSecond);
+  return Boolean(
+    normalizedFirst &&
+      normalizedSecond &&
+      !isPlaceholderPhone(normalizedFirst) &&
+      !isPlaceholderPhone(normalizedSecond) &&
+      normalizedFirst === normalizedSecond,
+  );
+}
+function isPlaceholderPhone(value: string) {
+  // Também cobre placeholders brasileiros como (31) 99999-9999: o DDD existe,
+  // mas todos os dígitos do telefone local são 9.
+  return /^9+$/.test(value) || (value.length >= 10 && /^9+$/.test(value.slice(2))) || value === "0090000000";
 }
 function sameEmail(first: string | null, second: string | null) {
   const normalizedFirst = first?.trim().toLowerCase() ?? "";
   const normalizedSecond = second?.trim().toLowerCase() ?? "";
-  return Boolean(normalizedFirst && normalizedSecond && normalizedFirst === normalizedSecond);
+  return Boolean(
+    normalizedFirst &&
+      normalizedSecond &&
+      normalizedFirst !== "caverna@com.br" &&
+      normalizedSecond !== "caverna@com.br" &&
+      normalizedFirst === normalizedSecond,
+  );
 }
 function sameBirthDate(first: Date | null, second: Date | null) { return Boolean(first && second && first.toISOString().slice(0, 10) === second.toISOString().slice(0, 10)); }
+function sameKnownAge(first: number | null, second: number | null) { return first !== null && second !== null && first === second; }
 function hasSimilarName(first: string, second: string) { const a = first.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/); const b = second.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/); const shared = a.filter((part) => part.length > 2 && b.includes(part)); return shared.length >= 2 || (a.length > 1 && b.length > 1 && a[0] === b[0] && a.at(-1) === b.at(-1)); }
 function positionLabel(position: string | null) { return ({ GOLEIRO: "Goleiro", LATERAL: "Lateral", ZAGUEIRO: "Zagueiro", VOLANTE: "Volante", MEIA: "Meia", ATACANTE: "Atacante" } as Record<string, string>)[position || ""] || "-"; }
 function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">{label}</p><p className="mt-1 text-xl font-black text-[#101010]">{value}</p></div>; }
