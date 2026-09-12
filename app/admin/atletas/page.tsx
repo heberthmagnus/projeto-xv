@@ -72,8 +72,16 @@ function findPossibleDuplicates(athletes: Athlete[]) {
   return pairs;
 }
 
-function samePhone(first: string | null, second: string | null) { return Boolean(first && second && first.replace(/\D/g, "") === second.replace(/\D/g, "")); }
-function sameEmail(first: string | null, second: string | null) { return Boolean(first && second && first.trim().toLowerCase() === second.trim().toLowerCase()); }
+function samePhone(first: string | null, second: string | null) {
+  const normalizedFirst = first?.replace(/\D/g, "") ?? "";
+  const normalizedSecond = second?.replace(/\D/g, "") ?? "";
+  return Boolean(normalizedFirst && normalizedSecond && normalizedFirst === normalizedSecond);
+}
+function sameEmail(first: string | null, second: string | null) {
+  const normalizedFirst = first?.trim().toLowerCase() ?? "";
+  const normalizedSecond = second?.trim().toLowerCase() ?? "";
+  return Boolean(normalizedFirst && normalizedSecond && normalizedFirst === normalizedSecond);
+}
 function sameBirthDate(first: Date | null, second: Date | null) { return Boolean(first && second && first.toISOString().slice(0, 10) === second.toISOString().slice(0, 10)); }
 function hasSimilarName(first: string, second: string) { const a = first.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/); const b = second.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/); const shared = a.filter((part) => part.length > 2 && b.includes(part)); return shared.length >= 2 || (a.length > 1 && b.length > 1 && a[0] === b[0] && a.at(-1) === b.at(-1)); }
 function positionLabel(position: string | null) { return ({ GOLEIRO: "Goleiro", LATERAL: "Lateral", ZAGUEIRO: "Zagueiro", VOLANTE: "Volante", MEIA: "Meia", ATACANTE: "Atacante" } as Record<string, string>)[position || ""] || "-"; }

@@ -52,6 +52,7 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
       awayScore: true,
       referee: true,
       notes: true,
+      matchReport: true,
       championship: {
         select: {
           name: true,
@@ -229,6 +230,16 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
         <section className="grid gap-4 md:grid-cols-2">
           <PlayersCard team={match.homeTeam} players={homePlayers} />
           <PlayersCard team={match.awayTeam} players={awayPlayers} />
+        </section>
+
+        <section className="xv-card">
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Documento da partida</p>
+          <h2 className="mt-1 text-2xl font-black">Súmula do jogo</h2>
+          {match.matchReport ? (
+            <p className="mt-4 whitespace-pre-wrap leading-7 text-[#374151]">{match.matchReport}</p>
+          ) : (
+            <p className="mt-4 text-[#6B7280]">A súmula desta partida ainda não foi publicada.</p>
+          )}
         </section>
       </PageContainer>
     </main>

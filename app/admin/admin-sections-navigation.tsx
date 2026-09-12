@@ -36,6 +36,10 @@ const links: NavigationItem[] = [
         label: "Divisão dos Times",
         href: getAdminChampionshipAdvancedSimulationPath("interno-campao-2026"),
       },
+      {
+        label: "Lançar resultados",
+        href: "/admin/interno-campao-2026/jogos",
+      },
     ],
   },
   {
@@ -63,7 +67,9 @@ const links: NavigationItem[] = [
 
 export function AdminSectionsNavigation() {
   const pathname = usePathname();
-  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [expandedSections, setExpandedSections] = useState<string[]>(
+    links.filter((link) => link.match(pathname)).map((link) => link.label),
+  );
 
   function toggleSection(label: string) {
     setExpandedSections((sections) =>

@@ -155,6 +155,7 @@ model Match {
   createdAt      DateTime                   @default(now())
   location       String?
   notes          String?
+  matchReport    String?
   referee        String?
   roundNumber    Int?
   scheduledAt    DateTime?

@@ -8,6 +8,7 @@ type Tab = "CLASSIFICACAO" | "ARTILHARIA" | "CARTOES" | "ELENCOS" | "REGULAMENTO
 
 type Team = { category: Category; order: number; name: string; slug: string | null; icon: string | null; players: string[] };
 type Game = {
+  id: string;
   category: Category;
   round: number;
   order: number;
@@ -197,7 +198,7 @@ function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: str
         </select>
       </div>
       <div className="divide-y divide-[#E5E7EB]">
-        {games.map((game) => <article key={`${game.home}-${game.away}`} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{formatGameDateTime(game.scheduledAt)}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_3.75rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{game.homeSlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.homeSlug}`}>{game.home}</Link> : game.home}</span><CountryFlag icon={game.homeIcon} name={game.home} className="text-2xl"/><strong className="whitespace-nowrap text-center text-[#A3A3A3]">{game.status === "FINALIZADO" ? `${game.homeScore} × ${game.awayScore}` : "×"}</strong><CountryFlag icon={game.awayIcon} name={game.away} className="text-2xl"/><span className="truncate text-left font-semibold">{game.awaySlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.awaySlug}`}>{game.away}</Link> : game.away}</span></div></article>)}
+        {games.map((game) => <article key={game.id} className="py-8 text-center"><p className="text-base font-bold text-[#57534E]">{formatGameDateTime(game.scheduledAt)}</p><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2rem_3.75rem_2rem_minmax(0,1fr)] items-center gap-2 text-xl"><span className="truncate text-right font-semibold">{game.homeSlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.homeSlug}`}>{game.home}</Link> : game.home}</span><CountryFlag icon={game.homeIcon} name={game.home} className="text-2xl"/><Link href={`/campeonatos/interno-campao-2026/jogos/${game.id}`} className="whitespace-nowrap text-center font-black text-[#8B6914] hover:underline" aria-label={`Ver resultado e súmula de ${game.home} x ${game.away}`}>{game.status === "FINALIZADO" ? `${game.homeScore} × ${game.awayScore}` : "×"}</Link><CountryFlag icon={game.awayIcon} name={game.away} className="text-2xl"/><span className="truncate text-left font-semibold">{game.awaySlug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${game.awaySlug}`}>{game.away}</Link> : game.away}</span></div><Link href={`/campeonatos/interno-campao-2026/jogos/${game.id}`} className="mt-3 inline-block text-sm font-bold text-[#8B6914] hover:underline">Ver resultado e súmula</Link></article>)}
       </div>
     </section>
   );
