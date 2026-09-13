@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
+import { getPreferredPlayerName } from "@/lib/player-display-name";
 
 const basePath = "/admin/interno-campao-2026/jogos";
 
@@ -174,7 +175,7 @@ async function resolveMatchPlayer(championshipId: string, matchId: string, champ
     await prisma.registration.update({ where: { id: championshipPlayer.registrationId }, data: { athleteProfileId: playerId } });
   }
 
-  return { teamId: championshipPlayer.teamId, playerId, playerName: championshipPlayer.registration.nickname || championshipPlayer.registration.fullName };
+  return { teamId: championshipPlayer.teamId, playerId, playerName: getPreferredPlayerName(championshipPlayer.registration.nickname, championshipPlayer.registration.fullName) };
 }
 
 async function syncParticipation(tx: Prisma.TransactionClient, matchId: string, playerId: string, teamId: string) {

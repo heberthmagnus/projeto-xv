@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
+import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
 import { MatchResultsManager, type AdminMatch } from "./match-results-manager";
 
@@ -35,6 +36,6 @@ type TeamWithPlayers = Prisma.TeamGetPayload<{ include: { players: { include: { 
 function mapTeam(team: TeamWithPlayers) {
   return {
     id: team.id, name: team.name, shortName: team.shortName, icon: team.icon,
-    players: team.players.map((player) => ({ id: player.id, profileId: player.registration.athleteProfileId, name: player.registration.nickname || player.registration.fullName })),
+    players: team.players.map((player) => ({ id: player.id, profileId: player.registration.athleteProfileId, name: getPreferredPlayerName(player.registration.nickname, player.registration.fullName) })),
   };
 }
