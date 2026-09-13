@@ -145,15 +145,21 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
         <Link href={getChampionshipBasePath(match.championship.slug)} className="inline-flex min-h-10 items-center rounded-full border border-[#D4D4D8] bg-white px-4 text-sm font-bold text-[#303030] transition hover:border-[#B89020] hover:text-[#8B6914]">← Voltar ao campeonato</Link>
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px_minmax(0,1fr)]">
+          <div className="xv-card p-4 text-center xl:col-span-3">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Placar</p>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xl font-black text-[#101010] sm:flex-nowrap sm:text-2xl">
+              <span className="whitespace-nowrap">{match.homeTeam.shortName || match.homeTeam.name}</span>
+              <span className="text-2xl sm:text-3xl">{match.homeTeam.icon || null}</span>
+              <span className="whitespace-nowrap text-3xl text-[#8B6914] sm:text-4xl">{match.homeScore ?? "-"} <span className="text-[#A3A3A3]">×</span> {match.awayScore ?? "-"}</span>
+              <span className="text-2xl sm:text-3xl">{match.awayTeam.icon || null}</span>
+              <span className="whitespace-nowrap">{match.awayTeam.shortName || match.awayTeam.name}</span>
+            </div>
+          </div>
+
           <TeamResultCard team={match.homeTeam} participations={match.participations.filter((item) => item.teamId === match.homeTeam.id)} blueCards={blueCardRows.filter((item) => item.teamId === match.homeTeam.id)} />
 
           <aside className="xv-card text-center">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-              <TeamScoreLabel team={match.homeTeam} align="right" />
-              <div><p className="text-[0.65rem] font-bold uppercase tracking-[.14em] text-[#8B6914]">Placar</p><p className="mt-1 whitespace-nowrap text-3xl font-black tracking-tight text-[#101010]">{match.homeScore ?? "-"} <span className="text-[#A3A3A3]">×</span> {match.awayScore ?? "-"}</p></div>
-              <TeamScoreLabel team={match.awayTeam} align="left" />
-            </div>
-            <div className="mt-5 border-t border-[#E5E7EB] pt-5 text-left">
+            <div className="text-left">
             <h2 className="text-lg font-black text-[#101010]">Dados do jogo</h2>
             <div className="mt-4 grid gap-3 text-sm text-[#4B5563]">
               <InfoRow label="Árbitro" value={match.referee || "-"} />
@@ -219,20 +225,6 @@ function CardCell({ color, count }: { color: "yellow" | "blue" | "red"; count: n
   const colors = { yellow: "bg-[#FACC15]", blue: "bg-[#2563EB]", red: "bg-[#EF4444]" };
   const label = { yellow: "amarelo", blue: "azul", red: "vermelho" };
   return <td className="py-2 text-center"><i aria-label={count ? `${count} cartão(ões) ${label[color]}` : `Nenhum cartão ${label[color]}`} className={`inline-block h-4 w-3 rounded-sm shadow-sm ${count ? colors[color] : "bg-[#C7C7C7]"}`} /></td>;
-}
-
-function TeamScoreLabel({
-  team,
-  align,
-}: {
-  team: { name: string; shortName: string | null; icon: string | null };
-  align: "left" | "right";
-}) {
-  return (
-    <div className={`min-w-0 ${align === "right" ? "text-right" : "text-left"}`}>
-      <span className={`flex items-center gap-1.5 text-sm font-black text-[#101010] ${align === "right" ? "justify-end" : ""}`}><span className="text-xl">{team.icon || null}</span><span className="truncate">{team.shortName || team.name}</span></span>
-    </div>
-  );
 }
 
 type TeamWithRoster = {
