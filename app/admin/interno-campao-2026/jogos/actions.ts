@@ -1,6 +1,6 @@
 "use server";
 
-import { MatchEventType, MatchStatus, Prisma } from "@prisma/client";
+import { MatchEventType, MatchStatus, Prisma, SuspensionStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
@@ -10,6 +10,32 @@ import { getPreferredPlayerName } from "@/lib/player-display-name";
 
 const basePath = "/admin/interno-campao-2026/jogos";
 
+export type MatchSaveState = { status: "idle" | "success" | "error"; message: string };
+
+export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormData): Promise<MatchSaveState> {
+  try {
+    await saveMatchResult(formData);
+    await saveMatchSchedule(formData);
+    await saveMatchReport(formData);
+    for (const teamId of formData.getAll("teamId").map(String)) {
+      const teamData = new FormData();
+      teamData.set("matchId", String(formData.get("matchId") || ""));
+      teamData.set("teamId", teamId);
+      for (const championshipPlayerId of formData.getAll(`playerId:${teamId}`).map(String)) {
+        teamData.append("playerId", championshipPlayerId);
+        for (const field of ["played", "goals", "yellow", "blue", "red"]) {
+          const value = formData.get(`${field}:${championshipPlayerId}`);
+          if (value !== null) teamData.append(`${field}:${championshipPlayerId}`, value);
+        }
+      }
+      await saveTeamMatchSheet(teamData);
+    }
+    return { status: "success", message: "Todas as alterações da súmula foram salvas." };
+  } catch (error) {
+    return { status: "error", message: error instanceof Error ? error.message : "Não foi possível salvar as alterações." };
+  }
+}
+
 export async function saveMatchResult(formData: FormData) {
   await requireAdmin();
   const championship = await ensureInternoCampao2026Championship();
@@ -17,7 +43,10 @@ export async function saveMatchResult(formData: FormData) {
   const homeScore = Number(formData.get("homeScore"));
   const awayScore = Number(formData.get("awayScore"));
   if (!id || !Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) throw new Error("Informe placares válidos.");
-  await prisma.match.updateMany({ where: { id, championshipId: championship.id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
+  await prisma.$transaction(async (tx) => {
+    await tx.match.updateMany({ where: { id, championshipId: championship.id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
+    await refreshSuspensionStatuses(tx, championship.id);
+  });
   finish();
 }
 
@@ -69,7 +98,7 @@ export async function saveTeamMatchSheet(formData: FormData) {
     const hasStats = Object.values(stats).some((value) => value > 0);
     await prisma.$transaction(async (tx) => {
       await tx.matchEvent.deleteMany({
-        where: { matchId, teamId, playerId, type: { in: ["GOL", "CARTAO_AMARELO", "CARTAO_AZUL", "CARTAO_VERMELHO"] } },
+        where: { matchId, teamId, playerId, player: playerName, type: { in: ["GOL", "CARTAO_AMARELO", "CARTAO_AZUL", "CARTAO_VERMELHO"] } },
       });
       const events = [
         ["GOL", stats.goals], ["CARTAO_AMARELO", stats.yellow], ["CARTAO_AZUL", stats.blue], ["CARTAO_VERMELHO", stats.red],
@@ -86,6 +115,7 @@ export async function saveTeamMatchSheet(formData: FormData) {
       } else {
         await tx.matchPlayerParticipation.deleteMany({ where: { matchId, playerId, teamId } });
       }
+      await syncDisciplinarySuspensions(tx, championship.id, playerId, teamId);
     });
   }
   finish();
@@ -103,6 +133,7 @@ export async function addMatchEvent(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     await tx.matchEvent.create({ data: { matchId, teamId, playerId, player: playerName, type: rawType as MatchEventType, quantity } });
     await syncParticipation(tx, matchId, playerId, teamId);
+    await syncDisciplinarySuspensions(tx, championship.id, playerId, teamId);
   });
   finish();
 }
@@ -137,6 +168,8 @@ export async function updateMatchEvent(formData: FormData) {
     await tx.matchEvent.update({ where: { id: eventId }, data: { teamId, playerId, player: playerName, type: rawType as MatchEventType, quantity } });
     if (event.playerId && event.teamId) await syncParticipation(tx, matchId, event.playerId, event.teamId);
     await syncParticipation(tx, matchId, playerId, teamId);
+    if (event.playerId && event.teamId) await syncDisciplinarySuspensions(tx, championship.id, event.playerId, event.teamId);
+    await syncDisciplinarySuspensions(tx, championship.id, playerId, teamId);
   });
   finish();
 }
@@ -176,6 +209,49 @@ async function resolveMatchPlayer(championshipId: string, matchId: string, champ
   }
 
   return { teamId: championshipPlayer.teamId, playerId, playerName: getPreferredPlayerName(championshipPlayer.registration.nickname, championshipPlayer.registration.fullName) };
+}
+
+async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, championshipId: string, playerId: string, teamId: string) {
+  const events = await tx.matchEvent.findMany({
+    where: { playerId, teamId, type: { in: ["CARTAO_AMARELO", "CARTAO_VERMELHO"] }, match: { championshipId } },
+    select: { id: true, type: true, quantity: true, match: { select: { id: true, round: true } } },
+    orderBy: [{ match: { round: "asc" } }, { id: "asc" }],
+  });
+
+  const triggers = events.filter((event) => event.type === "CARTAO_VERMELHO").map((event) => ({ event, reason: "Cartão vermelho" }));
+  let yellowCards = 0;
+  for (const event of events.filter((item) => item.type === "CARTAO_AMARELO")) {
+    const before = yellowCards;
+    yellowCards += event.quantity;
+    if (Math.floor(yellowCards / 3) > Math.floor(before / 3)) triggers.push({ event, reason: "3 cartões amarelos" });
+  }
+
+  for (const { event, reason } of triggers) {
+    const nextFinishedMatch = await tx.match.findFirst({
+      where: { championshipId, status: MatchStatus.FINALIZADO, round: { gt: event.match.round }, OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }] },
+      select: { id: true },
+    });
+    const status = nextFinishedMatch ? SuspensionStatus.CUMPRIDA : SuspensionStatus.ATIVA;
+    const existing = await tx.suspension.findFirst({ where: { relatedEventId: event.id }, select: { id: true } });
+    if (existing) await tx.suspension.update({ where: { id: existing.id }, data: { status, reason, matchesSuspended: 1 } });
+    else await tx.suspension.create({ data: { championshipId, playerId, teamId, reason, relatedEventId: event.id, relatedMatchId: event.match.id, matchesSuspended: 1, status } });
+  }
+}
+
+async function refreshSuspensionStatuses(tx: Prisma.TransactionClient, championshipId: string) {
+  const suspensions = await tx.suspension.findMany({
+    where: { championshipId, relatedMatchId: { not: null } },
+    select: { id: true, status: true, teamId: true, relatedMatch: { select: { round: true } } },
+  });
+  for (const suspension of suspensions) {
+    if (!suspension.relatedMatch) continue;
+    const nextFinishedMatch = await tx.match.findFirst({
+      where: { championshipId, status: MatchStatus.FINALIZADO, round: { gt: suspension.relatedMatch.round }, OR: [{ homeTeamId: suspension.teamId }, { awayTeamId: suspension.teamId }] },
+      select: { id: true },
+    });
+    const status = nextFinishedMatch ? SuspensionStatus.CUMPRIDA : SuspensionStatus.ATIVA;
+    if (status !== suspension.status) await tx.suspension.update({ where: { id: suspension.id }, data: { status } });
+  }
 }
 
 async function syncParticipation(tx: Prisma.TransactionClient, matchId: string, playerId: string, teamId: string) {

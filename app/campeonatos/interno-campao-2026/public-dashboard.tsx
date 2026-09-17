@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Category = "ADULTO" | "MASTER";
@@ -22,11 +22,21 @@ type Game = {
   away: string;
   awaySlug: string | null;
   awayIcon: string | null;
-  scorers: Array<{ name: string; team: string; quantity: number }>;
-  cards: Array<{ name: string; team: string; quantity: number; type: "AMARELO" | "AZUL" | "VERMELHO" }>;
+  scorers: Array<{ name: string; team: string; icon: string | null; quantity: number }>;
+  cards: Array<{
+    playerId: string | null;
+    teamId: string | null;
+    name: string;
+    team: string;
+    quantity: number;
+    type: "AMARELO" | "AZUL" | "VERMELHO";
+    matchId: string;
+    matchLabel: string;
+  }>;
 };
 
-type Props = { teams: Team[]; matches: Game[] };
+type Suspension = { playerId: string; reason: string; team: string };
+type Props = { teams: Team[]; matches: Game[]; suspensions: Suspension[] };
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "CLASSIFICACAO", label: "Classificação" },
@@ -36,7 +46,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "REGULAMENTO", label: "Regulamento" },
 ];
 
-export function CampaoPublicDashboard({ teams, matches }: Props) {
+export function CampaoPublicDashboard({ teams, matches, suspensions }: Props) {
   const [category, setCategory] = useState<Category>("ADULTO");
   const [tab, setTab] = useState<Tab>("CLASSIFICACAO");
   const [round, setRound] = useState(1);
@@ -110,7 +120,7 @@ export function CampaoPublicDashboard({ teams, matches }: Props) {
       ) : null}
 
       {tab === "ARTILHARIA" ? <ScorersModule label={label} matches={categoryMatches} /> : null}
-      {tab === "CARTOES" ? <CardsModule label={label} matches={categoryMatches} /> : null}
+      {tab === "CARTOES" ? <CardsModule label={label} matches={categoryMatches} suspensions={suspensions} /> : null}
       {tab === "ELENCOS" ? <RosterModule teams={categoryTeams} label={label} /> : null}
       {tab === "REGULAMENTO" ? <RulesModule /> : null}
     </div>
@@ -204,26 +214,95 @@ function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: str
   );
 }
 
-function EmptyModule({ title, description }: { title: string; description: string }) {
-  return <section className="xv-card py-12 text-center"><h2 className="text-2xl font-black">{title}</h2><p className="mx-auto mt-3 max-w-xl text-[#6B7280]">{description}</p></section>;
-}
-
 function ScorersModule({ label, matches }: { label: string; matches: Game[] }) {
   const scorers = useMemo(() => {
-    const totals = new Map<string, { name: string; team: string; goals: number }>();
+    const totals = new Map<string, { name: string; team: string; icon: string | null; goals: number }>();
     matches.flatMap((match) => match.scorers).forEach((item) => { const key = `${item.name}:${item.team}`; const current = totals.get(key) || { ...item, goals: 0 }; current.goals += item.quantity; totals.set(key, current); });
     return Array.from(totals.values()).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "pt-BR"));
   }, [matches]);
-  return <StatsModule title={`Artilharia ${label}`} empty="Nenhum gol lançado ainda." rows={scorers.map((item) => ({ label: `${item.name} · ${item.team}`, value: `⚽ ${item.goals}` }))} />;
+  return <StatsModule title={`Artilharia ${label}`} empty="Nenhum gol lançado ainda." rows={scorers.map((item) => ({ label: <span className="inline-flex items-center gap-2"><CountryFlag icon={item.icon} name={item.team} className="text-xl" />{item.name}</span>, value: `⚽ ${item.goals}` }))} />;
 }
 
-function CardsModule({ label, matches }: { label: string; matches: Game[] }) {
-  const cards = useMemo(() => matches.flatMap((match) => match.cards || []).filter((item) => item?.name && item?.type).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [matches]);
-  const icon = { AMARELO: "🟨", AZUL: "🟦", VERMELHO: "🟥" } as const;
-  return <StatsModule title={`Cartões e suspensões ${label}`} empty="Nenhum cartão lançado ainda." rows={cards.map((item) => ({ label: `${item.name} · ${item.team}`, value: `${icon[item.type]} ${item.quantity}` }))} />;
+function CardsModule({ label, matches, suspensions }: { label: string; matches: Game[]; suspensions: Suspension[] }) {
+  const players = useMemo(() => {
+    type CardType = Game["cards"][number]["type"];
+    type GameCards = { label: string; totals: Record<CardType, number> };
+    type PlayerCards = { playerId: string | null; name: string; team: string; totals: Record<CardType, number>; games: Map<string, GameCards> };
+    const emptyTotals = (): Record<CardType, number> => ({ AMARELO: 0, AZUL: 0, VERMELHO: 0 });
+    const grouped = new Map<string, PlayerCards>();
+
+    for (const item of matches.flatMap((match) => match.cards || [])) {
+      if (!item?.name || !item?.type || item.quantity < 1) continue;
+      const fallbackKey = `${item.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR")}:${item.team}`;
+      const key = item.playerId && item.teamId ? `profile:${item.teamId}:${item.playerId}` : `legacy:${fallbackKey}`;
+      const player = grouped.get(key) || { playerId: item.playerId, name: item.name, team: item.team, totals: emptyTotals(), games: new Map<string, GameCards>() };
+      const game = player.games.get(item.matchId) || { label: item.matchLabel, totals: emptyTotals() };
+      game.totals[item.type] += item.quantity;
+      player.games.set(item.matchId, game);
+      grouped.set(key, player);
+    }
+
+    for (const player of grouped.values()) {
+      player.totals = emptyTotals();
+      for (const game of player.games.values()) {
+        // O cartão azul no mesmo jogo de um amarelo é uma consequência disciplinar,
+        // não uma nova ocorrência para o acumulado do atleta.
+        if (game.totals.AMARELO > 0 && game.totals.AZUL > 0) game.totals.AZUL = 0;
+        for (const type of ["AMARELO", "AZUL", "VERMELHO"] as const) player.totals[type] += game.totals[type];
+      }
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const totalA = a.totals.AMARELO + a.totals.AZUL + a.totals.VERMELHO;
+      const totalB = b.totals.AMARELO + b.totals.AZUL + b.totals.VERMELHO;
+      return totalB - totalA || a.name.localeCompare(b.name, "pt-BR");
+    });
+  }, [matches]);
+
+  return (
+    <section className="xv-card">
+      <div className="border-b border-[#E5E7EB] pb-3">
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p>
+        <h2 className="mt-1 text-2xl font-black">Cartões e suspensões</h2>
+        <p className="mt-1 text-sm text-[#6B7280]">Totais por atleta e as partidas em que cada cartão foi aplicado.</p>
+      </div>
+      {players.length ? (
+        <div className="mx-auto mt-4 grid max-w-4xl gap-3">
+          {players.map((player) => {
+            const suspension = suspensions.find((item) => item.playerId === player.playerId && item.team === player.team);
+            return (
+            <article key={`${player.name}:${player.team}`} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><h3 className="font-black text-[#303030]">{player.name}</h3><p className="text-sm text-[#6B7280]">{player.team}</p>{suspension ? <p className="mt-1 w-fit rounded-full bg-[#FFF0F0] px-2 py-1 text-xs font-bold text-[#B42318]">Suspenso na próxima rodada · {suspension.reason}</p> : null}</div>
+                <CardTotals totals={player.totals} />
+              </div>
+              <ul className="mt-3 divide-y divide-[#E5E7EB] border-t border-[#E5E7EB]">
+                {Array.from(player.games.values()).map((game) => (
+                  <li key={game.label} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                    <span className="font-semibold text-[#4B5563]">{game.label}</span>
+                    <CardTotals totals={game.totals} compact />
+                  </li>
+                ))}
+              </ul>
+            </article>
+            );
+          })}
+        </div>
+      ) : <p className="py-10 text-center text-[#6B7280]">Nenhum cartão lançado ainda.</p>}
+    </section>
+  );
 }
 
-function StatsModule({ title, empty, rows }: { title: string; empty: string; rows: Array<{ label: string; value: string }> }) {
+function CardTotals({ totals, compact = false }: { totals: { AMARELO: number; AZUL: number; VERMELHO: number }; compact?: boolean }) {
+  const entries = [
+    ["AMARELO", "🟨", "bg-[#FFF7D6] text-[#855D00]"],
+    ["AZUL", "🟦", "bg-[#E9F1FF] text-[#1952A6]"],
+    ["VERMELHO", "🟥", "bg-[#FFF0F0] text-[#B42318]"],
+  ] as const;
+  return <span className="flex items-center gap-1.5" aria-label="Cartões"><span className="sr-only">Cartões: </span>{entries.filter(([type]) => totals[type] > 0).map(([type, icon, color]) => <span key={type} className={`rounded-full px-2 py-1 font-bold ${compact ? "text-xs" : "text-sm"} ${color}`}>{icon} {totals[type]}</span>)}</span>;
+}
+
+function StatsModule({ title, empty, rows }: { title: string; empty: string; rows: Array<{ label: ReactNode; value: string }> }) {
   return <section className="xv-card"><h2 className="text-center text-2xl font-black">{title}</h2>{rows.length ? <div className="mx-auto mt-5 max-w-2xl divide-y divide-[#E5E7EB]">{rows.map((row, index) => <div key={`${row.label}-${index}`} className="flex items-center justify-between gap-4 px-3 py-3"><span className="font-semibold text-[#303030]">{row.label}</span><strong>{row.value}</strong></div>)}</div> : <p className="py-10 text-center text-[#6B7280]">{empty}</p>}</section>;
 }
 

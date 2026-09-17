@@ -11,10 +11,63 @@ export default async function InternoCampaoPublicPage() {
   const championship = await prisma.championship.findUniqueOrThrow({
     where: { slug: "interno-campao-2026" },
     select: {
-      teams: { orderBy: { displayOrder: "asc" }, select: { groupLabel: true, displayOrder: true, team: { select: { id: true, name: true, shortName: true, slug: true, icon: true, players: { where: { championship: { slug: "interno-campao-2026" } }, orderBy: { rosterOrder: "asc" }, select: { registration: { select: { fullName: true, nickname: true } } } } } } } },
-      matches: { orderBy: [{ round: "asc" }, { scheduledAt: "asc" }], select: { id: true, round: true, roundNumber: true, scheduledAt: true, status: true, homeScore: true, awayScore: true, participations: { where: { OR: [{ goals: { gt: 0 } }, { yellowCards: { gt: 0 } }, { redCards: { gt: 0 } }] }, select: { goals: true, yellowCards: true, redCards: true, player: { select: { fullName: true, nickname: true } }, team: { select: { shortName: true, name: true } } } }, events: { where: { type: "CARTAO_AZUL" }, select: { player: true, quantity: true, team: { select: { shortName: true, name: true } } } }, homeTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } }, awayTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } } } },
+      teams: { orderBy: { displayOrder: "asc" }, select: { groupLabel: true, displayOrder: true, team: { select: { id: true, name: true, shortName: true, slug: true, icon: true, players: { where: { championship: { slug: "interno-campao-2026" } }, orderBy: { rosterOrder: "asc" }, select: { registration: { select: { fullName: true, nickname: true, athleteProfileId: true } } } } } } } },
+      suspensions: { where: { status: "ATIVA" }, select: { playerId: true, reason: true, team: { select: { shortName: true, name: true } } } },
+      matches: { orderBy: [{ round: "asc" }, { scheduledAt: "asc" }], select: { id: true, round: true, roundNumber: true, scheduledAt: true, status: true, homeScore: true, awayScore: true, participations: { where: { OR: [{ goals: { gt: 0 } }, { yellowCards: { gt: 0 } }, { redCards: { gt: 0 } }] }, select: { goals: true, yellowCards: true, redCards: true, player: { select: { id: true, fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } }, events: { where: { type: "CARTAO_AZUL" }, select: { player: true, playerId: true, quantity: true, athlete: { select: { fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true } } } }, homeTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } }, awayTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } } } },
     },
   });
   const categoryByTeamId = new Map(championship.teams.map((entry) => [entry.team.id, entry.groupLabel === "MASTER" ? "MASTER" : "ADULTO"] as const));
-  return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={championship.teams.map((entry) => ({ category: entry.groupLabel === "MASTER" ? "MASTER" : "ADULTO", order: entry.displayOrder ?? 0, name: entry.team.shortName || entry.team.name, slug: entry.team.slug, icon: entry.team.icon, players: entry.team.players.map((player) => getPreferredPlayerName(player.registration.nickname, player.registration.fullName)) }))} matches={championship.matches.map((match) => ({ id: match.id, category: categoryByTeamId.get(match.homeTeam.id) ?? "ADULTO", round: match.round, order: match.roundNumber ?? 0, scheduledAt: match.scheduledAt?.toISOString() ?? null, status: match.status, homeScore: match.homeScore, awayScore: match.awayScore, home: match.homeTeam.shortName || match.homeTeam.name, homeSlug: match.homeTeam.slug, homeIcon: match.homeTeam.icon, away: match.awayTeam.shortName || match.awayTeam.name, awaySlug: match.awayTeam.slug, awayIcon: match.awayTeam.icon, scorers: match.participations.filter((item) => item.goals > 0).map((item) => ({ name: getPreferredPlayerName(item.player.nickname, item.player.fullName), team: item.team.shortName || item.team.name, quantity: item.goals })), cards: [...match.participations.flatMap((item) => [{ name: getPreferredPlayerName(item.player.nickname, item.player.fullName), team: item.team.shortName || item.team.name, quantity: item.yellowCards, type: "AMARELO" as const }, { name: getPreferredPlayerName(item.player.nickname, item.player.fullName), team: item.team.shortName || item.team.name, quantity: item.redCards, type: "VERMELHO" as const }]).filter((item) => item.quantity > 0), ...match.events.map((item) => ({ name: item.player, team: item.team?.shortName || item.team?.name || "", quantity: item.quantity, type: "AZUL" as const }))] }))} /></PageContainer></main>;
+  const profileIdByTeamAndName = new Map<string, string>();
+  const playerNameByTeamAndProfile = new Map<string, string>();
+  for (const entry of championship.teams) {
+    for (const player of entry.team.players) {
+      const profileId = player.registration.athleteProfileId;
+      if (!profileId) continue;
+      playerNameByTeamAndProfile.set(`${entry.team.id}:${profileId}`, getPreferredPlayerName(player.registration.nickname, player.registration.fullName));
+      for (const name of [player.registration.fullName, player.registration.nickname]) {
+        if (name?.trim()) profileIdByTeamAndName.set(`${entry.team.id}:${normalizePlayerName(name)}`, profileId);
+      }
+    }
+  }
+  const teams = championship.teams.map((entry) => ({
+    category: (entry.groupLabel === "MASTER" ? "MASTER" : "ADULTO") as "MASTER" | "ADULTO",
+    order: entry.displayOrder ?? 0,
+    name: entry.team.shortName || entry.team.name,
+    slug: entry.team.slug,
+    icon: entry.team.icon,
+    players: entry.team.players.map((player) => getPreferredPlayerName(player.registration.nickname, player.registration.fullName)),
+  }));
+  const matches = championship.matches.map((match) => {
+    const matchLabel = `Rodada ${match.round} · ${match.homeTeam.shortName || match.homeTeam.name} ${match.homeScore ?? "–"} × ${match.awayScore ?? "–"} ${match.awayTeam.shortName || match.awayTeam.name}`;
+    return {
+      id: match.id,
+      category: (categoryByTeamId.get(match.homeTeam.id) ?? "ADULTO") as "MASTER" | "ADULTO",
+      round: match.round,
+      order: match.roundNumber ?? 0,
+      scheduledAt: match.scheduledAt?.toISOString() ?? null,
+      status: match.status,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      home: match.homeTeam.shortName || match.homeTeam.name,
+      homeSlug: match.homeTeam.slug,
+      homeIcon: match.homeTeam.icon,
+      away: match.awayTeam.shortName || match.awayTeam.name,
+      awaySlug: match.awayTeam.slug,
+      awayIcon: match.awayTeam.icon,
+      scorers: match.participations.filter((item) => item.goals > 0).map((item) => ({ name: getPreferredPlayerName(item.player.nickname, item.player.fullName), team: item.team.shortName || item.team.name, icon: item.team.icon, quantity: item.goals })),
+      cards: [
+        ...match.participations.flatMap((item) => [
+          { playerId: item.player.id, name: playerNameByTeamAndProfile.get(`${item.team.id}:${item.player.id}`) ?? getPreferredPlayerName(item.player.nickname, item.player.fullName), teamId: item.team.id, team: item.team.shortName || item.team.name, quantity: item.yellowCards, type: "AMARELO" as const, matchId: match.id, matchLabel },
+          { playerId: item.player.id, name: playerNameByTeamAndProfile.get(`${item.team.id}:${item.player.id}`) ?? getPreferredPlayerName(item.player.nickname, item.player.fullName), teamId: item.team.id, team: item.team.shortName || item.team.name, quantity: item.redCards, type: "VERMELHO" as const, matchId: match.id, matchLabel },
+        ]).filter((item) => item.quantity > 0),
+        ...match.events.map((item) => { const playerId = item.playerId ?? (item.team ? profileIdByTeamAndName.get(`${item.team.id}:${normalizePlayerName(item.player)}`) ?? null : null); return { playerId, name: item.team && playerId ? playerNameByTeamAndProfile.get(`${item.team.id}:${playerId}`) ?? item.player : item.player, teamId: item.team?.id ?? null, team: item.team?.shortName || item.team?.name || "", quantity: item.quantity, type: "AZUL" as const, matchId: match.id, matchLabel }; }),
+      ],
+    };
+  });
+  const suspensions = championship.suspensions.map((item) => ({ playerId: item.playerId, reason: item.reason, team: item.team.shortName || item.team.name }));
+  return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={teams} matches={matches} suspensions={suspensions} /></PageContainer></main>;
+}
+
+function normalizePlayerName(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
 }
