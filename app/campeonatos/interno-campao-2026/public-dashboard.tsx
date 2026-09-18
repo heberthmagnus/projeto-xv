@@ -35,7 +35,7 @@ type Game = {
   }>;
 };
 
-type Suspension = { playerId: string; reason: string; team: string };
+type Suspension = { playerId: string; name: string; reason: string; team: string; nextGame: string };
 type Props = { teams: Team[]; matches: Game[]; suspensions: Suspension[] };
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -245,9 +245,9 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
     for (const player of grouped.values()) {
       player.totals = emptyTotals();
       for (const game of player.games.values()) {
-        // O cartão azul no mesmo jogo de um amarelo é uma consequência disciplinar,
-        // não uma nova ocorrência para o acumulado do atleta.
-        if (game.totals.AMARELO > 0 && game.totals.AZUL > 0) game.totals.AZUL = 0;
+        // Cartão azul vale como amarelo. Se ambos forem lançados no jogo,
+        // permanece somente uma ocorrência amarela para o acumulado.
+        if (game.totals.AZUL > 0) { game.totals.AMARELO = Math.max(game.totals.AMARELO, game.totals.AZUL); game.totals.AZUL = 0; }
         for (const type of ["AMARELO", "AZUL", "VERMELHO"] as const) player.totals[type] += game.totals[type];
       }
     }
@@ -266,6 +266,7 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
         <h2 className="mt-1 text-2xl font-black">Cartões e suspensões</h2>
         <p className="mt-1 text-sm text-[#6B7280]">Totais por atleta e as partidas em que cada cartão foi aplicado.</p>
       </div>
+      {suspensions.length ? <div className="mt-4 rounded-2xl border border-[#F0C6C2] bg-[#FFF5F4] p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-[#B42318]">Suspensos na próxima partida</p><ul className="mt-2 grid gap-1.5 text-sm">{suspensions.map((item) => <li key={`${item.playerId}:${item.team}`}><strong>{item.name}</strong> · {item.team} · {item.reason}<span className="block text-[#6B7280]">{item.nextGame}</span></li>)}</ul></div> : null}
       {players.length ? (
         <div className="mx-auto mt-4 grid max-w-4xl gap-3">
           {players.map((player) => {
@@ -273,7 +274,7 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
             return (
             <article key={`${player.name}:${player.team}`} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div><h3 className="font-black text-[#303030]">{player.name}</h3><p className="text-sm text-[#6B7280]">{player.team}</p>{suspension ? <p className="mt-1 w-fit rounded-full bg-[#FFF0F0] px-2 py-1 text-xs font-bold text-[#B42318]">Suspenso na próxima rodada · {suspension.reason}</p> : null}</div>
+                <div><h3 className="font-black text-[#303030]">{player.name}</h3><p className="text-sm text-[#6B7280]">{player.team}</p>{suspension ? <p className="mt-1 w-fit rounded-full bg-[#FFF0F0] px-2 py-1 text-xs font-bold text-[#B42318]">Suspenso · {suspension.reason} · {suspension.nextGame}</p> : null}</div>
                 <CardTotals totals={player.totals} />
               </div>
               <ul className="mt-3 divide-y divide-[#E5E7EB] border-t border-[#E5E7EB]">

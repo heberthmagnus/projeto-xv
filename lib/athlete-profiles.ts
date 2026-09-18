@@ -70,6 +70,7 @@ export async function listAthleteProfilePrefillOptions() {
 }
 
 export async function syncAthleteProfileFromRegistration(input: {
+  athleteProfileId?: string | null;
   fullName: string;
   nickname?: string | null;
   preferredPosition: PreferredPosition;
@@ -79,6 +80,23 @@ export async function syncAthleteProfileFromRegistration(input: {
   level?: PlayerLevel | null;
 }) {
   const normalizedFullName = normalizeFullName(input.fullName);
+
+  if (input.athleteProfileId) {
+    const profile = await prisma.athleteProfile.update({
+      where: { id: input.athleteProfileId },
+      data: {
+        fullName: input.fullName,
+        nickname: input.nickname || null,
+        preferredPosition: input.preferredPosition,
+        birthDate: input.birthDate,
+        phone: input.phone,
+        email: input.email || null,
+        defaultLevel: input.level ?? undefined,
+      },
+      select: { id: true },
+    });
+    return profile.id;
+  }
 
   const profile = await prisma.athleteProfile.upsert({
     where: {

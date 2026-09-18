@@ -12,7 +12,7 @@ export default async function InternoCampaoPublicPage() {
     where: { slug: "interno-campao-2026" },
     select: {
       teams: { orderBy: { displayOrder: "asc" }, select: { groupLabel: true, displayOrder: true, team: { select: { id: true, name: true, shortName: true, slug: true, icon: true, players: { where: { championship: { slug: "interno-campao-2026" } }, orderBy: { rosterOrder: "asc" }, select: { registration: { select: { fullName: true, nickname: true, athleteProfileId: true } } } } } } } },
-      suspensions: { where: { status: "ATIVA" }, select: { playerId: true, reason: true, team: { select: { shortName: true, name: true } } } },
+      suspensions: { where: { status: "ATIVA" }, select: { playerId: true, reason: true, player: { select: { fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true } } } },
       matches: { orderBy: [{ round: "asc" }, { scheduledAt: "asc" }], select: { id: true, round: true, roundNumber: true, scheduledAt: true, status: true, homeScore: true, awayScore: true, participations: { where: { OR: [{ goals: { gt: 0 } }, { yellowCards: { gt: 0 } }, { redCards: { gt: 0 } }] }, select: { goals: true, yellowCards: true, redCards: true, player: { select: { id: true, fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } }, events: { where: { type: "CARTAO_AZUL" }, select: { player: true, playerId: true, quantity: true, athlete: { select: { fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true } } } }, homeTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } }, awayTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } } } },
     },
   });
@@ -64,7 +64,17 @@ export default async function InternoCampaoPublicPage() {
       ],
     };
   });
-  const suspensions = championship.suspensions.map((item) => ({ playerId: item.playerId, reason: item.reason, team: item.team.shortName || item.team.name }));
+  const now = new Date();
+  const nextGameByTeamId = new Map<string, string>();
+  for (const match of championship.matches) {
+    if (!match.scheduledAt || match.scheduledAt < now || ["FINALIZADO", "CANCELADO"].includes(match.status)) continue;
+    const label = `Rodada ${match.round} · ${match.homeTeam.shortName || match.homeTeam.name} × ${match.awayTeam.shortName || match.awayTeam.name} · ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(match.scheduledAt)}`;
+    for (const teamId of [match.homeTeam.id, match.awayTeam.id]) if (!nextGameByTeamId.has(teamId)) nextGameByTeamId.set(teamId, label);
+  }
+  const suspensions = Array.from(new Map(championship.suspensions.flatMap((item) => {
+    const nextGame = nextGameByTeamId.get(item.team.id);
+    return nextGame ? [[`${item.playerId}:${item.team.id}`, { playerId: item.playerId, name: getPreferredPlayerName(item.player.nickname, item.player.fullName), reason: item.reason, team: item.team.shortName || item.team.name, nextGame }] as const] : [];
+  })).values());
   return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={teams} matches={matches} suspensions={suspensions} /></PageContainer></main>;
 }
 

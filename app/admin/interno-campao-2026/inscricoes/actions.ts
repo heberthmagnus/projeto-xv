@@ -65,6 +65,7 @@ export async function updateRegistrationCategoryAndLevel(formData: FormData) {
   });
 
   const athleteProfileId = await syncAthleteProfileFromRegistration({
+    athleteProfileId: registration.athleteProfileId,
     fullName: registration.fullName,
     nickname: registration.nickname,
     preferredPosition: registration.preferredPosition,
@@ -117,8 +118,9 @@ export async function updateRegistration(formData: FormData) {
     ? (rawLevel as "A" | "B" | "C" | "D" | "E")
     : null;
 
-  await requireInternoRegistration(id);
+  const existingRegistration = await requireInternoRegistration(id);
   const athleteProfileId = await syncAthleteProfileFromRegistration({
+    athleteProfileId: existingRegistration.athleteProfileId,
     fullName,
     nickname: nickname || null,
     preferredPosition: preferredPosition as (typeof POSITIONS)[number],

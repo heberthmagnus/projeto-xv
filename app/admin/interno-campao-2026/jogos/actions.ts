@@ -213,16 +213,23 @@ async function resolveMatchPlayer(championshipId: string, matchId: string, champ
 
 async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, championshipId: string, playerId: string, teamId: string) {
   const events = await tx.matchEvent.findMany({
-    where: { playerId, teamId, type: { in: ["CARTAO_AMARELO", "CARTAO_VERMELHO"] }, match: { championshipId } },
+    where: { playerId, teamId, type: { in: ["CARTAO_AMARELO", "CARTAO_AZUL", "CARTAO_VERMELHO"] }, match: { championshipId } },
     select: { id: true, type: true, quantity: true, match: { select: { id: true, round: true } } },
     orderBy: [{ match: { round: "asc" } }, { id: "asc" }],
   });
 
   const triggers = events.filter((event) => event.type === "CARTAO_VERMELHO").map((event) => ({ event, reason: "Cartão vermelho" }));
   let yellowCards = 0;
-  for (const event of events.filter((item) => item.type === "CARTAO_AMARELO")) {
+  const yellowEventsByMatch = new Map<string, { event: typeof events[number]; yellow: number; blue: number }>();
+  for (const event of events.filter((item) => item.type === "CARTAO_AMARELO" || item.type === "CARTAO_AZUL")) {
+    const current = yellowEventsByMatch.get(event.match.id) ?? { event, yellow: 0, blue: 0 };
+    if (event.type === "CARTAO_AMARELO") current.yellow += event.quantity;
+    else current.blue += event.quantity;
+    yellowEventsByMatch.set(event.match.id, current);
+  }
+  for (const { event, yellow, blue } of yellowEventsByMatch.values()) {
     const before = yellowCards;
-    yellowCards += event.quantity;
+    yellowCards += Math.max(yellow, blue);
     if (Math.floor(yellowCards / 3) > Math.floor(before / 3)) triggers.push({ event, reason: "3 cartões amarelos" });
   }
 

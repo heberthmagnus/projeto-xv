@@ -50,12 +50,12 @@ export async function executePrisma<T>(
   try {
     return await operation();
   } catch (error) {
-    logPrismaError(context, error);
-
     if (isPrismaConnectionError(error)) {
+      console.warn(`[prisma:${context}] conexão temporariamente indisponível.`);
       throw new DatabaseConnectionUnavailableError();
     }
 
+    logPrismaError(context, error);
     throw error;
   }
 }
@@ -74,15 +74,15 @@ export async function executePrismaWithFallback<T>(
       databaseUnavailable: false,
     };
   } catch (error) {
-    logPrismaError(context, error);
-
     if (isPrismaConnectionError(error)) {
+      console.warn(`[prisma:${context}] conexão temporariamente indisponível; usando dados de contingência.`);
       return {
         data: fallback,
         databaseUnavailable: true,
       };
     }
 
+    logPrismaError(context, error);
     throw error;
   }
 }
