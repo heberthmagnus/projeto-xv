@@ -72,10 +72,11 @@ function findPossibleDuplicates(athletes: Athlete[]) {
   const pairs: PossibleDuplicate[] = [];
   for (let index = 0; index < athletes.length; index += 1) for (let otherIndex = index + 1; otherIndex < athletes.length; otherIndex += 1) {
     const first = athletes[index]; const second = athletes[otherIndex]; const reasons: string[] = [];
-    // Nome é a primeira barreira: contatos podem ser de pais, responsáveis ou
-    // cadastros compartilhados e, isoladamente, não identificam um atleta.
+    // Contatos podem pertencer a pai, mãe ou responsável. O nome e a idade
+    // compatíveis são obrigatórios antes de considerar qualquer outro dado.
     if (!hasSimilarName(first.fullName, second.fullName)) continue;
-    reasons.push("nome muito parecido");
+    if (hasConflictingAge(first, second)) continue;
+    reasons.push("nome compatível");
     if (samePhone(first.phone, second.phone)) reasons.push("mesmo telefone");
     if (sameEmail(first.email, second.email)) reasons.push("mesmo e-mail");
     if (sameBirthDate(first.birthDate, second.birthDate)) reasons.push("mesma data de nascimento");
@@ -114,7 +115,20 @@ function sameEmail(first: string | null, second: string | null) {
 }
 function sameBirthDate(first: Date | null, second: Date | null) { return Boolean(first && second && first.toISOString().slice(0, 10) === second.toISOString().slice(0, 10)); }
 function sameKnownAge(first: number | null, second: number | null) { return first !== null && second !== null && first === second; }
-function hasSimilarName(first: string, second: string) { const a = first.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/); const b = second.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/); const shared = a.filter((part) => part.length > 2 && b.includes(part)); return shared.length >= 2 || (a.length > 1 && b.length > 1 && a[0] === b[0] && a.at(-1) === b.at(-1)); }
+function hasConflictingAge(first: Athlete, second: Athlete) {
+  if (first.birthDate && second.birthDate && !sameBirthDate(first.birthDate, second.birthDate)) return true;
+  const firstAge = getAthleteProfileAge(first); const secondAge = getAthleteProfileAge(second);
+  return firstAge !== null && secondAge !== null && Math.abs(firstAge - secondAge) > 1;
+}
+function hasSimilarName(first: string, second: string) {
+  const parts = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().split(/\s+/).filter((part) => part.length > 2);
+  const a = parts(first); const b = parts(second);
+  if (!a.length || !b.length || a[0] !== b[0]) return false;
+  if (a.join(" ") === b.join(" ")) return true;
+  // Mesmo primeiro nome e pelo menos um sobrenome em comum. Apenas sobrenome
+  // compartilhado não basta: irmãos e parentes seriam falsos positivos.
+  return a.slice(1).some((part) => b.slice(1).includes(part));
+}
 function positionLabel(position: string | null) { return ({ GOLEIRO: "Goleiro", LATERAL: "Lateral", ZAGUEIRO: "Zagueiro", VOLANTE: "Volante", MEIA: "Meia", ATACANTE: "Atacante" } as Record<string, string>)[position || ""] || "-"; }
 function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">{label}</p><p className="mt-1 text-xl font-black text-[#101010]">{value}</p></div>; }
 function AthleteDetails({ athlete }: { athlete: Athlete }) { return <div className="rounded-xl border border-[#ECDCA8] bg-white p-3"><p className="font-bold text-[#101010]">{athlete.fullName}</p><p className="mt-1 text-sm text-[#4B5563]">{athlete.nickname ? `${athlete.nickname} · ` : ""}{getAthleteProfileAge(athlete) ?? "idade não informada"}{getAthleteProfileAge(athlete) ? " anos" : ""}</p><p className="mt-1 text-xs text-[#6B7280]">{athlete.phone || "sem telefone"} · {athlete.email || "sem e-mail"}</p></div>; }
