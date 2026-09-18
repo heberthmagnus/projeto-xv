@@ -16,24 +16,24 @@ export function isPrismaConnectionError(error: unknown) {
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === "P1001";
+    return error.code === "P1001" || error.code === "P2024";
   }
 
   if (error instanceof Prisma.PrismaClientInitializationError) {
-    return error.message.includes("Can't reach database server");
+    return error.message.includes("Can't reach database server") || error.message.includes("Timed out fetching a new connection from the connection pool");
   }
 
   if (
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    error.code === "P1001"
+    (error.code === "P1001" || error.code === "P2024")
   ) {
     return true;
   }
 
   if (error instanceof Error) {
-    return error.message.includes("Can't reach database server");
+    return error.message.includes("Can't reach database server") || error.message.includes("Timed out fetching a new connection from the connection pool");
   }
 
   return false;

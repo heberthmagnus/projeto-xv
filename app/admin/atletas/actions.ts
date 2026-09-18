@@ -24,7 +24,7 @@ function profileData(formData: FormData) {
   return { fullName, normalizedFullName: normalizeFullName(fullName), nickname: optional(formData.get("nickname")), birthDate: optionalDate(formData.get("birthDate")), lastKnownAge: age, phone: optional(formData.get("phone")), email: optional(formData.get("email")), preferredPosition: preferredPosition as (typeof positions)[number] | null, defaultLevel: defaultLevel as (typeof levels)[number] | null };
 }
 
-function finish() { revalidatePath("/admin/atletas"); redirect("/admin/atletas"); }
+function finish(notice?: string) { revalidatePath("/admin/atletas"); redirect(`/admin/atletas${notice ? `?notice=${notice}` : ""}`); }
 
 export async function createAthlete(formData: FormData) { await requireAdmin(); await prisma.athleteProfile.create({ data: profileData(formData) }); finish(); }
 
@@ -34,7 +34,7 @@ export async function deleteAthlete(formData: FormData) {
   await requireAdmin(); const id = optional(formData.get("id")); if (!id) throw new Error("Atleta não encontrado.");
   const counts = await prisma.athleteProfile.findUnique({ where: { id }, select: { _count: { select: { registrations: true, peladaArrivals: true, peladaConfirmations: true, matchEvents: true, matchParticipations: true, suspensions: true } } } });
   if (!counts) throw new Error("Atleta não encontrado.");
-  if (Object.values(counts._count).some(Boolean)) throw new Error("Este atleta possui histórico. Use a mesclagem para preservar seus dados.");
+  if (Object.values(counts._count).some(Boolean)) finish("historico-preservado");
   await prisma.athleteProfile.delete({ where: { id } }); finish();
 }
 

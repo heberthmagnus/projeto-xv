@@ -17,10 +17,13 @@ type Athlete = {
 
 type PossibleDuplicate = { first: Athlete; second: Athlete; reasons: string[] };
 
-export default async function AthletesAdminPage() {
+export default async function AthletesAdminPage({ searchParams }: { searchParams: Promise<{ notice?: string; search?: string }> }) {
   await requireAdmin();
+  const { notice, search: rawSearch } = await searchParams;
+  const search = rawSearch?.trim() ?? "";
 
   const athletes = await prisma.athleteProfile.findMany({
+    where: search ? { OR: [{ fullName: { contains: search, mode: "insensitive" } }, { nickname: { contains: search, mode: "insensitive" } }] } : undefined,
     orderBy: { fullName: "asc" },
     select: {
       id: true, fullName: true, nickname: true, birthDate: true, lastKnownAge: true,
@@ -34,6 +37,7 @@ export default async function AthletesAdminPage() {
       <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Base do clube</p>
       <h1 className="mt-2 text-3xl font-black text-[#101010]">Cadastro de atletas</h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">Esta é a identidade única de cada atleta. Novas inscrições e confirmações aproveitam esse cadastro para reduzir duplicidades.</p>
+      {notice === "historico-preservado" ? <p role="status" className="mt-4 rounded-xl bg-[#FFF9EA] px-4 py-3 text-sm font-bold text-[#8B6914]">Este atleta possui histórico e não foi excluído. Use a mesclagem apenas se os dois cadastros forem da mesma pessoa.</p> : null}
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Atletas cadastrados" value={String(athletes.length)} />
         <Stat label="Possíveis duplicidades" value={String(possibleDuplicates.length)} />
@@ -54,6 +58,11 @@ export default async function AthletesAdminPage() {
 
     <section className="xv-card">
       <h2 className="text-xl font-black text-[#101010]">Atletas registrados</h2>
+      <form className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="grid flex-1 gap-1 text-sm font-bold text-[#374151]">Pesquisar atleta<input name="search" defaultValue={search} placeholder="Nome ou apelido" className="min-h-10 rounded-xl border border-[#D1D5DB] bg-white px-3 py-2 text-sm font-normal text-[#101010]" /></label>
+        <div className="flex gap-2"><button className="rounded-xl bg-[#1A1A1A] px-4 py-2.5 text-sm font-bold text-white">Pesquisar</button><a href="/admin/atletas" className="rounded-xl border border-[#D1D5DB] px-4 py-2.5 text-sm font-bold text-[#374151]">Limpar</a></div>
+      </form>
+      {search ? <p className="mt-3 text-sm text-[#6B7280]">{athletes.length} atleta(s) encontrado(s) para “{search}”.</p> : null}
       <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E5E7EB]"><table className="min-w-full text-sm"><thead className="bg-[#FAFAFA] text-left text-xs uppercase tracking-wide text-[#6B7280]"><tr>{["Nome", "Apelido", "Idade", "Posição", "Telefone", "E-mail", "Nível", "Ações"].map((label) => <th key={label} className="border-b px-4 py-3">{label}</th>)}</tr></thead><tbody>{athletes.map((athlete) => <tr key={athlete.id} className="border-b last:border-0"><td className="px-4 py-3 font-semibold text-[#101010]">{athlete.fullName}</td><td className="px-4 py-3">{athlete.nickname || "-"}</td><td className="px-4 py-3">{getAthleteProfileAge(athlete) ?? "-"}</td><td className="px-4 py-3">{positionLabel(athlete.preferredPosition)}</td><td className="px-4 py-3">{athlete.phone || "-"}</td><td className="px-4 py-3">{athlete.email || "-"}</td><td className="px-4 py-3">{athlete.defaultLevel || "-"}</td><td className="px-4 py-3"><details><summary className="cursor-pointer font-bold text-[#8B6914]">Editar</summary><div className="mt-3 min-w-80"><AthleteForm action={updateAthlete} submitLabel="Salvar" athlete={athlete} /></div></details><form action={deleteAthlete} className="mt-2"><input type="hidden" name="id" value={athlete.id} /><button className="text-xs font-bold text-[#B91C1C]">Excluir sem histórico</button></form></td></tr>)}</tbody></table></div>
     </section>
   </div></main>;

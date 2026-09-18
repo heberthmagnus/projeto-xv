@@ -7,7 +7,23 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+function getDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return undefined;
+
+  const url = new URL(databaseUrl);
+  // O pooler compartilhado do Supabase é usado por ambientes que podem abrir
+  // diversas instâncias do Next. Uma conexão por instância evita esgotar o pool.
+  if (url.hostname.endsWith(".pooler.supabase.com")) {
+    url.searchParams.set("connection_limit", "1");
+    url.searchParams.set("pool_timeout", "15");
+  }
+  return url.toString();
+}
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  datasources: { db: { url: getDatabaseUrl() } },
+});
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

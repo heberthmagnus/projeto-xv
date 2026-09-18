@@ -41,6 +41,10 @@ const links: NavigationItem[] = [
         href: "/admin/interno-campao-2026/jogos",
       },
       {
+        label: "Gerenciar elencos",
+        href: "/admin/interno-campao-2026/elencos",
+      },
+      {
         label: "IDs dos jogadores",
         href: "/admin/interno-campao-2026/ids-jogadores",
       },

@@ -4,12 +4,23 @@ import { useState } from "react";
 
 export function CopyCancelLinkButton({ cancelPath }: { cancelPath: string }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   async function handleCopy() {
     const fullUrl = new URL(cancelPath, window.location.origin).toString();
 
-    await navigator.clipboard.writeText(fullUrl);
-    setCopied(true);
+    setCopyError(false);
+    try {
+      if (!document.hasFocus() || !navigator.clipboard) {
+        throw new Error("A página não está em foco.");
+      }
+      await navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+    } catch {
+      // Alguns navegadores bloqueiam a área de transferência quando a aba perde o foco.
+      setCopyError(true);
+      return;
+    }
 
     window.setTimeout(() => {
       setCopied(false);
@@ -18,7 +29,7 @@ export function CopyCancelLinkButton({ cancelPath }: { cancelPath: string }) {
 
   return (
     <button type="button" onClick={handleCopy} style={buttonStyle}>
-      {copied ? "Link copiado" : "Copiar link de cancelamento"}
+      {copied ? "Link copiado" : copyError ? "Clique novamente com a página em foco" : "Copiar link de cancelamento"}
     </button>
   );
 }

@@ -247,7 +247,7 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
       for (const game of player.games.values()) {
         // Cartão azul vale como amarelo. Se ambos forem lançados no jogo,
         // permanece somente uma ocorrência amarela para o acumulado.
-        if (game.totals.AZUL > 0) { game.totals.AMARELO = Math.max(game.totals.AMARELO, game.totals.AZUL); game.totals.AZUL = 0; }
+        if (game.totals.AMARELO > 0 || game.totals.AZUL > 0) { game.totals.AMARELO = 1; game.totals.AZUL = 0; }
         for (const type of ["AMARELO", "AZUL", "VERMELHO"] as const) player.totals[type] += game.totals[type];
       }
     }

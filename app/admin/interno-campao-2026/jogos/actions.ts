@@ -229,7 +229,7 @@ async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, champio
   }
   for (const { event, yellow, blue } of yellowEventsByMatch.values()) {
     const before = yellowCards;
-    yellowCards += Math.max(yellow, blue);
+    yellowCards += yellow > 0 || blue > 0 ? 1 : 0;
     if (Math.floor(yellowCards / 3) > Math.floor(before / 3)) triggers.push({ event, reason: "3 cartões amarelos" });
   }
 
