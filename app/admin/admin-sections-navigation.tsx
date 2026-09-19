@@ -24,7 +24,7 @@ type NavigationItem = {
 
 const links: NavigationItem[] = [
   {
-    label: "Interno XV Campão 2026",
+    label: "Copa do Mundo 2026 - Interno XV",
     match: (pathname: string) =>
       pathname.startsWith("/admin/interno-campao-2026"),
     children: [
@@ -51,21 +51,6 @@ const links: NavigationItem[] = [
     ],
   },
   {
-    href: "/admin/atletas",
-    label: "Cadastro de atletas",
-    match: (pathname: string) => pathname.startsWith("/admin/atletas"),
-  },
-  {
-    href: "/admin/patrocinadores",
-    label: "Patrocinadores",
-    match: (pathname: string) => pathname.startsWith("/admin/patrocinadores"),
-  },
-  {
-    href: "/admin/backlog",
-    label: "Backlog do site",
-    match: (pathname: string) => pathname.startsWith("/admin/backlog"),
-  },
-  {
     label: "Copa Tio Hugo 2026",
     match: (pathname: string) => pathname.startsWith(ADMIN_CHAMPIONSHIP_BASE_PATH),
     children: [
@@ -80,6 +65,21 @@ const links: NavigationItem[] = [
     href: ADMIN_PELADAS_PATH,
     label: "Peladas",
     match: (pathname: string) => pathname.startsWith(ADMIN_PELADAS_PATH),
+  },
+  {
+    href: "/admin/atletas",
+    label: "Cadastro de atletas",
+    match: (pathname: string) => pathname.startsWith("/admin/atletas"),
+  },
+  {
+    href: "/admin/patrocinadores",
+    label: "Patrocinadores",
+    match: (pathname: string) => pathname.startsWith("/admin/patrocinadores"),
+  },
+  {
+    href: "/admin/backlog",
+    label: "Backlog do site",
+    match: (pathname: string) => pathname.startsWith("/admin/backlog"),
   },
 ];
 

@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { SiteBacklogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/request-rate-limit";
 
@@ -24,14 +25,27 @@ export async function submitSiteSuggestion(formData: FormData) {
     throw new Error("Uma das informações excede o tamanho permitido.");
   }
 
-  await prisma.siteSuggestion.create({
-    data: {
-      name: name || null,
-      contact: contact || null,
-      subject,
-      message,
-      allowContact: formData.get("allowContact") === "on",
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.siteSuggestion.create({
+      data: {
+        name: name || null,
+        contact: contact || null,
+        subject,
+        message,
+        allowContact: formData.get("allowContact") === "on",
+      },
+    });
+    const latest = await tx.siteBacklogItem.aggregate({ _max: { sortOrder: true } });
+    await tx.siteBacklogItem.create({
+      data: {
+        title: subject === "Sugestão para o site" ? message.slice(0, 100) : subject,
+        description: message,
+        area: "Ideias enviadas pelo site",
+        status: SiteBacklogStatus.IDEIAS,
+        sortOrder: (latest._max.sortOrder ?? 0) + 1,
+      },
+    });
   });
   revalidatePath("/admin/interno-campao-2026/sugestoes");
+  revalidatePath("/admin/backlog");
 }
