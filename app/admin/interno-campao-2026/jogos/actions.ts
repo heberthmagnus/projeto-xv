@@ -214,12 +214,14 @@ async function resolveMatchPlayer(championshipId: string, matchId: string, champ
 async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, championshipId: string, playerId: string, teamId: string) {
   const events = await tx.matchEvent.findMany({
     where: { playerId, teamId, type: { in: ["CARTAO_AMARELO", "CARTAO_AZUL", "CARTAO_VERMELHO"] }, match: { championshipId } },
-    select: { id: true, type: true, quantity: true, match: { select: { id: true, round: true } } },
+    select: { id: true, type: true, quantity: true, match: { select: { id: true, round: true, stage: { select: { order: true, stageType: true } } } } },
     orderBy: [{ match: { round: "asc" } }, { id: "asc" }],
   });
 
   const triggers = events.filter((event) => event.type === "CARTAO_VERMELHO").map((event) => ({ event, reason: "Cartão vermelho" }));
   let yellowCards = 0;
+  let leftClassificationStage = false;
+  const redCardMatchIds = new Set(events.filter((event) => event.type === "CARTAO_VERMELHO").map((event) => event.match.id));
   const yellowEventsByMatch = new Map<string, { event: typeof events[number]; yellow: number; blue: number }>();
   for (const event of events.filter((item) => item.type === "CARTAO_AMARELO" || item.type === "CARTAO_AZUL")) {
     const current = yellowEventsByMatch.get(event.match.id) ?? { event, yellow: 0, blue: 0 };
@@ -227,18 +229,31 @@ async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, champio
     else current.blue += event.quantity;
     yellowEventsByMatch.set(event.match.id, current);
   }
-  for (const { event, yellow, blue } of yellowEventsByMatch.values()) {
-    const before = yellowCards;
-    yellowCards += yellow > 0 || blue > 0 ? 1 : 0;
-    if (Math.floor(yellowCards / 3) > Math.floor(before / 3)) triggers.push({ event, reason: "3 cartões amarelos" });
+  for (const { event, yellow, blue } of Array.from(yellowEventsByMatch.values()).sort((a, b) => (a.event.match.stage?.order ?? 0) - (b.event.match.stage?.order ?? 0) || a.event.match.round - b.event.match.round || a.event.id.localeCompare(b.event.id))) {
+    const isClassification = !event.match.stage || event.match.stage.stageType === "RODADA";
+    // Art. 15: os amarelos da fase classificatória são zerados antes das fases finais.
+    if (!isClassification && !leftClassificationStage) {
+      yellowCards = 0;
+      leftClassificationStage = true;
+    }
+    // Art. 23: o vermelho anula amarelo ou azul recebido no mesmo jogo.
+    if (!redCardMatchIds.has(event.match.id) && (yellow > 0 || blue > 0)) yellowCards += 1;
+    if (yellowCards >= 3) {
+      triggers.push({ event, reason: "3 cartões amarelos" });
+      // Art. 23: após cumprir a suspensão, inicia-se nova contagem. Como cada
+      // jogo conta no máximo um amarelo, zerar aqui preserva o saldo futuro.
+      yellowCards = 0;
+    }
   }
 
+  // Ao corrigir uma súmula, suspensões automáticas que deixaram de ter origem
+  // válida não podem permanecer ativas. Lançamentos manuais não são alterados.
+  await tx.suspension.updateMany({
+    where: { championshipId, playerId, teamId, reason: { in: ["Cartão vermelho", "3 cartões amarelos"] } },
+    data: { status: SuspensionStatus.CANCELADA },
+  });
   for (const { event, reason } of triggers) {
-    const nextFinishedMatch = await tx.match.findFirst({
-      where: { championshipId, status: MatchStatus.FINALIZADO, round: { gt: event.match.round }, OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }] },
-      select: { id: true },
-    });
-    const status = nextFinishedMatch ? SuspensionStatus.CUMPRIDA : SuspensionStatus.ATIVA;
+    const status = await hasCompletedNextMatch(tx, championshipId, teamId, event.match) ? SuspensionStatus.CUMPRIDA : SuspensionStatus.ATIVA;
     const existing = await tx.suspension.findFirst({ where: { relatedEventId: event.id }, select: { id: true } });
     if (existing) await tx.suspension.update({ where: { id: existing.id }, data: { status, reason, matchesSuspended: 1 } });
     else await tx.suspension.create({ data: { championshipId, playerId, teamId, reason, relatedEventId: event.id, relatedMatchId: event.match.id, matchesSuspended: 1, status } });
@@ -248,17 +263,30 @@ async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, champio
 async function refreshSuspensionStatuses(tx: Prisma.TransactionClient, championshipId: string) {
   const suspensions = await tx.suspension.findMany({
     where: { championshipId, relatedMatchId: { not: null } },
-    select: { id: true, status: true, teamId: true, relatedMatch: { select: { round: true } } },
+    select: { id: true, status: true, teamId: true, relatedMatch: { select: { round: true, stage: { select: { order: true } } } } },
   });
   for (const suspension of suspensions) {
     if (!suspension.relatedMatch) continue;
-    const nextFinishedMatch = await tx.match.findFirst({
-      where: { championshipId, status: MatchStatus.FINALIZADO, round: { gt: suspension.relatedMatch.round }, OR: [{ homeTeamId: suspension.teamId }, { awayTeamId: suspension.teamId }] },
-      select: { id: true },
-    });
-    const status = nextFinishedMatch ? SuspensionStatus.CUMPRIDA : SuspensionStatus.ATIVA;
+    const status = await hasCompletedNextMatch(tx, championshipId, suspension.teamId, suspension.relatedMatch) ? SuspensionStatus.CUMPRIDA : SuspensionStatus.ATIVA;
     if (status !== suspension.status) await tx.suspension.update({ where: { id: suspension.id }, data: { status } });
   }
+}
+
+async function hasCompletedNextMatch(
+  tx: Prisma.TransactionClient,
+  championshipId: string,
+  teamId: string,
+  relatedMatch: { round: number; stage: { order: number } | null },
+) {
+  const completedMatches = await tx.match.findMany({
+    where: { championshipId, status: MatchStatus.FINALIZADO, OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }] },
+    select: { round: true, stage: { select: { order: true } } },
+  });
+  const relatedStageOrder = relatedMatch.stage?.order ?? 0;
+  return completedMatches.some((match) => {
+    const stageOrder = match.stage?.order ?? 0;
+    return stageOrder > relatedStageOrder || (stageOrder === relatedStageOrder && match.round > relatedMatch.round);
+  });
 }
 
 async function syncParticipation(tx: Prisma.TransactionClient, matchId: string, playerId: string, teamId: string) {

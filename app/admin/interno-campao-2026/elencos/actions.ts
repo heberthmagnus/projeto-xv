@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { normalizeFullName } from "@/lib/athlete-profiles";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { safeExternalUrl } from "@/lib/sponsor-links";
 
 const championshipSlug = "interno-campao-2026";
 const pagePath = "/admin/interno-campao-2026/elencos";
@@ -16,6 +17,7 @@ function finish(success: string) {
   revalidatePath("/admin/interno-campao-2026/ids-jogadores");
   revalidatePath("/admin/interno-campao-2026/jogos");
   revalidatePath("/campeonatos/interno-campao-2026");
+  revalidatePath("/campeonatos/[slug]/times/[teamSlug]", "page");
   redirect(`${pagePath}?success=${success}`);
 }
 
@@ -104,4 +106,26 @@ export async function addRosterPlayer(formData: FormData) {
     await tx.championshipPlayer.create({ data: { championshipId: championship.id, registrationId: registration.id, teamId } });
   });
   finish("jogador-adicionado");
+}
+
+export async function updateRosterTeamPresentation(formData: FormData) {
+  await requireAdmin();
+  const championshipTeamId = String(formData.get("championshipTeamId") || "").trim();
+  const sponsorId = String(formData.get("sponsorId") || "").trim();
+  const rawShirtImageUrl = String(formData.get("shirtImageUrl") || "").trim();
+  const shirtImageUrl = rawShirtImageUrl ? safeExternalUrl(rawShirtImageUrl) : null;
+  if (!championshipTeamId) throw new Error("Time não encontrado.");
+  if (rawShirtImageUrl && !shirtImageUrl) throw new Error("Informe uma URL válida para a imagem da camisa.");
+  const championshipTeam = await prisma.championshipTeam.findFirst({ where: { id: championshipTeamId, championship: { slug: championshipSlug } }, select: { id: true } });
+  if (!championshipTeam) throw new Error("Time não pertence a este campeonato.");
+  if (sponsorId) {
+    const sponsor = await prisma.sponsor.findFirst({ where: { id: sponsorId, active: true }, select: { id: true } });
+    if (!sponsor) throw new Error("Patrocinador inválido ou inativo.");
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.championshipTeam.update({ where: { id: championshipTeam.id }, data: { shirtImageUrl } });
+    await tx.championshipTeamSponsor.deleteMany({ where: { championshipTeamId: championshipTeam.id, isPrimary: true } });
+    if (sponsorId) await tx.championshipTeamSponsor.upsert({ where: { championshipTeamId_sponsorId: { championshipTeamId: championshipTeam.id, sponsorId } }, create: { championshipTeamId: championshipTeam.id, sponsorId, isPrimary: true }, update: { isPrimary: true } });
+  });
+  finish("patrocinio-atualizado");
 }

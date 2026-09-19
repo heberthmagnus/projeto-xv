@@ -56,6 +56,16 @@ const links: NavigationItem[] = [
     match: (pathname: string) => pathname.startsWith("/admin/atletas"),
   },
   {
+    href: "/admin/patrocinadores",
+    label: "Patrocinadores",
+    match: (pathname: string) => pathname.startsWith("/admin/patrocinadores"),
+  },
+  {
+    href: "/admin/backlog",
+    label: "Backlog do site",
+    match: (pathname: string) => pathname.startsWith("/admin/backlog"),
+  },
+  {
     label: "Copa Tio Hugo 2026",
     match: (pathname: string) => pathname.startsWith(ADMIN_CHAMPIONSHIP_BASE_PATH),
     children: [

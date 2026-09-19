@@ -7,6 +7,7 @@ import { getChampionshipTeamPublicPageData } from "@/lib/championships";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipTeamBasePath } from "@/lib/routes";
 import { CampaoTeamHubHeader } from "@/app/campeonatos/interno-campao-2026/team-hub-header";
+import { TeamSponsorPresentation } from "@/components/championship/TeamSponsorPresentation";
 
 type Params = Promise<{
   slug: string;
@@ -73,6 +74,7 @@ export default async function ChampionshipTeamPublicPage({
     <main className="xv-page-shell-soft">
       <div className="xv-page-container xv-page-container-medium">
         {isCampao ? <CampaoTeamHubHeader category={championship.teamEntry.groupLabel === "MASTER" ? "MASTER" : "ADULTO"} /> : null}
+        <TeamSponsorPresentation sponsor={championship.teamEntry.sponsors[0]?.sponsor} shirtImageUrl={championship.teamEntry.shirtImageUrl} />
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <article id="elenco" className="xv-card overflow-hidden scroll-mt-28">
             <div className="mb-5 flex items-start justify-between gap-4">

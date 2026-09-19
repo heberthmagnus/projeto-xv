@@ -9,6 +9,7 @@ import { getChampionshipPublicPageDataBySlug } from "@/lib/championships";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipTeamBasePath } from "@/lib/routes";
 import { MatchRoundCalendar } from "./match-round-calendar";
+import { safeExternalUrl } from "@/lib/sponsor-links";
 
 type Params = Promise<{
   slug: string;
@@ -154,6 +155,7 @@ export default async function ChampionshipPublicPage({
             })}
           </div>
         </section>
+        <ChampionshipSponsorsShowcase championship={championship} />
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.95fr)_minmax(320px,0.8fr)] xl:items-start">
           <article id="classificacao" className="xv-card overflow-hidden scroll-mt-28">
@@ -509,6 +511,13 @@ export default async function ChampionshipPublicPage({
       </PageContainer>
     </main>
   );
+}
+
+function ChampionshipSponsorsShowcase({ championship }: { championship: Awaited<ReturnType<typeof getChampionshipPublicPageDataBySlug>> & {} }) {
+  if (!championship) return null;
+  const teams = championship.teams.filter((team) => team.sponsors[0]?.sponsor);
+  if (!teams.length) return null;
+  return <section className="xv-card"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Apoio aos times</p><h2 className="mt-1 text-2xl font-black">Patrocinadores dos Times</h2><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{teams.map((entry) => { const sponsor = entry.sponsors[0]!.sponsor; const shirt = safeExternalUrl(entry.shirtImageUrl); const logo = safeExternalUrl(sponsor.logoUrl); return <Link key={entry.id} href={getChampionshipTeamBasePath(championship.slug, entry.team.slug || "")} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4 no-underline transition hover:border-[#D4B051]"><p className="font-black text-[#101010]">{entry.team.icon} {entry.team.shortName || entry.team.name}</p>{shirt ? <img src={shirt} alt={`Camisa ${entry.team.shortName || entry.team.name}`} className="mt-3 h-32 w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"/> : null}<p className="mt-3 text-xs font-bold uppercase tracking-[.14em] text-[#8B6914]">Patrocínio</p>{logo ? <img src={logo} alt={`Logotipo ${sponsor.name}`} className="mt-2 h-14 w-28 rounded-xl border border-[#E5E7EB] bg-white object-contain p-2"/> : null}<p className="mt-2 font-bold text-[#101010]">{sponsor.name}</p></Link>; })}</div></section>;
 }
 
 function buildMatchViews(

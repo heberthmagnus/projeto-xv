@@ -98,16 +98,49 @@ model Team {
 }
 
 model ChampionshipTeam {
-  id             String       @id @default(uuid())
+  id             String                    @id @default(uuid())
   championshipId String
   teamId         String
   displayOrder   Int?
   groupLabel     String?
   seed           Int?
-  championship   Championship @relation(fields: [championshipId], references: [id])
-  team           Team         @relation(fields: [teamId], references: [id])
+  shirtImageUrl  String?
+  championship   Championship              @relation(fields: [championshipId], references: [id])
+  team           Team                      @relation(fields: [teamId], references: [id])
+  sponsors       ChampionshipTeamSponsor[]
 
   @@unique([championshipId, teamId])
+}
+
+model Sponsor {
+  id           String                    @id @default(uuid())
+  name         String
+  logoUrl      String
+  websiteUrl   String?
+  instagramUrl String?
+  whatsapp     String?
+  description  String?
+  active       Boolean                   @default(true)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  sponsorships ChampionshipTeamSponsor[]
+
+  @@index([active])
+}
+
+model ChampionshipTeamSponsor {
+  id                 String           @id @default(uuid())
+  championshipTeamId String
+  sponsorId          String
+  isPrimary          Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  championshipTeam   ChampionshipTeam @relation(fields: [championshipTeamId], references: [id], onDelete: Cascade)
+  sponsor            Sponsor          @relation(fields: [sponsorId], references: [id], onDelete: Restrict)
+
+  @@unique([championshipTeamId, sponsorId])
+  @@index([championshipTeamId, isPrimary])
+  @@index([sponsorId])
 }
 
 model ChampionshipStage {

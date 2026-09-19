@@ -2,16 +2,19 @@
 
 import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
+import { safeExternalUrl } from "@/lib/sponsor-links";
+import { RulesModule } from "./regulation-module";
 
 type Category = "ADULTO" | "MASTER";
 type Tab = "CLASSIFICACAO" | "ARTILHARIA" | "CARTOES" | "ELENCOS" | "REGULAMENTO";
 
-type Team = { category: Category; order: number; name: string; slug: string | null; icon: string | null; players: string[] };
+type Team = { category: Category; order: number; name: string; slug: string | null; icon: string | null; players: string[]; shirtImageUrl?: string | null; sponsor?: { name: string; logoUrl: string } | null };
 type Game = {
   id: string;
   category: Category;
   round: number;
   order: number;
+  stage: { order: number; stageType: string; name: string } | null;
   scheduledAt: string | null;
   status: "AGENDADO" | "EM_ANDAMENTO" | "FINALIZADO" | "CANCELADO";
   homeScore: number | null;
@@ -28,14 +31,17 @@ type Game = {
     teamId: string | null;
     name: string;
     team: string;
+    teamIcon: string | null;
     quantity: number;
     type: "AMARELO" | "AZUL" | "VERMELHO";
     matchId: string;
     matchLabel: string;
+    round: number;
+    stage: Game["stage"];
   }>;
 };
 
-type Suspension = { playerId: string; name: string; reason: string; team: string; nextGame: string };
+type Suspension = { playerId: string; name: string; reason: string; team: string; icon: string | null; nextGame: string; category: Category };
 type Props = { teams: Team[]; matches: Game[]; suspensions: Suspension[] };
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -123,8 +129,15 @@ export function CampaoPublicDashboard({ teams, matches, suspensions }: Props) {
       {tab === "CARTOES" ? <CardsModule label={label} matches={categoryMatches} suspensions={suspensions} /> : null}
       {tab === "ELENCOS" ? <RosterModule teams={categoryTeams} label={label} /> : null}
       {tab === "REGULAMENTO" ? <RulesModule /> : null}
+      {tab === "CLASSIFICACAO" ? <SponsorsShowcase teams={categoryTeams} /> : null}
     </div>
   );
+}
+
+function SponsorsShowcase({ teams }: { teams: Team[] }) {
+  const sponsoredTeams = teams.filter((team) => team.sponsor && safeExternalUrl(team.sponsor.logoUrl));
+  if (!sponsoredTeams.length) return null;
+  return <section className="xv-card"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Apoio aos times</p><h2 className="mt-1 text-2xl font-black">Patrocinadores dos Times</h2><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{sponsoredTeams.map((team) => { const sponsor = team.sponsor!; const logo = safeExternalUrl(sponsor.logoUrl)!; const shirt = safeExternalUrl(team.shirtImageUrl); return <Link key={team.name} href={team.slug ? `/campeonatos/interno-campao-2026/times/${team.slug}` : "#"} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4 no-underline transition hover:border-[#D4B051]"><div className="flex items-center gap-2 font-black text-[#101010]"><CountryFlag icon={team.icon} name={team.name} className="text-xl"/>{team.name}</div>{shirt ? <img src={shirt} alt={`Camisa ${team.name}`} className="mt-3 h-32 w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"/> : null}<p className="mt-3 text-xs font-bold uppercase tracking-[.14em] text-[#8B6914]">Patrocínio</p><img src={logo} alt={`Logotipo ${sponsor.name}`} className="mt-2 h-14 w-28 rounded-xl border border-[#E5E7EB] bg-white object-contain p-2"/><p className="mt-2 font-bold text-[#101010]">{sponsor.name}</p></Link>; })}</div></section>;
 }
 
 function StandingsTable({ label, teams, matches }: { label: string; teams: Team[]; matches: Game[] }) {
@@ -224,10 +237,12 @@ function ScorersModule({ label, matches }: { label: string; matches: Game[] }) {
 }
 
 function CardsModule({ label, matches, suspensions }: { label: string; matches: Game[]; suspensions: Suspension[] }) {
+  const category: Category = label === "Adulto" ? "ADULTO" : "MASTER";
+  const categorySuspensions = suspensions.filter((item) => item.category === category);
   const players = useMemo(() => {
     type CardType = Game["cards"][number]["type"];
-    type GameCards = { label: string; totals: Record<CardType, number> };
-    type PlayerCards = { playerId: string | null; name: string; team: string; totals: Record<CardType, number>; games: Map<string, GameCards> };
+    type GameCards = { label: string; round: number; stage: Game["stage"]; totals: Record<CardType, number> };
+    type PlayerCards = { playerId: string | null; name: string; team: string; icon: string | null; totals: Record<CardType, number>; yellowBalance: number; games: Map<string, GameCards> };
     const emptyTotals = (): Record<CardType, number> => ({ AMARELO: 0, AZUL: 0, VERMELHO: 0 });
     const grouped = new Map<string, PlayerCards>();
 
@@ -235,8 +250,8 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
       if (!item?.name || !item?.type || item.quantity < 1) continue;
       const fallbackKey = `${item.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR")}:${item.team}`;
       const key = item.playerId && item.teamId ? `profile:${item.teamId}:${item.playerId}` : `legacy:${fallbackKey}`;
-      const player = grouped.get(key) || { playerId: item.playerId, name: item.name, team: item.team, totals: emptyTotals(), games: new Map<string, GameCards>() };
-      const game = player.games.get(item.matchId) || { label: item.matchLabel, totals: emptyTotals() };
+      const player = grouped.get(key) || { playerId: item.playerId, name: item.name, team: item.team, icon: item.teamIcon, totals: emptyTotals(), yellowBalance: 0, games: new Map<string, GameCards>() };
+      const game = player.games.get(item.matchId) || { label: item.matchLabel, round: item.round, stage: item.stage, totals: emptyTotals() };
       game.totals[item.type] += item.quantity;
       player.games.set(item.matchId, game);
       grouped.set(key, player);
@@ -244,10 +259,22 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
 
     for (const player of grouped.values()) {
       player.totals = emptyTotals();
-      for (const game of player.games.values()) {
-        // Cartão azul vale como amarelo. Se ambos forem lançados no jogo,
-        // permanece somente uma ocorrência amarela para o acumulado.
-        if (game.totals.AMARELO > 0 || game.totals.AZUL > 0) { game.totals.AMARELO = 1; game.totals.AZUL = 0; }
+      player.yellowBalance = 0;
+      let leftClassificationStage = false;
+      for (const game of Array.from(player.games.values()).sort((a, b) => (a.stage?.order ?? 0) - (b.stage?.order ?? 0) || a.round - b.round || a.label.localeCompare(b.label, "pt-BR"))) {
+        const isClassification = !game.stage || game.stage.stageType === "RODADA";
+        // Art. 15: os amarelos da fase classificatória não seguem para as fases finais.
+        if (!isClassification && !leftClassificationStage) {
+          player.yellowBalance = 0;
+          leftClassificationStage = true;
+        }
+        // Art. 23: vermelho anula amarelo/azul do mesmo jogo; azul anula o amarelo
+        // e vale como um amarelo no acumulado.
+        if (game.totals.VERMELHO > 0) { game.totals.AMARELO = 0; game.totals.AZUL = 0; }
+        else if (game.totals.AZUL > 0) { game.totals.AMARELO = 0; game.totals.AZUL = 1; }
+        else if (game.totals.AMARELO > 0) game.totals.AMARELO = 1;
+        const yellowForAccumulation = game.totals.AMARELO + game.totals.AZUL;
+        player.yellowBalance = (player.yellowBalance + yellowForAccumulation) % 3;
         for (const type of ["AMARELO", "AZUL", "VERMELHO"] as const) player.totals[type] += game.totals[type];
       }
     }
@@ -258,23 +285,24 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
       return totalB - totalA || a.name.localeCompare(b.name, "pt-BR");
     });
   }, [matches]);
+  const pendingPlayers = players.filter((player) => player.yellowBalance === 2 && !categorySuspensions.some((item) => item.playerId === player.playerId && item.team === player.team));
 
   return (
     <section className="xv-card">
       <div className="border-b border-[#E5E7EB] pb-3">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p>
         <h2 className="mt-1 text-2xl font-black">Cartões e suspensões</h2>
-        <p className="mt-1 text-sm text-[#6B7280]">Totais por atleta e as partidas em que cada cartão foi aplicado.</p>
+        <p className="mt-1 text-sm text-[#6B7280]">Histórico por atleta, saldo vigente de amarelos e as partidas em que cada cartão foi aplicado.</p>
       </div>
-      {suspensions.length ? <div className="mt-4 rounded-2xl border border-[#F0C6C2] bg-[#FFF5F4] p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-[#B42318]">Suspensos na próxima partida</p><ul className="mt-2 grid gap-1.5 text-sm">{suspensions.map((item) => <li key={`${item.playerId}:${item.team}`}><strong>{item.name}</strong> · {item.team} · {item.reason}<span className="block text-[#6B7280]">{item.nextGame}</span></li>)}</ul></div> : null}
+      {categorySuspensions.length || pendingPlayers.length ? <div className="mt-4 grid gap-3 lg:grid-cols-2">{categorySuspensions.length ? <div className="rounded-2xl border border-[#F0C6C2] bg-[#FFF5F4] p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-[#B42318]">Suspensos na próxima partida</p><ul className="mt-2 grid gap-2 text-sm">{categorySuspensions.map((item) => <li key={`${item.playerId}:${item.team}`}><span className="inline-flex items-center gap-1.5"><CountryFlag icon={item.icon} name={item.team} className="text-lg"/><strong>{item.name}</strong> · {item.team} · {item.reason}</span><span className="block text-[#6B7280]">{item.nextGame}</span></li>)}</ul></div> : null}{pendingPlayers.length ? <div className="rounded-2xl border border-[#F2D38A] bg-[#FFFBEB] p-4"><p className="text-xs font-black uppercase tracking-[.14em] text-[#855D00]">Pendurado(s) para a próxima rodada</p><p className="mt-1 text-sm text-[#6B7280]">Com 2 cartões no saldo vigente; o próximo amarelo ou azul gera suspensão automática.</p><ul className="mt-2 grid gap-2 text-sm">{pendingPlayers.map((player) => <li key={`${player.playerId}:${player.team}`} className="flex flex-wrap items-center gap-1.5"><CountryFlag icon={player.icon} name={player.team} className="text-lg"/><strong>{player.name}</strong> · {player.team} <YellowCard count={2} compact /></li>)}</ul></div> : null}</div> : null}
       {players.length ? (
         <div className="mx-auto mt-4 grid max-w-4xl gap-3">
           {players.map((player) => {
-            const suspension = suspensions.find((item) => item.playerId === player.playerId && item.team === player.team);
+            const suspension = categorySuspensions.find((item) => item.playerId === player.playerId && item.team === player.team);
             return (
             <article key={`${player.name}:${player.team}`} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div><h3 className="font-black text-[#303030]">{player.name}</h3><p className="text-sm text-[#6B7280]">{player.team}</p>{suspension ? <p className="mt-1 w-fit rounded-full bg-[#FFF0F0] px-2 py-1 text-xs font-bold text-[#B42318]">Suspenso · {suspension.reason} · {suspension.nextGame}</p> : null}</div>
+                <div><h3 className="flex items-center gap-1.5 font-black text-[#303030]"><CountryFlag icon={player.icon} name={player.team} className="text-lg"/>{player.name}</h3><p className="text-sm text-[#6B7280]">{player.team}</p><p className={`mt-1 flex w-fit items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${player.yellowBalance === 2 ? "bg-[#FFF0B8] text-[#855D00]" : "bg-[#F4F4F5] text-[#52525B]"}`}>Saldo vigente: <YellowCard count={player.yellowBalance} compact /></p>{suspension ? <p className="mt-1 w-fit rounded-full bg-[#FFF0F0] px-2 py-1 text-xs font-bold text-[#B42318]">Suspenso · {suspension.reason} · {suspension.nextGame}</p> : null}</div>
                 <CardTotals totals={player.totals} />
               </div>
               <ul className="mt-3 divide-y divide-[#E5E7EB] border-t border-[#E5E7EB]">
@@ -296,11 +324,15 @@ function CardsModule({ label, matches, suspensions }: { label: string; matches: 
 
 function CardTotals({ totals, compact = false }: { totals: { AMARELO: number; AZUL: number; VERMELHO: number }; compact?: boolean }) {
   const entries = [
-    ["AMARELO", "🟨", "bg-[#FFF7D6] text-[#855D00]"],
-    ["AZUL", "🟦", "bg-[#E9F1FF] text-[#1952A6]"],
-    ["VERMELHO", "🟥", "bg-[#FFF0F0] text-[#B42318]"],
+    ["AMARELO", "bg-[#FFF7D6] text-[#855D00]"],
+    ["AZUL", "bg-[#E9F1FF] text-[#1952A6]"],
+    ["VERMELHO", "bg-[#FFF0F0] text-[#B42318]"],
   ] as const;
-  return <span className="flex items-center gap-1.5" aria-label="Cartões"><span className="sr-only">Cartões: </span>{entries.filter(([type]) => totals[type] > 0).map(([type, icon, color]) => <span key={type} className={`rounded-full px-2 py-1 font-bold ${compact ? "text-xs" : "text-sm"} ${color}`}>{icon} {totals[type]}</span>)}</span>;
+  return <span className="flex items-center gap-1.5" aria-label="Cartões"><span className="sr-only">Cartões: </span>{entries.filter(([type]) => totals[type] > 0).map(([type, color]) => <span key={type} className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-bold ${compact ? "text-xs" : "text-sm"} ${color}`}><span aria-hidden className={`inline-block h-4 w-3 rounded-sm border border-black/10 ${type === "AMARELO" ? "bg-[#FACC15]" : type === "AZUL" ? "bg-[#60A5FA]" : "bg-[#EF4444]"}`}/>{totals[type]}</span>)}</span>;
+}
+
+function YellowCard({ count, compact = false }: { count: number; compact?: boolean }) {
+  return <span className={`inline-flex items-center gap-1 ${compact ? "text-xs" : "text-sm"}`}><span aria-hidden className="inline-block h-3.5 w-2.5 rounded-sm border border-[#D9A900] bg-[#FACC15]"/>{count}</span>;
 }
 
 function StatsModule({ title, empty, rows }: { title: string; empty: string; rows: Array<{ label: ReactNode; value: string }> }) {
@@ -318,8 +350,4 @@ function CountryFlag({ icon, name, className = "" }: { icon: string | null; name
 function formatGameDateTime(value: string | null) {
   if (!value) return "Data a definir";
   return new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(value));
-}
-
-function RulesModule() {
-  return <section className="xv-card"><h2 className="text-2xl font-black">Regulamento</h2><div className="mt-4 grid gap-3 text-[#4B5563]"><p>Fase classificatória com seis seleções em cada categoria.</p><p>A classificação será atualizada conforme o lançamento oficial dos resultados, gols e cartões.</p></div></section>;
 }

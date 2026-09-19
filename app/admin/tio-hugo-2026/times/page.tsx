@@ -8,6 +8,7 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
+import { prisma } from "@/lib/prisma";
 import { ADMIN_TEAMS_PATH } from "@/lib/routes";
 import {
   assignRegistrationToTeam,
@@ -30,6 +31,7 @@ export default async function TimesAdminPage({
   const { data, databaseUnavailable } = await executePrismaWithFallback<{
     championship: Awaited<ReturnType<typeof getRequiredChampionshipBySlug>> | null;
     championshipWithTeams: any;
+    sponsors: Array<{ id: string; name: string; logoUrl: string }>;
   }>(
     async () => {
       const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
@@ -37,9 +39,10 @@ export default async function TimesAdminPage({
         TIO_HUGO_2026_SLUG,
       );
 
-      return { championship, championshipWithTeams };
+      const sponsors = await prisma.sponsor.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, logoUrl: true } });
+      return { championship, championshipWithTeams, sponsors };
     },
-    { championship: null, championshipWithTeams: null },
+    { championship: null, championshipWithTeams: null, sponsors: [] },
     "admin:championship-teams:list",
   );
   const championship = data.championship;
@@ -59,6 +62,7 @@ export default async function TimesAdminPage({
   }
 
   const teams = championshipWithTeams.teams;
+  const sponsors = data.sponsors;
 
   return (
     <main className="xv-page-shell">
@@ -125,11 +129,20 @@ export default async function TimesAdminPage({
                         Ajustar dados do time
                       </summary>
 
+                      {championshipTeam.shirtImageUrl || championshipTeam.sponsors[0]?.sponsor ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3">
+                          <span className="text-xs font-bold uppercase tracking-[.12em] text-[#8B6914]">Prévia atual</span>
+                          {championshipTeam.shirtImageUrl ? <img src={championshipTeam.shirtImageUrl} alt={`Camisa ${team.name}`} className="h-16 w-24 rounded-lg border border-[#E5E7EB] object-contain" /> : null}
+                          {championshipTeam.sponsors[0]?.sponsor ? <div className="flex items-center gap-2">{championshipTeam.sponsors[0].sponsor.logoUrl ? <img src={championshipTeam.sponsors[0].sponsor.logoUrl} alt={`Logotipo ${championshipTeam.sponsors[0].sponsor.name}`} className="h-12 w-20 rounded-lg border border-[#E5E7EB] object-contain p-1" /> : null}<span className="text-sm font-bold">{championshipTeam.sponsors[0].sponsor.name}</span></div> : null}
+                        </div>
+                      ) : null}
+
                       <form
                         action={updateChampionshipTeamSettings}
                         className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_120px_110px_110px_120px_auto]"
                       >
                         <input type="hidden" name="teamId" value={team.id} />
+                        <input type="hidden" name="championshipTeamId" value={championshipTeam.id} />
 
                         <label className="grid gap-1.5">
                           <span className="text-sm font-semibold text-[#101010]">Nome</span>
@@ -191,6 +204,16 @@ export default async function TimesAdminPage({
                             Salvar time
                           </button>
                         </div>
+                        <label className="grid gap-1.5 lg:col-span-3">
+                          <span className="text-sm font-semibold text-[#101010]">Patrocinador da camisa</span>
+                          <select name="sponsorId" defaultValue={championshipTeam.sponsors[0]?.sponsor.id ?? ""} className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 outline-none transition focus:border-[#B89020]">
+                            <option value="">Sem patrocinador</option>{sponsors.map((sponsor) => <option key={sponsor.id} value={sponsor.id}>{sponsor.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="grid gap-1.5 lg:col-span-3">
+                          <span className="text-sm font-semibold text-[#101010]">Imagem da camisa</span>
+                          <input name="shirtImageUrl" type="url" defaultValue={championshipTeam.shirtImageUrl ?? ""} placeholder="https://..." className="rounded-xl border border-[#D1D5DB] px-3 py-2.5 outline-none transition focus:border-[#B89020]" />
+                        </label>
                       </form>
                     </details>
 

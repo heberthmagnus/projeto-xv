@@ -138,6 +138,12 @@ export const getChampionshipTeamsWithPlayersBySlug = cache(async (slug: string) 
           groupLabel: true,
           seed: true,
           displayOrder: true,
+          shirtImageUrl: true,
+          sponsors: {
+            where: { isPrimary: true },
+            take: 1,
+            select: { sponsor: { select: { id: true, name: true, logoUrl: true } } },
+          },
           team: {
             select: {
               id: true,
@@ -231,6 +237,8 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
           id: true,
           displayOrder: true,
           seed: true,
+          shirtImageUrl: true,
+          sponsors: { where: { isPrimary: true }, take: 1, select: { sponsor: { select: { name: true, logoUrl: true, websiteUrl: true, instagramUrl: true, whatsapp: true, description: true } } } },
           team: {
             select: {
               id: true,
@@ -635,6 +643,8 @@ export const getChampionshipTeamPublicPageData = cache(
           seed: true,
           displayOrder: true,
           groupLabel: true,
+          shirtImageUrl: true,
+          sponsors: { where: { isPrimary: true }, take: 1, select: { sponsor: { select: { name: true, logoUrl: true, websiteUrl: true, instagramUrl: true, whatsapp: true, description: true } } } },
           team: {
             select: {
               id: true,

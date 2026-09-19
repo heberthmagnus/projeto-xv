@@ -6,6 +6,7 @@ import {
   MatchStatus,
   StandingMovement,
 } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import {
@@ -14,6 +15,7 @@ import {
   TIO_HUGO_2026_SLUG,
 } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
+import { safeExternalUrl } from "@/lib/sponsor-links";
 
 const PLACEHOLDER_TEAMS = [
   { name: "Time A", shortName: "A", primaryColor: "#101010", secondaryColor: "#B89020" },
@@ -158,6 +160,9 @@ export async function updateChampionshipTeamSettings(formData: FormData) {
   const primaryColor = normalizeColor(formData.get("primaryColor"));
   const secondaryColor = normalizeColor(formData.get("secondaryColor"));
   const displayOrder = parseOptionalInteger(formData.get("displayOrder"));
+  const sponsorId = String(formData.get("sponsorId") || "").trim();
+  const shirtImageRaw = String(formData.get("shirtImageUrl") || "").trim();
+  const shirtImageUrl = shirtImageRaw ? safeExternalUrl(shirtImageRaw) : null;
 
   if (!teamId || !name) {
     redirect(
@@ -165,6 +170,9 @@ export async function updateChampionshipTeamSettings(formData: FormData) {
         "Time inválido para atualização.",
       )}`,
     );
+  }
+  if (shirtImageRaw && !shirtImageUrl) {
+    redirect(`${getTioHugoAdminTeamsPath()}?error=${encodeURIComponent("Informe uma URL válida para a imagem da camisa.")}`);
   }
 
   const championshipTeam = await prisma.championshipTeam.findFirst({
@@ -189,6 +197,10 @@ export async function updateChampionshipTeamSettings(formData: FormData) {
       )}`,
     );
   }
+  if (sponsorId) {
+    const sponsor = await prisma.sponsor.findFirst({ where: { id: sponsorId, active: true }, select: { id: true } });
+    if (!sponsor) redirect(`${getTioHugoAdminTeamsPath()}?error=${encodeURIComponent("Patrocinador inválido ou inativo.")}`);
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.team.update({
@@ -210,7 +222,19 @@ export async function updateChampionshipTeamSettings(formData: FormData) {
         },
       });
     }
+    await tx.championshipTeam.update({ where: { id: championshipTeam.id }, data: { shirtImageUrl } });
+    await tx.championshipTeamSponsor.deleteMany({ where: { championshipTeamId: championshipTeam.id, isPrimary: true } });
+    if (sponsorId) {
+      await tx.championshipTeamSponsor.upsert({
+        where: { championshipTeamId_sponsorId: { championshipTeamId: championshipTeam.id, sponsorId } },
+        create: { championshipTeamId: championshipTeam.id, sponsorId, isPrimary: true },
+        update: { isPrimary: true },
+      });
+    }
   });
+
+  revalidatePath("/campeonatos/tio-hugo-2026");
+  revalidatePath("/campeonatos/[slug]/times/[teamSlug]", "page");
 
   redirect(`${getTioHugoAdminTeamsPath()}?success=update-team`);
 }
