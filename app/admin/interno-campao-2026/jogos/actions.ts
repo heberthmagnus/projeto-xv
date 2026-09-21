@@ -9,6 +9,10 @@ import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 
 const basePath = "/admin/interno-campao-2026/jogos";
+// A atualização da súmula recalcula o histórico disciplinar completo do atleta.
+// Em bancos remotos, esse trabalho pode ultrapassar o limite padrão de 5 s da
+// transação interativa e encerrar a transação antes das atualizações finais.
+const matchSheetTransactionOptions = { maxWait: 5_000, timeout: 30_000 };
 
 export type MatchSaveState = { status: "idle" | "success" | "error"; message: string };
 
@@ -46,7 +50,7 @@ export async function saveMatchResult(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     await tx.match.updateMany({ where: { id, championshipId: championship.id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
     await refreshSuspensionStatuses(tx, championship.id);
-  });
+  }, matchSheetTransactionOptions);
   finish();
 }
 
@@ -116,7 +120,7 @@ export async function saveTeamMatchSheet(formData: FormData) {
         await tx.matchPlayerParticipation.deleteMany({ where: { matchId, playerId, teamId } });
       }
       await syncDisciplinarySuspensions(tx, championship.id, playerId, teamId);
-    });
+    }, matchSheetTransactionOptions);
   }
   finish();
 }
