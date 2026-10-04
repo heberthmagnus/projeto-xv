@@ -141,7 +141,7 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 sm:left-6 md:bottom-6 md:left-12 lg:left-16">
+          <div className="absolute right-4 top-3 z-10 flex items-center gap-2 sm:bottom-4 sm:left-6 sm:right-auto sm:top-auto md:bottom-6 md:left-12 lg:left-16">
             {banners.map((banner, index) => {
               const isActive = index === activeIndex;
 

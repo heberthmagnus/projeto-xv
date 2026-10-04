@@ -61,7 +61,6 @@ export function SiteHeader() {
 
       <nav className="border-y border-[#B8960C] bg-[#1A1A1A]">
         <div
-          data-scroll-preserve="site-header-nav"
           className="mx-auto flex w-full max-w-6xl items-center gap-2.5 overflow-x-auto px-4 py-2 md:gap-3 md:px-6"
         >
           {menuItems.map((item) => {

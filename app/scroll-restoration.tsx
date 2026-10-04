@@ -10,7 +10,6 @@ const SCROLL_CONTAINER_SELECTOR =
 type StoredScrollState = {
   pathname: string;
   createdAt: number;
-  windowX: number;
   windowY: number;
   containers: Array<{
     key: string;
@@ -44,7 +43,6 @@ function persistCurrentScroll(pathname: string) {
   const state: StoredScrollState = {
     pathname,
     createdAt: Date.now(),
-    windowX: window.scrollX,
     windowY: window.scrollY,
     containers: getTrackedScrollContainers().map(({ element, key }) => ({
       key,
@@ -73,7 +71,7 @@ function readStoredScroll() {
 
 function restoreScroll(state: StoredScrollState) {
   window.scrollTo({
-    left: state.windowX,
+    left: 0,
     top: state.windowY,
     behavior: "auto",
   });

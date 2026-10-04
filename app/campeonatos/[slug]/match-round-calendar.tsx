@@ -57,7 +57,7 @@ export function MatchRoundCalendar({
   const [viewIndex, setViewIndex] = useState(() =>
     clampViewIndex(initialViewIndex, matchViews.length),
   );
-  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null);
+  const pendingScrollRef = useRef<{ top: number } | null>(null);
   const currentMatchView = matchViews[viewIndex - 1] || null;
   const isSidebar = variant === "sidebar";
   const isKnockoutView = Boolean(
@@ -106,7 +106,7 @@ export function MatchRoundCalendar({
     const frameId = window.requestAnimationFrame(() => {
       document.documentElement.style.scrollBehavior = "auto";
       window.scrollTo({
-        left: pendingScroll.left,
+        left: 0,
         top: pendingScroll.top,
         behavior: "auto",
       });
@@ -121,7 +121,6 @@ export function MatchRoundCalendar({
 
   const updateViewIndex = (getNextIndex: (current: number) => number) => {
     pendingScrollRef.current = {
-      left: window.scrollX,
       top: window.scrollY,
     };
 

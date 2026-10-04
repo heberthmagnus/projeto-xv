@@ -20,12 +20,12 @@ body {
   background: var(--xv-bg);
   color: var(--xv-black);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 * {
@@ -34,7 +34,30 @@ html {
 
 main {
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* A súmula deve caber inteira no celular, inclusive a última coluna de cartões. */
+@media (max-width: 639px) {
+  section[id^="match-sheet-"] {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  section[id^="match-sheet-"] table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  section[id^="match-sheet-"] input[type="datetime-local"],
+  section[id^="match-sheet-"] input[type="number"] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  section[id^="match-sheet-"] label {
+    min-width: 0;
+  }
 }
 
 img,
