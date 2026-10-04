@@ -108,6 +108,48 @@ export async function addRosterPlayer(formData: FormData) {
   finish("jogador-adicionado");
 }
 
+export async function addExistingAthleteToRoster(formData: FormData) {
+  await requireAdmin();
+  const athleteProfileId = String(formData.get("athleteProfileId") || "").trim();
+  const teamId = String(formData.get("teamId") || "").trim();
+  const preferredPosition = String(formData.get("preferredPosition") || "").trim();
+  const birthDateRaw = String(formData.get("birthDate") || "").trim();
+  if (!athleteProfileId || !teamId || !birthDateRaw) throw new Error("Selecione o atleta, o time e a data de nascimento.");
+  if (!positions.includes(preferredPosition as (typeof positions)[number])) throw new Error("Selecione uma posição válida.");
+  const birthDate = new Date(`${birthDateRaw}T12:00:00`);
+  if (Number.isNaN(birthDate.getTime()) || birthDate.toISOString().slice(0, 10) !== birthDateRaw) throw new Error("Data de nascimento inválida.");
+
+  await prisma.$transaction(async (tx) => {
+    const [championship, profile] = await Promise.all([
+      tx.championship.findUnique({ where: { slug: championshipSlug }, select: { id: true } }),
+      tx.athleteProfile.findUnique({ where: { id: athleteProfileId }, select: { id: true, fullName: true, nickname: true, phone: true, email: true } }),
+    ]);
+    if (!championship || !profile) throw new Error("Campeonato ou atleta não encontrado.");
+    const team = await tx.championshipTeam.findFirst({ where: { championshipId: championship.id, teamId }, select: { groupLabel: true } });
+    if (!team) throw new Error("Time inválido para este campeonato.");
+    const existing = await tx.registration.findFirst({ where: { championshipId: championship.id, athleteProfileId }, select: { id: true } });
+    if (existing) throw new Error("Este atleta já está inscrito no campeonato. Use a busca acima para alterar o time.");
+
+    const registration = await tx.registration.create({
+      data: {
+        championshipId: championship.id,
+        athleteProfileId: profile.id,
+        fullName: profile.fullName,
+        nickname: profile.nickname,
+        category: team.groupLabel === "MASTER" ? "MASTER" : "ADULTO",
+        preferredPosition: preferredPosition as PreferredPosition,
+        birthDate,
+        phone: profile.phone ?? "",
+        email: profile.email,
+        confirmedRules: false,
+      },
+      select: { id: true },
+    });
+    await tx.championshipPlayer.create({ data: { championshipId: championship.id, registrationId: registration.id, teamId } });
+  });
+  finish("atleta-vinculado");
+}
+
 export async function updateRosterTeamPresentation(formData: FormData) {
   await requireAdmin();
   const championshipTeamId = String(formData.get("championshipTeamId") || "").trim();
