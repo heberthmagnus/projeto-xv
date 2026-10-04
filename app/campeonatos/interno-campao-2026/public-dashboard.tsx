@@ -2,6 +2,7 @@
 
 import { type ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
+import { TeamFlag } from "@/components/championship/TeamFlag";
 import { safeExternalUrl } from "@/lib/sponsor-links";
 import { RulesModule } from "./regulation-module";
 
@@ -186,7 +187,7 @@ function StandingsTable({ label, teams, matches }: { label: string; teams: Team[
                 <td className="py-3 pr-3 text-lg font-medium text-[#303030]">
                   <span className="inline-flex items-center">
                     <span className={`w-9 shrink-0 font-normal ${index < 4 ? "text-[#1267E8]" : "text-[#159447]"}`}>{index + 1}</span>
-                    <CountryFlag icon={team.icon} name={team.name} className="w-7 shrink-0" />
+                    <CountryFlag icon={team.icon} name={team.name} className="mr-2 w-7 shrink-0" />
                     {team.slug ? <Link href={`/campeonatos/interno-campao-2026/times/${team.slug}`} className="hover:text-[#8B6914] hover:underline">{team.name}</Link> : <span>{team.name}</span>}
                   </span>
                 </td>
@@ -343,8 +344,8 @@ function RosterModule({ teams, label }: { teams: Team[]; label: string }) {
   return <section className="xv-card"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p><h2 className="mt-1 text-2xl font-black">Elencos</h2><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{teams.map((team) => <article key={team.name} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4"><h3 className="flex items-center gap-2 font-black"><CountryFlag icon={team.icon} name={team.name} className="text-xl"/>{team.slug ? <Link className="hover:text-[#8B6914] hover:underline" href={`/campeonatos/interno-campao-2026/times/${team.slug}`}>{team.name}</Link> : team.name}</h3><ol className="mt-3 grid gap-1.5 text-sm text-[#374151]">{team.players.map((player, index) => <li key={`${team.name}-${player}`}><span className="mr-2 text-[#8B6914]">{index + 1}.</span>{player}</li>)}</ol></article>)}</div></section>;
 }
 
-function CountryFlag({ icon, name, className = "" }: { icon: string | null; name: string; className?: string }) {
-  return <span aria-label={`Bandeira da ${name}`} className={`inline-flex items-center justify-center leading-none ${className}`}>{icon}</span>;
+function CountryFlag({ icon, className = "" }: { icon: string | null; name: string; className?: string }) {
+  return <TeamFlag icon={icon} className={className} />;
 }
 
 function formatGameDateTime(value: string | null) {

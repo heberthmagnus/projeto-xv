@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { PageContainer } from "@/components/ui/PageContainer";
+import { TeamFlag } from "@/components/championship/TeamFlag";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
 import { getChampionshipBasePath } from "@/lib/routes";
@@ -149,9 +150,9 @@ export default async function MatchDetailsPage({ params }: { params: Params }) {
             <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Placar</p>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xl font-black text-[#101010] sm:flex-nowrap sm:text-2xl">
               <span className="whitespace-nowrap">{match.homeTeam.shortName || match.homeTeam.name}</span>
-              <span className="text-2xl sm:text-3xl">{match.homeTeam.icon || null}</span>
+              <TeamFlag icon={match.homeTeam.icon} className="w-8 sm:w-10" />
               <span className="whitespace-nowrap text-3xl text-[#8B6914] sm:text-4xl">{match.homeScore ?? "-"} <span className="text-[#A3A3A3]">×</span> {match.awayScore ?? "-"}</span>
-              <span className="text-2xl sm:text-3xl">{match.awayTeam.icon || null}</span>
+              <TeamFlag icon={match.awayTeam.icon} className="w-8 sm:w-10" />
               <span className="whitespace-nowrap">{match.awayTeam.shortName || match.awayTeam.name}</span>
             </div>
           </div>
@@ -203,7 +204,7 @@ function TeamResultCard({
   return (
     <article className="xv-card p-4">
       <div className="flex items-center gap-3 border-b border-[#E5E7EB] pb-3">
-        <span className="grid h-9 w-9 place-items-center rounded-full border border-[#E5E7EB] bg-white text-lg">{team.icon || null}</span>
+        <span className="grid h-9 w-9 place-items-center rounded-full border border-[#E5E7EB] bg-white"><TeamFlag icon={team.icon} className="w-6" /></span>
         <h2 className="text-lg font-black text-[#101010]">{team.shortName || team.name}</h2>
       </div>
       <div className="mt-3 overflow-x-auto">
