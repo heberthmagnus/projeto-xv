@@ -48,6 +48,10 @@ const links: NavigationItem[] = [
         label: "IDs dos jogadores",
         href: "/admin/interno-campao-2026/ids-jogadores",
       },
+      {
+        label: "Pendências",
+        href: "/admin/interno-campao-2026/pendencias",
+      },
     ],
   },
   {

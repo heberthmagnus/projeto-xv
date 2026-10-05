@@ -7,6 +7,7 @@ import { saveCompleteMatchSheet, type MatchSaveState } from "./actions";
 
 type EventType = "GOL" | "CARTAO_AMARELO" | "CARTAO_AZUL" | "CARTAO_VERMELHO";
 type Team = { id: string; name: string; shortName: string | null; icon: string | null; players: Array<{ id: string; profileId: string | null; name: string }> };
+type SheetReview = { homeScore: number; awayScore: number; teams: Array<{ name: string; played: string[]; goals: Array<{ name: string; quantity: number }>; cards: Array<{ name: string; label: string; quantity: number }> }>; warnings: string[] };
 export type AdminMatch = {
   id: string; category: "ADULTO" | "MASTER"; round: number; scheduledAt: string | null; homeScore: number | null; awayScore: number | null; status: string; matchReport: string | null;
   events: Array<{ player: string; playerId: string | null; teamId: string | null; type: EventType; quantity: number }>;
@@ -34,17 +35,51 @@ export function MatchResultsManager({ matches }: { matches: AdminMatch[] }) {
 
 function MatchModal({ match, onClose }: { match: AdminMatch; onClose: () => void }) {
   const [state, setState] = useState<MatchSaveState>({ status: "idle", message: "" });
+  const [review, setReview] = useState<SheetReview | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const saveAll = () => {
+  const getFormData = () => {
     const modal = document.getElementById(`match-sheet-${match.id}`);
-    if (!modal) return;
+    if (!modal) return null;
     const data = new FormData();
     data.set("matchId", match.id);
     modal.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input, textarea, select").forEach((field) => {
       if (!field.name || (field instanceof HTMLInputElement && field.type === "checkbox" && !field.checked)) return;
       data.append(field.name, field.value);
     });
+    return data;
+  };
+  const openReview = () => {
+    const data = getFormData();
+    if (!data) return;
+    const homeScore = Number(data.get("homeScore")); const awayScore = Number(data.get("awayScore"));
+    const teams = [match.homeTeam, match.awayTeam].map((team) => {
+      const played: string[] = []; const goals: Array<{ name: string; quantity: number }> = []; const cards: Array<{ name: string; label: string; quantity: number }> = [];
+      team.players.forEach((player) => {
+        const isPlayed = data.get(`played:${player.id}`) === "on";
+        const goalCount = Number(data.get(`goals:${player.id}`)) || 0;
+        const cardValues: Array<[string, string]> = [["yellow", "amarelo"], ["blue", "azul"], ["red", "vermelho"]];
+        if (isPlayed) played.push(player.name);
+        if (goalCount) goals.push({ name: player.name, quantity: goalCount });
+        cardValues.forEach(([field, label]) => { const quantity = Number(data.get(`${field}:${player.id}`)) || 0; if (quantity) cards.push({ name: player.name, label, quantity }); });
+      });
+      return { name: teamName(team), played, goals, cards };
+    });
+    const warnings: string[] = [];
+    if (!Number.isInteger(homeScore) || homeScore < 0 || !Number.isInteger(awayScore) || awayScore < 0) warnings.push("Informe os dois placares antes de salvar.");
+    if (teams[0].goals.reduce((sum, item) => sum + item.quantity, 0) !== homeScore) warnings.push(`Os gols lançados para ${teams[0].name} não correspondem ao placar.`);
+    if (teams[1].goals.reduce((sum, item) => sum + item.quantity, 0) !== awayScore) warnings.push(`Os gols lançados para ${teams[1].name} não correspondem ao placar.`);
+    [match.homeTeam, match.awayTeam].forEach((team) => team.players.forEach((player) => {
+      const played = data.get(`played:${player.id}`) === "on";
+      const hasStats = ["goals", "yellow", "blue", "red"].some((field) => (Number(data.get(`${field}:${player.id}`)) || 0) > 0);
+      if (hasStats && !played) warnings.push(`${player.name} possui lançamento, mas está marcado como não participante.`);
+    }));
+    setReview({ homeScore, awayScore, teams, warnings });
+  };
+  const saveAll = () => {
+    const data = getFormData();
+    if (!data) return;
+    setReview(null);
     startTransition(async () => {
       const result = await saveCompleteMatchSheet({ status: "idle", message: "" }, data);
       setState(result);
@@ -53,8 +88,12 @@ function MatchModal({ match, onClose }: { match: AdminMatch; onClose: () => void
   };
   return <div className="fixed inset-0 z-50 grid place-items-end bg-black/55 p-0 sm:place-items-center sm:p-5" role="presentation" onMouseDown={onClose}><section id={`match-sheet-${match.id}`} role="dialog" aria-modal="true" aria-labelledby="match-sheet-title" className="max-h-[94dvh] w-full max-w-6xl overflow-y-auto rounded-t-[28px] bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-6" onMouseDown={(event) => event.stopPropagation()}><div className="sticky top-[-1rem] z-10 -mx-4 mb-4 flex items-start justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 pb-4 pt-4 sm:top-[-1.5rem] sm:-mx-6 sm:px-6 sm:pt-6"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#8B6914]">{match.category === "ADULTO" ? "Adulto" : "Master"} · Rodada {match.round}</p><h2 id="match-sheet-title" className="mt-1 text-xl font-black">{teamName(match.homeTeam)} <span className="text-[#A3A3A3]">×</span> {teamName(match.awayTeam)}</h2></div><button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-[#D4D4D8] text-xl font-bold hover:bg-[#F4F4F5]" aria-label="Fechar súmula">×</button></div>
     <div className="grid gap-5 py-5 xl:grid-cols-[minmax(0,1fr)_15rem_minmax(0,1fr)] xl:items-start"><TeamSheet match={match} team={match.homeTeam}/><section className="order-first rounded-2xl border border-[#E7D5A0] bg-[#FFFCF2] p-4 text-center shadow-sm xl:sticky xl:top-24 xl:order-none"><p className="text-xs font-black uppercase tracking-[.16em] text-[#8B6914]">Placar</p><div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2"><label className="grid gap-1"><span className="inline-flex items-center justify-center gap-1 truncate text-xs font-bold text-[#52525B]"><TeamFlag icon={match.homeTeam.icon} className="w-5 shrink-0" />{teamName(match.homeTeam)}</span><input name="homeScore" type="number" min="0" defaultValue={match.homeScore ?? ""} aria-label={`Placar de ${teamName(match.homeTeam)}`} className="w-full rounded-xl border border-[#D4D4D8] bg-white px-2 py-3 text-center text-3xl font-black tabular-nums text-[#101010]"/></label><span className="pb-3 text-2xl font-black text-[#8B6914]">×</span><label className="grid gap-1"><span className="inline-flex items-center justify-center gap-1 truncate text-xs font-bold text-[#52525B]"><TeamFlag icon={match.awayTeam.icon} className="w-5 shrink-0" />{teamName(match.awayTeam)}</span><input name="awayScore" type="number" min="0" defaultValue={match.awayScore ?? ""} aria-label={`Placar de ${teamName(match.awayTeam)}`} className="w-full rounded-xl border border-[#D4D4D8] bg-white px-2 py-3 text-center text-3xl font-black tabular-nums text-[#101010]"/></label></div><label className="mt-5 grid gap-1 border-t border-[#E7D5A0] pt-4 text-left text-xs font-black uppercase tracking-wide text-[#6B7280]">Data e horário<input name="scheduledAt" type="datetime-local" defaultValue={toInput(match.scheduledAt)} className="rounded-lg border border-[#D4D4D8] bg-white p-2.5 text-sm font-bold normal-case tracking-normal text-[#303030]"/></label></section><TeamSheet match={match} team={match.awayTeam}/></div>
-    <div className="border-t border-[#E5E7EB] pt-5"><label className="grid gap-2"><span className="text-sm font-black">Súmula do jogo</span><textarea name="matchReport" defaultValue={match.matchReport ?? ""} rows={4} placeholder="Observações e ocorrências da partida..." className="w-full rounded-xl border border-[#D4D4D8] p-3 text-sm"/></label></div><div className="sticky bottom-0 z-10 -mx-4 mt-5 border-t border-[#E5E7EB] bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">{state.status === "error" ? <p role="alert" className="mb-3 rounded-xl bg-[#FEF2F2] px-4 py-3 text-sm font-bold text-[#B91C1C] shadow-sm">! {state.message}</p> : null}<button type="button" onClick={saveAll} disabled={pending} className="w-full rounded-xl bg-[#B89020] px-5 py-3 font-black text-white disabled:opacity-70">{pending ? "Salvando alterações…" : "Salvar todas as alterações"}</button><p className="mt-2 text-center text-xs text-[#6B7280]">Os atletas já começam marcados como participantes. Desmarque quem não compareceu antes de salvar.</p></div>{state.status === "success" ? <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-5" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="save-success-title" className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl"><span aria-hidden="true" className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#ECFDF3] text-2xl font-black text-[#166534]">✓</span><h3 id="save-success-title" className="mt-4 text-xl font-black text-[#101010]">Alterações salvas</h3><p className="mt-2 text-sm leading-6 text-[#52525B]">{state.message}</p><button type="button" autoFocus onClick={() => setState({ status: "idle", message: "" })} className="mt-5 w-full rounded-xl bg-[#B89020] px-5 py-3 font-black text-white">OK</button></section></div> : null}
+    <div className="border-t border-[#E5E7EB] pt-5"><label className="grid gap-2"><span className="text-sm font-black">Súmula do jogo</span><textarea name="matchReport" defaultValue={match.matchReport ?? ""} rows={4} placeholder="Observações e ocorrências da partida..." className="w-full rounded-xl border border-[#D4D4D8] p-3 text-sm"/></label></div><div className="sticky bottom-0 z-10 -mx-4 mt-5 border-t border-[#E5E7EB] bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">{state.status === "error" ? <p role="alert" className="mb-3 rounded-xl bg-[#FEF2F2] px-4 py-3 text-sm font-bold text-[#B91C1C] shadow-sm">! {state.message}</p> : null}<button type="button" onClick={openReview} disabled={pending} className="w-full rounded-xl bg-[#B89020] px-5 py-3 font-black text-white disabled:opacity-70">{pending ? "Salvando alterações…" : "Conferir e salvar alterações"}</button><p className="mt-2 text-center text-xs text-[#6B7280]">Os atletas já começam marcados como participantes. Desmarque quem não compareceu antes de salvar.</p></div>{review ? <SheetReviewDialog review={review} pending={pending} onBack={() => setReview(null)} onConfirm={saveAll} /> : null}{state.status === "success" ? <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-5" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="save-success-title" className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl"><span aria-hidden="true" className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#ECFDF3] text-2xl font-black text-[#166534]">✓</span><h3 id="save-success-title" className="mt-4 text-xl font-black text-[#101010]">Alterações salvas</h3><p className="mt-2 text-sm leading-6 text-[#52525B]">{state.message}</p><button type="button" autoFocus onClick={() => setState({ status: "idle", message: "" })} className="mt-5 w-full rounded-xl bg-[#B89020] px-5 py-3 font-black text-white">OK</button></section></div> : null}
   </section></div>;
+}
+
+function SheetReviewDialog({ review, pending, onBack, onConfirm }: { review: SheetReview; pending: boolean; onBack: () => void; onConfirm: () => void }) {
+  return <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4" role="presentation"><section role="alertdialog" aria-modal="true" aria-labelledby="sheet-review-title" className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"><p className="text-xs font-black uppercase tracking-[.16em] text-[#8B6914]">Antes de salvar</p><h3 id="sheet-review-title" className="mt-1 text-xl font-black">Conferência da súmula</h3><p className="mt-2 text-sm text-[#52525B]">Placar informado: <strong>{review.homeScore} × {review.awayScore}</strong></p>{review.warnings.length ? <div className="mt-4 rounded-xl border border-[#F3D38A] bg-[#FFF9EA] p-3"><p className="text-sm font-black text-[#8B6914]">Revise antes de confirmar</p><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#7C5B11]">{review.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div> : <p className="mt-4 rounded-xl bg-[#ECFDF3] px-3 py-2 text-sm font-bold text-[#166534]">✓ Os dados conferem com o placar e as participações.</p>}<div className="mt-4 grid gap-3 sm:grid-cols-2">{review.teams.map((team) => <article key={team.name} className="rounded-xl border border-[#E5E7EB] p-3"><h4 className="font-black">{team.name}</h4><p className="mt-2 text-xs font-bold uppercase tracking-wide text-[#6B7280]">Participantes ({team.played.length})</p><p className="mt-1 text-sm text-[#374151]">{team.played.length ? team.played.join(", ") : "Nenhum atleta marcado"}</p><p className="mt-3 text-xs font-bold uppercase tracking-wide text-[#6B7280]">Gols</p><p className="mt-1 text-sm text-[#374151]">{team.goals.length ? team.goals.map((item) => `${item.name} (${item.quantity})`).join(", ") : "Nenhum gol lançado"}</p><p className="mt-3 text-xs font-bold uppercase tracking-wide text-[#6B7280]">Cartões</p><p className="mt-1 text-sm text-[#374151]">{team.cards.length ? team.cards.map((item) => `${item.name}: ${item.quantity} ${item.label}`).join(", ") : "Nenhum cartão lançado"}</p></article>)}</div><div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={onBack} disabled={pending} className="rounded-xl border border-[#D4D4D8] px-4 py-2.5 text-sm font-bold">Voltar e corrigir</button><button type="button" onClick={onConfirm} disabled={pending || review.warnings.some((warning) => warning.startsWith("Informe os dois placares"))} className="rounded-xl bg-[#B89020] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">{pending ? "Salvando…" : review.warnings.length ? "Salvar mesmo assim" : "Confirmar e salvar"}</button></div></section></div>;
 }
 
 function TeamSheet({ match, team }: { match: AdminMatch; team: Team }) {

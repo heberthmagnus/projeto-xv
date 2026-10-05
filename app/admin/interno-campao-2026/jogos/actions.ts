@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
-import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
+import { normalizeFullName, syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 
 const basePath = "/admin/interno-campao-2026/jogos";
@@ -18,22 +18,73 @@ export type MatchSaveState = { status: "idle" | "success" | "error"; message: st
 
 export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormData): Promise<MatchSaveState> {
   try {
-    await saveMatchResult(formData);
-    await saveMatchSchedule(formData);
-    await saveMatchReport(formData);
-    for (const teamId of formData.getAll("teamId").map(String)) {
-      const teamData = new FormData();
-      teamData.set("matchId", String(formData.get("matchId") || ""));
-      teamData.set("teamId", teamId);
-      for (const championshipPlayerId of formData.getAll(`playerId:${teamId}`).map(String)) {
-        teamData.append("playerId", championshipPlayerId);
-        for (const field of ["played", "goals", "yellow", "blue", "red"]) {
-          const value = formData.get(`${field}:${championshipPlayerId}`);
-          if (value !== null) teamData.append(`${field}:${championshipPlayerId}`, value);
+    await requireAdmin();
+    const matchId = String(formData.get("matchId") || "").trim();
+    const homeScore = Number(formData.get("homeScore"));
+    const awayScore = Number(formData.get("awayScore"));
+    const rawScheduledAt = String(formData.get("scheduledAt") || "").trim();
+    const scheduledAt = rawScheduledAt ? new Date(`${rawScheduledAt}:00-03:00`) : null;
+    if (!matchId || !Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) throw new Error("Informe placares válidos.");
+    if (scheduledAt && Number.isNaN(scheduledAt.getTime())) throw new Error("Informe uma data e horário válidos.");
+    const sheets = [...new Set(formData.getAll("teamId").map(String).filter(Boolean))].map((teamId) => ({
+      teamId,
+      players: formData.getAll(`playerId:${teamId}`).map(String).filter(Boolean).map((championshipPlayerId) => ({
+        championshipPlayerId,
+        played: formData.get(`played:${championshipPlayerId}`) === "on",
+        goals: parseCount(formData.get(`goals:${championshipPlayerId}`)),
+        yellow: parseCount(formData.get(`yellow:${championshipPlayerId}`)),
+        blue: parseCount(formData.get(`blue:${championshipPlayerId}`)),
+        red: parseCount(formData.get(`red:${championshipPlayerId}`)),
+      })),
+    }));
+    if (sheets.length !== 2 || sheets.some((sheet) => !sheet.players.length)) throw new Error("Súmula incompleta. Confira os atletas dos dois times.");
+
+    const championship = await ensureInternoCampao2026Championship();
+    await prisma.$transaction(async (tx) => {
+      const match = await tx.match.findFirst({ where: { id: matchId, championshipId: championship.id }, select: { id: true, homeTeamId: true, awayTeamId: true } });
+      if (!match || new Set(sheets.map((sheet) => sheet.teamId)).size !== 2 || !sheets.every((sheet) => [match.homeTeamId, match.awayTeamId].includes(sheet.teamId))) throw new Error("Súmula inválida para esta partida.");
+      const submittedIds = sheets.flatMap((sheet) => sheet.players.map((player) => player.championshipPlayerId));
+      if (new Set(submittedIds).size !== submittedIds.length) throw new Error("Um atleta foi informado mais de uma vez na súmula.");
+      const players = await tx.championshipPlayer.findMany({ where: { id: { in: submittedIds }, championshipId: championship.id }, include: { registration: true } });
+      if (players.length !== submittedIds.length) throw new Error("Um dos atletas não pertence a este campeonato.");
+      const oldEventPlayers = await tx.matchEvent.findMany({ where: { matchId, playerId: { not: null } }, select: { playerId: true, teamId: true } });
+      const affectedPlayers = new Map<string, string>();
+
+      await tx.match.update({ where: { id: match.id }, data: { homeScore, awayScore, scheduledAt, matchReport: String(formData.get("matchReport") || "").trim() || null, status: MatchStatus.FINALIZADO } });
+      // Uma suspensão pode apontar para um cartão que será regravado abaixo.
+      // Soltar a referência dentro da mesma transação evita bloquear a correção da súmula.
+      await tx.suspension.updateMany({ where: { relatedEvent: { matchId } }, data: { relatedEventId: null, status: SuspensionStatus.CANCELADA } });
+      await tx.matchEvent.deleteMany({ where: { matchId, type: { in: ["GOL", "CARTAO_AMARELO", "CARTAO_AZUL", "CARTAO_VERMELHO"] } } });
+      await tx.matchPlayerParticipation.deleteMany({ where: { matchId } });
+
+      for (const sheet of sheets) for (const line of sheet.players) {
+        const player = players.find((item) => item.id === line.championshipPlayerId);
+        if (!player || player.teamId !== sheet.teamId) throw new Error("Um atleta não pertence ao time informado.");
+        let profileId = player.registration.athleteProfileId;
+        if (!profileId) {
+          const profile = await tx.athleteProfile.upsert({
+            where: { normalizedFullName: normalizeFullName(player.registration.fullName) },
+            update: { fullName: player.registration.fullName, nickname: player.registration.nickname, preferredPosition: player.registration.preferredPosition, birthDate: player.registration.birthDate, phone: player.registration.phone, email: player.registration.email, defaultLevel: player.registration.level ?? undefined },
+            create: { fullName: player.registration.fullName, normalizedFullName: normalizeFullName(player.registration.fullName), nickname: player.registration.nickname, preferredPosition: player.registration.preferredPosition, birthDate: player.registration.birthDate, phone: player.registration.phone, email: player.registration.email, defaultLevel: player.registration.level },
+            select: { id: true },
+          });
+          profileId = profile.id;
+          await tx.registration.update({ where: { id: player.registrationId }, data: { athleteProfileId: profileId } });
         }
+        const playerName = getPreferredPlayerName(player.registration.nickname, player.registration.fullName);
+        const stats = [["GOL", line.goals], ["CARTAO_AMARELO", line.yellow], ["CARTAO_AZUL", line.blue], ["CARTAO_VERMELHO", line.red]] as const;
+        await Promise.all(stats.filter(([, quantity]) => quantity > 0).map(([type, quantity]) => tx.matchEvent.create({ data: { matchId, teamId: sheet.teamId, playerId: profileId, player: playerName, type, quantity } })));
+        if (line.played || stats.some(([, quantity]) => quantity > 0)) await tx.matchPlayerParticipation.create({ data: { matchId, playerId: profileId, teamId: sheet.teamId, goals: line.goals, yellowCards: line.yellow, redCards: line.red } });
+        affectedPlayers.set(`${profileId}:${sheet.teamId}`, sheet.teamId);
       }
-      await saveTeamMatchSheet(teamData);
-    }
+      oldEventPlayers.forEach((event) => { if (event.playerId && event.teamId) affectedPlayers.set(`${event.playerId}:${event.teamId}`, event.teamId); });
+      for (const key of affectedPlayers.keys()) {
+        const [playerId, teamId] = key.split(":");
+        await syncDisciplinarySuspensions(tx, championship.id, playerId, teamId);
+      }
+      await refreshSuspensionStatuses(tx, championship.id);
+    }, matchSheetTransactionOptions);
+    finish();
     return { status: "success", message: "Todas as alterações da súmula foram salvas." };
   } catch (error) {
     return { status: "error", message: error instanceof Error ? error.message : "Não foi possível salvar as alterações." };

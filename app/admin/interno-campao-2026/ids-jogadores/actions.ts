@@ -9,19 +9,69 @@ import { prisma } from "@/lib/prisma";
 const pagePath = "/admin/interno-campao-2026/ids-jogadores";
 const championshipSlug = "interno-campao-2026";
 
-async function getRegistration(id: string) {
-  const registration = await prisma.registration.findFirst({
-    where: { id, championship: { slug: championshipSlug } },
-  });
-  if (!registration) throw new Error("Jogador não encontrado neste campeonato.");
-  return registration;
-}
-
 function finish(success: string) {
   revalidatePath(pagePath);
+  revalidatePath("/admin/interno-campao-2026/pendencias");
   revalidatePath("/admin/interno-campao-2026/jogos");
   revalidatePath("/campeonatos/interno-campao-2026");
   redirect(`${pagePath}?success=${success}`);
+}
+
+export async function declareDifferentAthletes(formData: FormData) {
+  await requireAdmin();
+  const registrationId = String(formData.get("registrationId") || "").trim();
+  if (!registrationId) throw new Error("Jogador não encontrado.");
+
+  await prisma.$transaction(async (tx) => {
+    const registration = await tx.registration.findFirst({
+      where: { id: registrationId, championship: { slug: championshipSlug } },
+      select: {
+        id: true,
+        championshipId: true,
+        athleteProfileId: true,
+        fullName: true,
+        nickname: true,
+        preferredPosition: true,
+        birthDate: true,
+        phone: true,
+        email: true,
+        level: true,
+      },
+    });
+    if (!registration?.athleteProfileId) throw new Error("Esta inscrição ainda não possui cadastro do XV para separar.");
+
+    const sharedCount = await tx.registration.count({
+      where: {
+        championshipId: registration.championshipId,
+        athleteProfileId: registration.athleteProfileId,
+        id: { not: registration.id },
+      },
+    });
+    if (!sharedCount) throw new Error("Este cadastro não está compartilhado por outra inscrição do Campão.");
+
+    const newProfile = await tx.athleteProfile.create({
+      data: {
+        fullName: registration.fullName,
+        // Mantém homônimos como pessoas distintas no cadastro canônico.
+        normalizedFullName: `${normalizeFullName(registration.fullName)}--${registration.id}`,
+        nickname: registration.nickname,
+        preferredPosition: registration.preferredPosition,
+        birthDate: registration.birthDate,
+        phone: registration.phone,
+        email: registration.email,
+        defaultLevel: registration.level,
+      },
+      select: { id: true },
+    });
+    await tx.registration.update({
+      where: { id: registration.id },
+      data: { athleteProfileId: newProfile.id },
+    });
+  });
+
+  // Os eventos já existentes permanecem no cadastro antigo: não há como
+  // atribuí-los automaticamente a uma das duas pessoas com segurança.
+  finish("pessoas-separadas");
 }
 
 export async function assignPlayerProfile(formData: FormData) {
@@ -29,36 +79,38 @@ export async function assignPlayerProfile(formData: FormData) {
   const registrationId = String(formData.get("registrationId") || "").trim();
   const athleteProfileId = String(formData.get("athleteProfileId") || "").trim();
   if (!registrationId || !athleteProfileId) throw new Error("Informe um ID de atleta válido.");
-  await getRegistration(registrationId);
-  const profile = await prisma.athleteProfile.findUnique({ where: { id: athleteProfileId }, select: { id: true } });
-  if (!profile) throw new Error("Nenhum atleta foi encontrado com este ID.");
-  await prisma.registration.update({ where: { id: registrationId }, data: { athleteProfileId: profile.id } });
-  finish("vinculo-atualizado");
-}
+  await prisma.$transaction(async (tx) => {
+    const registration = await tx.registration.findFirst({
+      where: { id: registrationId, championship: { slug: championshipSlug } },
+      select: { id: true, championshipId: true, athleteProfileId: true },
+    });
+    if (!registration) throw new Error("Jogador não encontrado neste campeonato.");
+    const profile = await tx.athleteProfile.findUnique({ where: { id: athleteProfileId }, select: { id: true } });
+    if (!profile) throw new Error("Nenhum atleta foi encontrado no cadastro do XV.");
+    if (registration.athleteProfileId === profile.id) return;
 
-export async function createIndependentPlayerProfile(formData: FormData) {
-  await requireAdmin();
-  const registrationId = String(formData.get("registrationId") || "").trim();
-  const registration = await getRegistration(registrationId);
-  const independentKey = `${normalizeFullName(registration.fullName)}--${registration.id}`;
-  const profile = await prisma.athleteProfile.upsert({
-    where: { normalizedFullName: independentKey },
-    create: {
-      fullName: registration.fullName,
-      // O sufixo interno permite IDs independentes para homônimos.
-      normalizedFullName: independentKey,
-      nickname: registration.nickname,
-      preferredPosition: registration.preferredPosition,
-      birthDate: registration.birthDate,
-      defaultLevel: registration.level,
-      phone: registration.phone,
-      email: registration.email,
-    },
-    update: {},
-    select: { id: true },
+    const profileAlreadyInChampionship = await tx.registration.findFirst({
+      where: { championshipId: registration.championshipId, athleteProfileId: profile.id, id: { not: registration.id } },
+      select: { id: true },
+    });
+    if (profileAlreadyInChampionship) throw new Error("Este cadastro já está vinculado a outra inscrição do Campão. Revise a duplicidade antes de continuar.");
+
+    if (registration.athleteProfileId) {
+      const sourceProfileId = registration.athleteProfileId;
+      const sharedSource = await tx.registration.count({ where: { championshipId: registration.championshipId, athleteProfileId: sourceProfileId, id: { not: registration.id } } });
+      if (sharedSource) throw new Error("O ID atual é compartilhado por outra inscrição do Campão. Para não atribuir gols ou cartões à pessoa errada, revise os IDs compartilhados primeiro.");
+      const targetHistory = await tx.matchPlayerParticipation.findFirst({ where: { playerId: profile.id, match: { championshipId: registration.championshipId } }, select: { id: true } });
+      if (targetHistory) throw new Error("O cadastro escolhido já possui histórico no Campão. A união automática foi bloqueada para preservar os dados das duas pessoas.");
+
+      await Promise.all([
+        tx.matchEvent.updateMany({ where: { playerId: sourceProfileId, match: { championshipId: registration.championshipId } }, data: { playerId: profile.id } }),
+        tx.matchPlayerParticipation.updateMany({ where: { playerId: sourceProfileId, match: { championshipId: registration.championshipId } }, data: { playerId: profile.id } }),
+        tx.suspension.updateMany({ where: { playerId: sourceProfileId, championshipId: registration.championshipId }, data: { playerId: profile.id } }),
+      ]);
+    }
+    await tx.registration.update({ where: { id: registration.id }, data: { athleteProfileId: profile.id } });
   });
-  await prisma.registration.update({ where: { id: registrationId }, data: { athleteProfileId: profile.id } });
-  finish("id-criado");
+  finish("historico-vinculado");
 }
 
 export async function moveChampionshipPlayer(formData: FormData) {
@@ -73,28 +125,4 @@ export async function moveChampionshipPlayer(formData: FormData) {
   if (!player || !team) throw new Error("Jogador ou time não pertence a este campeonato.");
   await prisma.championshipPlayer.update({ where: { id: player.id }, data: { teamId } });
   finish("time-atualizado");
-}
-
-export async function createChampionshipPlayer(formData: FormData) {
-  await requireAdmin();
-  const fullName = String(formData.get("fullName") || "").trim();
-  const nickname = String(formData.get("nickname") || "").trim();
-  const teamId = String(formData.get("teamId") || "").trim();
-  const preferredPosition = String(formData.get("preferredPosition") || "").trim();
-  const birthDateRaw = String(formData.get("birthDate") || "").trim();
-  const phone = String(formData.get("phone") || "").trim();
-  if (!fullName || !teamId || !birthDateRaw || !phone) throw new Error("Preencha nome, time, data de nascimento e telefone.");
-  if (!["GOLEIRO", "LATERAL", "ZAGUEIRO", "VOLANTE", "MEIA", "ATACANTE"].includes(preferredPosition)) throw new Error("Selecione uma posição válida.");
-  const birthDate = new Date(`${birthDateRaw}T12:00:00`);
-  if (Number.isNaN(birthDate.getTime())) throw new Error("Data de nascimento inválida.");
-  const championship = await prisma.championship.findUnique({ where: { slug: championshipSlug }, select: { id: true } });
-  const team = await prisma.championshipTeam.findFirst({ where: { championshipId: championship?.id, teamId }, select: { groupLabel: true } });
-  if (!championship || !team) throw new Error("Time inválido para este campeonato.");
-  const registration = await prisma.registration.create({ data: { championshipId: championship.id, fullName, nickname: nickname || null, category: team.groupLabel === "MASTER" ? "MASTER" : "ADULTO", preferredPosition: preferredPosition as "GOLEIRO" | "LATERAL" | "ZAGUEIRO" | "VOLANTE" | "MEIA" | "ATACANTE", birthDate, phone, confirmedRules: true } });
-  const profile = await prisma.athleteProfile.create({ data: { fullName, normalizedFullName: `${normalizeFullName(fullName)}--${registration.id}`, nickname: nickname || null, preferredPosition: registration.preferredPosition, birthDate, phone }, select: { id: true } });
-  await prisma.$transaction([
-    prisma.registration.update({ where: { id: registration.id }, data: { athleteProfileId: profile.id } }),
-    prisma.championshipPlayer.create({ data: { championshipId: championship.id, registrationId: registration.id, teamId } }),
-  ]);
-  finish("jogador-criado");
 }

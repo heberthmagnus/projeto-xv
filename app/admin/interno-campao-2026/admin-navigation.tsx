@@ -20,6 +20,7 @@ const links = [
   { href: "/admin/interno-campao-2026/jogos", label: "Lançar resultados" },
   { href: "/admin/interno-campao-2026/elencos", label: "Gerenciar elencos" },
   { href: "/admin/interno-campao-2026/ids-jogadores", label: "IDs dos jogadores" },
+  { href: "/admin/interno-campao-2026/pendencias", label: "Pendências" },
   { href: "/admin/interno-campao-2026/sugestoes", label: "Fale conosco" },
 ];
 
