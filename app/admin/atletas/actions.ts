@@ -96,7 +96,16 @@ async function mergeAthleteProfiles(ids: string[]) {
       const duplicateIds = entries.filter((item) => item.id !== keeper.id).map((item) => item.id);
       if (duplicateIds.length) await tx.matchPlayerParticipation.deleteMany({ where: { id: { in: duplicateIds } } });
     }
-    const merged = athletes.reduce((current, athlete) => ({ nickname: current.nickname || athlete.nickname, birthDate: current.birthDate || athlete.birthDate, lastKnownAge: current.lastKnownAge || athlete.lastKnownAge, phone: current.phone || athlete.phone, email: current.email || athlete.email, preferredPosition: current.preferredPosition || athlete.preferredPosition, defaultLevel: current.defaultLevel || athlete.defaultLevel }), primary);
+    const profilesInPriorityOrder = [primary, ...duplicates];
+    const merged = {
+      nickname: profilesInPriorityOrder.map((athlete) => athlete.nickname).find((value) => value !== null) ?? null,
+      birthDate: profilesInPriorityOrder.map((athlete) => athlete.birthDate).find((value) => value !== null) ?? null,
+      lastKnownAge: profilesInPriorityOrder.map((athlete) => athlete.lastKnownAge).find((value) => value !== null) ?? null,
+      phone: profilesInPriorityOrder.map((athlete) => athlete.phone).find((value) => value !== null) ?? null,
+      email: profilesInPriorityOrder.map((athlete) => athlete.email).find((value) => value !== null) ?? null,
+      preferredPosition: profilesInPriorityOrder.map((athlete) => athlete.preferredPosition).find((value) => value !== null) ?? null,
+      defaultLevel: profilesInPriorityOrder.map((athlete) => athlete.defaultLevel).find((value) => value !== null) ?? null,
+    };
     await Promise.all([
       tx.registration.updateMany({ where: { athleteProfileId: { in: duplicates.map((athlete) => athlete.id) } }, data: { athleteProfileId: primary.id } }),
       tx.peladaConfirmation.updateMany({ where: { athleteProfileId: { in: duplicates.map((athlete) => athlete.id) } }, data: { athleteProfileId: primary.id } }),
