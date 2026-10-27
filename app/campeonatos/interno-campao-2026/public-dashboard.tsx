@@ -195,7 +195,7 @@ function ChampionshipHighlights({ label, teams, matches }: { label: string; team
   </section>;
 }
 
-function HighlightCard({ label, value, tone, children }: { label: string; value: string; tone: "gold" | "blue" | "neutral" }) {
+function HighlightCard({ label, value, tone, children }: { label: string; value: string; tone: "gold" | "blue" | "neutral"; children: ReactNode }) {
   const toneClass = tone === "gold" ? "border-[#E8D193] bg-[#FFFCF2]" : tone === "blue" ? "border-[#C7DAF8] bg-[#F6FAFF]" : "border-[#E5E7EB] bg-white";
   const textClass = "text-[#101010]";
   const detailClass = "text-[#4B5563]";
