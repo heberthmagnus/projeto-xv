@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
+import { getDefaultRoundsByCategory } from "@/lib/championship-rounds";
 import { MatchResultsManager, type AdminMatch } from "./match-results-manager";
 
 export default async function JogosInternoAdminPage() {
@@ -28,7 +29,7 @@ export default async function JogosInternoAdminPage() {
     participations: match.participations.map((item) => ({ playerId: item.playerId, teamId: item.teamId, goals: item.goals, yellowCards: item.yellowCards, redCards: item.redCards })),
     homeTeam: mapTeam(match.homeTeam), awayTeam: mapTeam(match.awayTeam),
   }));
-  return <main className="min-w-0"><MatchResultsManager matches={data}/></main>;
+  return <main className="min-w-0"><MatchResultsManager matches={data} initialRounds={getDefaultRoundsByCategory(data)}/></main>;
 }
 
 type TeamWithPlayers = Prisma.TeamGetPayload<{ include: { players: { include: { registration: true } } } }>;

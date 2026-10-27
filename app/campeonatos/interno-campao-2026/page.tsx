@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { PageContainer } from "@/components/ui/PageContainer";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
+import { getDefaultRoundsByCategory } from "@/lib/championship-rounds";
 import { CampaoPublicDashboard } from "./public-dashboard";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,8 @@ export default async function InternoCampaoPublicPage() {
     const nextGame = nextGameByTeamId.get(item.team.id);
     return nextGame ? [[`${item.playerId}:${item.team.id}`, { playerId: item.playerId, name: getPreferredPlayerName(item.player.nickname, item.player.fullName), reason: item.reason, team: item.team.shortName || item.team.name, icon: item.team.icon, nextGame, category: categoryByTeamId.get(item.team.id) ?? "ADULTO" }] as const] : [];
   })).values());
-  return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={teams} matches={matches} suspensions={suspensions} /></PageContainer></main>;
+  const initialRounds = getDefaultRoundsByCategory(matches, now);
+  return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={teams} matches={matches} suspensions={suspensions} initialRounds={initialRounds} /></PageContainer></main>;
 }
 
 function normalizePlayerName(value: string) {

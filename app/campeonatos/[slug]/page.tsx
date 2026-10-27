@@ -90,6 +90,7 @@ export default async function ChampionshipPublicPage({
   const qualifiedCutoff =
     championship._count.teams >= 5 && championship.slug === "tio-hugo-2026" ? 4 : 0;
   const topScorers = buildTopScorers(championship.matches);
+  const teamHighlights = buildTeamHighlights(championship.standings);
   const cardLeaders = buildCardLeaders(championship.matches);
   const matchMvps = buildMatchMvps(championship.matches);
   const activeSuspensions = (championship.suspensions || []).filter(
@@ -391,6 +392,12 @@ export default async function ChampionshipPublicPage({
           />
         </section>
 
+        <section className="grid gap-3 sm:grid-cols-3" aria-label="Destaques do campeonato">
+          <TeamHighlightCard label="Melhor ataque" value={teamHighlights.bestAttack ? `${teamHighlights.bestAttack.value} gol${teamHighlights.bestAttack.value === 1 ? "" : "s"}` : "Sem jogos"} tone="gold" teams={teamHighlights.bestAttack?.teams ?? []} championshipSlug={championship.slug} />
+          <TeamHighlightCard label="Melhor defesa" value={teamHighlights.bestDefense ? `${teamHighlights.bestDefense.value} gol${teamHighlights.bestDefense.value === 1 ? " sofrido" : "s sofridos"}` : "Sem jogos"} tone="blue" teams={teamHighlights.bestDefense?.teams ?? []} championshipSlug={championship.slug} />
+          <ScorerHighlightCard scorers={topScorers} />
+        </section>
+
         <section className="grid gap-4 xl:grid-cols-4">
           <article className="xv-card">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
@@ -614,6 +621,35 @@ function EmptyPanel({
       </p>
     </div>
   );
+}
+
+type PublicStanding = {
+  gamesPlayed: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  team: { id: string; name: string; slug: string | null; shortName: string | null; icon: string | null };
+};
+
+function buildTeamHighlights(standings: PublicStanding[]) {
+  const eligible = standings.filter((standing) => standing.gamesPlayed > 0);
+  if (!eligible.length) return { bestAttack: null, bestDefense: null };
+  const highestGoals = Math.max(...eligible.map((standing) => standing.goalsFor));
+  const lowestGoalsAgainst = Math.min(...eligible.map((standing) => standing.goalsAgainst));
+  return {
+    bestAttack: { value: highestGoals, teams: eligible.filter((standing) => standing.goalsFor === highestGoals).map((standing) => standing.team) },
+    bestDefense: { value: lowestGoalsAgainst, teams: eligible.filter((standing) => standing.goalsAgainst === lowestGoalsAgainst).map((standing) => standing.team) },
+  };
+}
+
+function TeamHighlightCard({ label, value, tone, teams, championshipSlug }: { label: string; value: string; tone: "gold" | "blue"; teams: Array<PublicStanding["team"]>; championshipSlug: string }) {
+  const isGold = tone === "gold";
+  return <article className={`rounded-2xl border p-4 shadow-[0_8px_20px_rgba(15,23,42,0.04)] ${isGold ? "border-[#E8D193] bg-[#FFFCF2]" : "border-[#C7DAF8] bg-[#F6FAFF]"}`}><p className={`text-[0.72rem] font-bold uppercase tracking-[.16em] ${isGold ? "text-[#8B6914]" : "text-[#2563A8]"}`}>{label}</p><p className="mt-2 text-2xl font-black text-[#101010]">{value}</p>{teams.length ? <div className="mt-3 grid gap-1.5">{teams.map((team) => <Link key={team.id} href={getChampionshipTeamBasePath(championshipSlug, team.slug || "")} className="inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-[#303030] hover:text-[#8B6914]"><TeamIcon icon={team.icon} compact/><span className="truncate">{team.shortName || team.name}</span></Link>)}</div> : <p className="mt-3 text-sm text-[#6B7280]">Aguardando jogos finalizados.</p>}</article>;
+}
+
+function ScorerHighlightCard({ scorers }: { scorers: Array<{ key: string; name: string; goals: number }> }) {
+  const goals = scorers[0]?.goals ?? 0;
+  const leaders = scorers.filter((scorer) => scorer.goals === goals);
+  return <article className="rounded-2xl border border-[#27272A] bg-[#171717] p-4 shadow-[0_8px_20px_rgba(15,23,42,0.12)]"><p className="text-[0.72rem] font-bold uppercase tracking-[.16em] text-[#F6E8BD]">Artilharia</p><p className="mt-2 text-2xl font-black text-white">{leaders.length ? `${goals} gol${goals === 1 ? "" : "s"}` : "Sem gols"}</p>{leaders.length ? <div className="mt-3 grid gap-1.5">{leaders.map((scorer) => <span key={scorer.key} className="truncate text-sm font-bold text-white">⚽ {scorer.name}</span>)}</div> : <p className="mt-3 text-sm text-white/65">Aguardando gols registrados.</p>}</article>;
 }
 
 function buildTopScorers(
