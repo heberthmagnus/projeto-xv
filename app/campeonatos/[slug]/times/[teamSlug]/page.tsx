@@ -9,6 +9,7 @@ import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipTeamBasePath } from "@/lib/routes";
 import { CampaoTeamHubHeader } from "@/app/campeonatos/interno-campao-2026/team-hub-header";
 import { TeamSponsorPresentation } from "@/components/championship/TeamSponsorPresentation";
+import { CampaoTeamPage } from "@/app/campeonatos/interno-campao-2026/team-page";
 
 type Params = Promise<{
   slug: string;
@@ -70,6 +71,8 @@ export default async function ChampionshipTeamPublicPage({
   const team = championship.teamEntry.team;
   const standing = championship.currentStanding;
   const isCampao = slug === "interno-campao-2026";
+
+  if (isCampao) return <CampaoTeamPage championship={championship} now={new Date().getTime()} />;
 
   return (
     <main className="xv-page-shell-soft">

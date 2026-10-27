@@ -550,6 +550,23 @@ function buildDynamicChampionshipStandings(args: {
   return standings;
 }
 
+function buildCampaoTeamStandings(teams: (Parameters<typeof buildDynamicChampionshipStandings>[0]["teams"][number] & { displayOrder: number | null })[], matches: Parameters<typeof buildDynamicChampionshipStandings>[0]["matches"]) {
+  const table = new Map(teams.map((entry) => [entry.team.id, { id: `dynamic-standing-${entry.team.id}`, rank: 0, points: 0, gamesPlayed: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, winRate: 0, movement: "MANTEVE" as const, team: entry.team, order: entry.displayOrder ?? 0 }]));
+  for (const match of matches) {
+    if (match.status !== "FINALIZADO" || match.homeScore === null || match.awayScore === null) continue;
+    const home = table.get(match.homeTeam.id);
+    const away = table.get(match.awayTeam.id);
+    if (!home || !away) continue;
+    home.gamesPlayed++; away.gamesPlayed++;
+    home.goalsFor += match.homeScore; home.goalsAgainst += match.awayScore;
+    away.goalsFor += match.awayScore; away.goalsAgainst += match.homeScore;
+    if (match.homeScore > match.awayScore) { home.wins++; home.points += 3; away.losses++; }
+    else if (match.homeScore < match.awayScore) { away.wins++; away.points += 3; home.losses++; }
+    else { home.draws++; away.draws++; home.points++; away.points++; }
+  }
+  return [...table.values()].map((entry) => ({ ...entry, goalDifference: entry.goalsFor - entry.goalsAgainst, winRate: entry.gamesPlayed ? Math.round(entry.points / (entry.gamesPlayed * 3) * 100) : 0 })).sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || a.order - b.order).map((entry, index) => ({ ...entry, rank: index + 1 }));
+}
+
 export const getChampionshipTeamPublicPageData = cache(
   async (championshipSlug: string, teamSlug: string) => {
     const [championship, championshipTeam] = await prisma.$transaction([
@@ -561,12 +578,14 @@ export const getChampionshipTeamPublicPageData = cache(
           slug: true,
           seasonLabel: true,
           description: true,
+          suspensions: { where: { status: "ATIVA" }, select: { playerId: true, teamId: true, reason: true, player: { select: { fullName: true, nickname: true } } } },
           teams: {
             orderBy: [{ displayOrder: "asc" }, { seed: "asc" }, { id: "asc" }],
             select: {
               id: true,
               displayOrder: true,
               seed: true,
+              groupLabel: true,
               team: {
                 select: {
                   id: true,
@@ -595,6 +614,8 @@ export const getChampionshipTeamPublicPageData = cache(
               status: true,
               homeScore: true,
               awayScore: true,
+              participations: { where: { OR: [{ goals: { gt: 0 } }, { yellowCards: { gt: 0 } }, { redCards: { gt: 0 } }] }, select: { goals: true, yellowCards: true, redCards: true, teamId: true, player: { select: { id: true, fullName: true, nickname: true } } } },
+              events: { where: { type: "CARTAO_AZUL" }, select: { player: true, playerId: true, teamId: true, quantity: true } },
               homeTeam: {
                 select: {
                   id: true,
@@ -676,6 +697,7 @@ export const getChampionshipTeamPublicPageData = cache(
                       id: true,
                       fullName: true,
                       nickname: true,
+                      athleteProfileId: true,
                       preferredPosition: true,
                     },
                   },
@@ -761,10 +783,9 @@ export const getChampionshipTeamPublicPageData = cache(
       return null;
     }
 
-    const standings = buildDynamicChampionshipStandings({
-      teams: championship.teams,
-      matches: championship.matches,
-    });
+    const standings = championshipSlug === "interno-campao-2026"
+      ? buildCampaoTeamStandings(championship.teams.filter((entry) => entry.groupLabel === championshipTeam.groupLabel), championship.matches)
+      : buildDynamicChampionshipStandings({ teams: championship.teams, matches: championship.matches });
 
     const teamMatches = [
       ...championshipTeam.team.homeMatches.map((match) => ({

@@ -10,7 +10,7 @@ type Category = "ADULTO" | "MASTER";
 type Tab = "CLASSIFICACAO" | "SIMULADOR" | "ESTATISTICAS" | "ELENCOS" | "REGULAMENTO";
 
 type Team = { category: Category; order: number; name: string; slug: string | null; icon: string | null; players: string[]; shirtImageUrl?: string | null; sponsor?: { name: string; logoUrl: string } | null };
-type Game = {
+export type Game = {
   id: string;
   category: Category;
   round: number;
@@ -42,7 +42,7 @@ type Game = {
   }>;
 };
 
-type Suspension = { playerId: string; name: string; reason: string; team: string; icon: string | null; nextGame: string; category: Category };
+export type Suspension = { playerId: string; name: string; reason: string; team: string; icon: string | null; nextGame: string; category: Category };
 type Props = { teams: Team[]; matches: Game[]; suspensions: Suspension[]; initialRounds: Record<Category, number> };
 
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -307,12 +307,12 @@ function StatisticsAndDiscipline({ label, matches, suspensions }: { label: strin
   return <section className="grid gap-3"><div className="xv-card py-3"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p><h2 className="mt-1 text-2xl font-black">Estatísticas e disciplina</h2><p className="mt-1 text-sm text-[#6B7280]">Artilharia e situação disciplinar da categoria em uma única visão.</p></div><div className="grid items-start gap-3 xl:grid-cols-2"><ScorersModule label={label} matches={matches} /><CardsModule label={label} matches={matches} suspensions={suspensions} /></div></section>;
 }
 
-function ScorersModule({ label, matches }: { label: string; matches: Game[] }) {
+export function ScorersModule({ label, matches, teamName }: { label: string; matches: Game[]; teamName?: string }) {
   const scorers = useMemo(() => buildScorers(matches), [matches]);
-  return <StatsModule title="Artilharia" description={`Todos os jogadores com gol no ${label}.`} empty="Nenhum gol lançado ainda." rows={scorers.map((item) => ({ label: <span className="inline-flex items-center gap-2"><CountryFlag icon={item.icon} name={item.team} className="text-xl" />{item.name}</span>, value: `⚽ ${item.goals}` }))} />;
+  return <StatsModule title="Artilharia" description={teamName ? `Jogadores de ${teamName} com gols no campeonato.` : `Todos os jogadores com gol no ${label}.`} empty="Nenhum gol lançado ainda." rows={scorers.map((item) => ({ label: <span className="inline-flex items-center gap-2"><CountryFlag icon={item.icon} name={item.team} className="text-xl" />{item.name}</span>, value: `⚽ ${item.goals}` }))} />;
 }
 
-function CardsModule({ label, matches, suspensions }: { label: string; matches: Game[]; suspensions: Suspension[] }) {
+export function CardsModule({ label, matches, suspensions }: { label: string; matches: Game[]; suspensions: Suspension[] }) {
   const category: Category = label === "Adulto" ? "ADULTO" : "MASTER";
   const categorySuspensions = suspensions.filter((item) => item.category === category);
   const players = useMemo(() => {
