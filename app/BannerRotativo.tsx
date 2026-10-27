@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { RoundPosterBanner, type PosterGame } from "./campeonatos/interno-campao-2026/round-poster";
 
 type PeladaBannerType = "CAMPAO" | "CAMPINHO" | null;
 
 type BannerRotativoProps = {
   nextPeladaType: PeladaBannerType;
+  nextRound: { round: number; matches: PosterGame[] } | null;
 };
 
 type BannerItem = {
@@ -19,7 +21,7 @@ type BannerItem = {
 
 const ROTATION_INTERVAL_MS = 7000;
 const TOUCH_RESUME_DELAY_MS = 7000;
-export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
+export function BannerRotativo({ nextPeladaType, nextRound }: BannerRotativoProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const touchResumeTimeoutRef = useRef<number | null>(null);
@@ -27,9 +29,9 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
   const banners: BannerItem[] = [
     {
       title: "🏆 Campeonato Interno XV Campão 2026",
-      ctaLabel: "Ver tabela",
-      href: "/campeonatos/interno-campao-2026",
-      image: "/banners/banner-tio-hugo-2026.webp",
+      ctaLabel: nextRound ? "Ver folder" : "Ver tabela",
+      href: nextRound ? `/campeonatos/interno-campao-2026?folder=${nextRound.round}` : "/campeonatos/interno-campao-2026",
+      image: nextRound ? "/banners/folder-rodada-estadio.png" : "/banners/banner-tio-hugo-2026.webp",
     },
     {
       title: "⚽ Próxima pelada",
@@ -96,7 +98,8 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
   };
 
   const activeBanner = banners[activeIndex];
-  const heroCopy = getHeroCopy(activeBanner.href);
+  const heroCopy = getHeroCopy(activeBanner.href, nextRound?.round);
+  const showRound = activeIndex === 0 && nextRound;
 
   return (
     <section className="w-full px-0 py-0">
@@ -121,8 +124,10 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
 
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/20" />
 
+          {showRound ? <div className="absolute bottom-3 right-2 top-12 z-10 w-[34%] sm:right-8 sm:top-3 sm:w-[32%] md:right-[12%] md:w-[25%]"><RoundPosterBanner matches={nextRound.matches} round={nextRound.round} /></div> : null}
+
           <div className="mx-auto flex h-full w-full max-w-6xl items-center px-4 py-6 sm:px-6 sm:py-8 md:px-12 md:py-12 lg:px-16">
-            <div className="relative z-10 w-full max-w-[600px]">
+            <div className={`relative z-10 w-full ${showRound ? "max-w-[62%] sm:max-w-[58%]" : "max-w-[600px]"}`}>
               <p className="text-[11px] font-bold uppercase tracking-widest text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] md:text-xs">
                 {activeBanner.title}
               </p>
@@ -167,8 +172,9 @@ export function BannerRotativo({ nextPeladaType }: BannerRotativoProps) {
   );
 }
 
-function getHeroCopy(href: string) {
-  if (href === "/campeonatos/interno-campao-2026") {
+function getHeroCopy(href: string, round?: number) {
+  if (href.startsWith("/campeonatos/interno-campao-2026")) {
+    if (round && href.includes("?folder=")) return { heading: `Confira os jogos da ${round}ª rodada`, description: "Adulto e Master juntos no folder da próxima rodada." };
     return {
       heading: "Acompanhe o Campeonato Interno XV Campão 2026",
       description:

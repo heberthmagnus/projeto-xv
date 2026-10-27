@@ -23,7 +23,7 @@ const cards = [
 ];
 
 export default async function HomePage() {
-  const { data: openPeladas, databaseUnavailable } = await executePrismaWithFallback(
+  const [{ data: openPeladas, databaseUnavailable }, { data: campao }] = await Promise.all([executePrismaWithFallback(
     () =>
       prisma.pelada.findMany({
         where: {
@@ -39,7 +39,17 @@ export default async function HomePage() {
       }),
     [],
     "home:open-peladas",
-  );
+  ), executePrismaWithFallback(() => prisma.championship.findUnique({
+    where: { slug: "interno-campao-2026" },
+    select: {
+      teams: { select: { groupLabel: true, team: { select: { id: true } } } },
+      matches: { select: { id: true, round: true, roundNumber: true, status: true, scheduledAt: true, homeTeam: { select: { id: true, name: true, shortName: true, icon: true } }, awayTeam: { select: { name: true, shortName: true, icon: true } } } },
+    },
+  }), null, "home:campao-rodada")]);
+  const now = new Date();
+  const upcoming = campao?.matches.filter((match) => match.scheduledAt && match.scheduledAt >= now && !["FINALIZADO", "CANCELADO"].includes(match.status)).sort((a, b) => a.scheduledAt!.getTime() - b.scheduledAt!.getTime() || a.round - b.round)[0];
+  const categoryByTeam = new Map(campao?.teams.map((entry) => [entry.team.id, entry.groupLabel === "MASTER" ? "MASTER" as const : "ADULTO" as const]));
+  const nextRound = upcoming ? { round: upcoming.round, matches: (campao?.matches ?? []).filter((match) => match.round === upcoming.round && match.status !== "CANCELADO").map((match) => ({ id: match.id, round: match.round, order: match.roundNumber ?? 0, status: match.status, scheduledAt: match.scheduledAt?.toISOString() ?? null, category: categoryByTeam.get(match.homeTeam.id) ?? "ADULTO" as const, home: match.homeTeam.shortName || match.homeTeam.name, homeIcon: match.homeTeam.icon, away: match.awayTeam.shortName || match.awayTeam.name, awayIcon: match.awayTeam.icon })) } : null;
   const todayKey = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
     month: "2-digit",
@@ -60,7 +70,7 @@ export default async function HomePage() {
 
   return (
     <main id="inicio" className="bg-[#F5F0E8] text-[#1A1A1A]">
-      <BannerRotativo nextPeladaType={nextPelada?.type ?? null} />
+      <BannerRotativo nextPeladaType={nextPelada?.type ?? null} nextRound={nextRound} />
 
       <section className="py-8 md:py-10">
         <PageContainer className="grid gap-4 md:gap-6">

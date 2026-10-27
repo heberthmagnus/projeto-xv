@@ -13,10 +13,15 @@ function getCountryCode(icon: string | null | undefined) {
   return indicators.map((character) => String.fromCharCode((character.codePointAt(0) ?? 0) - 0x1f1e6 + 65)).join("").toLowerCase();
 }
 
-export function TeamFlag({ icon, className = "" }: { icon: string | null | undefined; className?: string }) {
+export function getTeamFlagPath(icon: string | null | undefined) {
   const countryCode = getCountryCode(icon);
-  if (countryCode && localFlagCodes.has(countryCode)) {
-    return <Image src={`/flags/${countryCode}.svg`} alt="" width={28} height={20} unoptimized className={`inline-block h-auto ${className}`} />;
+  return countryCode && localFlagCodes.has(countryCode) ? `/flags/${countryCode}.svg` : null;
+}
+
+export function TeamFlag({ icon, className = "" }: { icon: string | null | undefined; className?: string }) {
+  const path = getTeamFlagPath(icon);
+  if (path) {
+    return <Image src={path} alt="" width={28} height={20} unoptimized className={`inline-block h-auto ${className}`} />;
   }
   return icon ? <span aria-hidden="true" className={className}>{icon}</span> : null;
 }

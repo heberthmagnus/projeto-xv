@@ -7,8 +7,9 @@ import { CampaoPublicDashboard } from "./public-dashboard";
 
 export const dynamic = "force-dynamic";
 
-export default async function InternoCampaoPublicPage() {
+export default async function InternoCampaoPublicPage({ searchParams }: { searchParams: Promise<{ folder?: string }> }) {
   await connection();
+  const requestedFolder = Number((await searchParams).folder);
   const championship = await prisma.championship.findUniqueOrThrow({
     where: { slug: "interno-campao-2026" },
     select: {
@@ -80,7 +81,7 @@ export default async function InternoCampaoPublicPage() {
     return nextGame ? [[`${item.playerId}:${item.team.id}`, { playerId: item.playerId, name: getPreferredPlayerName(item.player.nickname, item.player.fullName), reason: item.reason, team: item.team.shortName || item.team.name, icon: item.team.icon, nextGame, category: categoryByTeamId.get(item.team.id) ?? "ADULTO" }] as const] : [];
   })).values());
   const initialRounds = getDefaultRoundsByCategory(matches, now);
-  return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={teams} matches={matches} suspensions={suspensions} initialRounds={initialRounds} /></PageContainer></main>;
+  return <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}><PageContainer><CampaoPublicDashboard teams={teams} matches={matches} suspensions={suspensions} initialRounds={initialRounds} initialFolderRound={Number.isInteger(requestedFolder) && requestedFolder > 0 && matches.some((match) => match.round === requestedFolder && match.status !== "CANCELADO") ? requestedFolder : undefined} /></PageContainer></main>;
 }
 
 function normalizePlayerName(value: string) {

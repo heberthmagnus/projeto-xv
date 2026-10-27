@@ -5,9 +5,10 @@ import Link from "next/link";
 import { TeamFlag } from "@/components/championship/TeamFlag";
 import { safeExternalUrl } from "@/lib/sponsor-links";
 import { RulesModule } from "./regulation-module";
+import { RoundPoster } from "./round-poster";
 
 type Category = "ADULTO" | "MASTER";
-type Tab = "CLASSIFICACAO" | "SIMULADOR" | "ESTATISTICAS" | "ELENCOS" | "REGULAMENTO";
+type Tab = "CLASSIFICACAO" | "SIMULADOR" | "ESTATISTICAS" | "ELENCOS" | "REGULAMENTO" | "FOLDER";
 
 type Team = { category: Category; order: number; name: string; slug: string | null; icon: string | null; players: string[]; shirtImageUrl?: string | null; sponsor?: { name: string; logoUrl: string } | null };
 export type Game = {
@@ -43,7 +44,7 @@ export type Game = {
 };
 
 export type Suspension = { playerId: string; name: string; reason: string; team: string; icon: string | null; nextGame: string; category: Category };
-type Props = { teams: Team[]; matches: Game[]; suspensions: Suspension[]; initialRounds: Record<Category, number> };
+type Props = { teams: Team[]; matches: Game[]; suspensions: Suspension[]; initialRounds: Record<Category, number>; initialFolderRound?: number };
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "CLASSIFICACAO", label: "Classificação" },
@@ -51,11 +52,12 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "ESTATISTICAS", label: "Estatísticas" },
   { id: "ELENCOS", label: "Elencos" },
   { id: "REGULAMENTO", label: "Regulamento" },
+  { id: "FOLDER", label: "Folder da rodada" },
 ];
 
-export function CampaoPublicDashboard({ teams, matches, suspensions, initialRounds }: Props) {
+export function CampaoPublicDashboard({ teams, matches, suspensions, initialRounds, initialFolderRound }: Props) {
   const [category, setCategory] = useState<Category>("ADULTO");
-  const [tab, setTab] = useState<Tab>("CLASSIFICACAO");
+  const [tab, setTab] = useState<Tab>(initialFolderRound ? "FOLDER" : "CLASSIFICACAO");
   const [round, setRound] = useState(() => initialRounds.ADULTO);
   const categoryTeams = useMemo(
     () => teams.filter((team) => team.category === category).sort((a, b) => a.order - b.order),
@@ -128,6 +130,7 @@ export function CampaoPublicDashboard({ teams, matches, suspensions, initialRoun
       ) : null}
 
       {tab === "SIMULADOR" ? <StandingsSimulator label={label} teams={categoryTeams} matches={categoryMatches} /> : null}
+      {tab === "FOLDER" ? <RoundPoster matches={matches} initialRound={initialFolderRound ?? selectedRound} /> : null}
       {tab === "ESTATISTICAS" ? <StatisticsAndDiscipline label={label} matches={categoryMatches} suspensions={suspensions} /> : null}
       {tab === "ELENCOS" ? <RosterModule teams={categoryTeams} label={label} /> : null}
       {tab === "REGULAMENTO" ? <RulesModule /> : null}
