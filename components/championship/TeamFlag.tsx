@@ -1,6 +1,8 @@
 import Image from "next/image";
 
-const localFlagCodes = new Set(["ar", "co", "de", "es", "fr", "gb-eng", "hr", "mx", "no", "se", "sn", "us"]);
+const localFlagCodes = new Set([
+  "ar", "ba", "co", "cv", "cw", "de", "es", "fr", "gb-eng", "hr", "jo", "mx", "no", "se", "sn", "us",
+]);
 
 function getCountryCode(icon: string | null | undefined) {
   if (!icon) return null;

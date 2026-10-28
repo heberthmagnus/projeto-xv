@@ -10,6 +10,7 @@ import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { getChampionshipTeamBasePath } from "@/lib/routes";
 import { MatchRoundCalendar } from "./match-round-calendar";
 import { safeExternalUrl } from "@/lib/sponsor-links";
+import { TioHugoPublicDashboard } from "../tio-hugo-2026/public-dashboard";
 
 type Params = Promise<{
   slug: string;
@@ -112,6 +113,37 @@ export default async function ChampionshipPublicPage({
   const championStanding = championship.standings.find(
     (standing) => standing.team.id === championTeamId,
   );
+
+  if (championship.slug === "tio-hugo-2026") {
+    return (
+      <main className="xv-page-shell-soft" style={{ padding: "12px 0 24px" }}>
+        <PageContainer>
+          <TioHugoPublicDashboard
+            championshipName={championship.name}
+            seasonLabel={championship.seasonLabel}
+            teams={championship.teams.map((entry) => entry.team)}
+            standings={championship.standings}
+            matches={championship.matches.map((match) => ({
+              id: match.id,
+              round: match.round,
+              stageName: match.stage?.name ?? null,
+              stageType: match.stage?.stageType ?? null,
+              scheduledAt: match.scheduledAt?.toISOString() ?? null,
+              status: match.status,
+              homeScore: match.homeScore,
+              awayScore: match.awayScore,
+              homeTeam: match.homeTeam,
+              awayTeam: match.awayTeam,
+            }))}
+            championTeamId={championTeamId}
+            topScorers={topScorers}
+            cardLeaders={cardLeaders}
+            matchMvps={matchMvps}
+          />
+        </PageContainer>
+      </main>
+    );
+  }
 
   return (
     <main className="xv-page-shell-soft">
