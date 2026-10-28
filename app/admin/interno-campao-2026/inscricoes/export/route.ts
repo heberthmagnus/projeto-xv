@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import {
   ensureInternoCampao2026Championship,
 } from "@/lib/championships";
@@ -35,7 +35,7 @@ function formatPosition(position: string) {
 
 export async function GET(request: Request) {
   try {
-    await requireAdmin();
+    await requireSportsAdmin();
 
     const category = new URL(request.url).searchParams.get("category");
     if (category !== "ADULTO" && category !== "MASTER") {

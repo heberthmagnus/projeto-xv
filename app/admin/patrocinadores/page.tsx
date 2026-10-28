@@ -4,6 +4,7 @@ import { safeExternalUrl, whatsappUrl } from "@/lib/sponsor-links";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
 import { createSponsor, toggleSponsor, updateSponsor } from "./actions";
+import { SponsorForm } from "./sponsor-form";
 
 type Sponsor = Awaited<ReturnType<typeof listSponsors>>[number];
 
@@ -18,5 +19,3 @@ export default async function SponsorsAdminPage() {
 }
 
 async function listSponsors() { return prisma.sponsor.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }); }
-function SponsorForm({ action, submitLabel, sponsor }: { action: (formData: FormData) => Promise<void>; submitLabel: string; sponsor?: Sponsor }) { return <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2">{sponsor ? <input type="hidden" name="id" value={sponsor.id}/> : null}<label className="grid gap-1 text-sm font-bold">Nome do patrocinador *<input name="name" defaultValue={sponsor?.name} required className={inputClass}/></label><label className="grid gap-1 text-sm font-bold">Logo *<input name="logoUrl" type="url" defaultValue={sponsor?.logoUrl} required placeholder="https://..." className={inputClass}/></label><label className="grid gap-1 text-sm font-bold">Instagram<input name="instagramUrl" type="url" defaultValue={sponsor?.instagramUrl || ""} placeholder="https://instagram.com/..." className={inputClass}/></label><label className="grid gap-1 text-sm font-bold">Site<input name="websiteUrl" type="url" defaultValue={sponsor?.websiteUrl || ""} placeholder="https://..." className={inputClass}/></label><label className="grid gap-1 text-sm font-bold">WhatsApp<input name="whatsapp" type="tel" defaultValue={sponsor?.whatsapp || ""} placeholder="(31) 99999-9999" className={inputClass}/></label><label className="grid gap-1 text-sm font-bold">Descrição curta<input name="description" defaultValue={sponsor?.description || ""} className={inputClass}/></label><label className="flex items-center gap-2 text-sm font-bold sm:col-span-2"><input type="checkbox" name="active" defaultChecked={sponsor?.active ?? true} className="h-4 w-4"/>Ativo</label><div className="sm:col-span-2"><button className="rounded-xl bg-[#B89020] px-4 py-2.5 text-sm font-bold text-white">{submitLabel}</button></div></form>; }
-const inputClass = "rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 font-normal";

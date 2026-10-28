@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { ResetPasswordClient } from "./reset-password-client";
 
 export default function ResetPasswordPage() {
+  const recoveryEnabled = process.env.SUPABASE_PASSWORD_RECOVERY_ENABLED === "true";
   return (
     <main className="xv-page-shell-soft">
       <div className="mx-auto flex w-full max-w-5xl px-4 md:px-6 lg:px-8">
@@ -14,8 +16,7 @@ export default function ResetPasswordPage() {
               Redefinir senha
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-7 text-white/80 sm:text-base">
-              Abra o link recebido por e-mail, escolha uma nova senha e volte para a
-              área administrativa com segurança.
+              {recoveryEnabled ? "Abra o link recebido por e-mail para escolher uma nova senha." : "A recuperação de senha está temporariamente indisponível. Entre em contato com a secretaria para obter ajuda com o acesso."}
             </p>
 
             <div className="mt-6 grid gap-3">
@@ -24,7 +25,7 @@ export default function ResetPasswordPage() {
                   Segurança
                 </div>
                 <p className="mt-2 text-sm leading-6 text-white/78">
-                  O link de recuperação é validado antes de liberar a troca da senha.
+                  {recoveryEnabled ? "O link de recuperação precisa ser validado antes da troca de senha." : "A secretaria pode orientar a recuperação da sua conta."}
                 </p>
               </div>
 
@@ -33,39 +34,15 @@ export default function ResetPasswordPage() {
                   Acesso rápido
                 </div>
                 <p className="mt-2 text-sm leading-6 text-white/78">
-                  Depois da atualização, você é redirecionado para o login.
+                  {recoveryEnabled ? "Após atualizar a senha, entre novamente no site." : "Seu acesso e sua senha atuais permanecem inalterados."}
                 </p>
               </div>
             </div>
           </div>
 
-          <Suspense fallback={<ResetPasswordFallback />}>
-            <ResetPasswordClient />
-          </Suspense>
+          {recoveryEnabled ? <Suspense fallback={<div>Validando link…</div>}><ResetPasswordClient /></Suspense> : <div className="flex min-w-0 flex-col justify-center px-5 py-7 sm:px-7 sm:py-8"><h2 className="text-xl font-black">Recuperação indisponível</h2><p className="mt-3 text-sm text-[#4B5563]">A redefinição automática está sendo corrigida. Para recuperar o acesso, fale com a secretaria do Clube XV.</p><Link href="/login" className="mt-5 font-bold text-[#8B6914] underline">Voltar ao login</Link></div>}
         </section>
       </div>
     </main>
-  );
-}
-
-function ResetPasswordFallback() {
-  return (
-    <div className="flex min-w-0 flex-col justify-center px-5 py-7 sm:px-7 sm:py-8">
-      <div className="max-w-md">
-        <div className="inline-flex rounded-full bg-[#FCF7E6] px-3 py-1 text-[0.72rem] font-bold uppercase tracking-[0.16em] text-[#8B6914]">
-          Recuperação de acesso
-        </div>
-        <h2 className="mt-4 text-[1.7rem] font-black tracking-tight text-[#101010]">
-          Atualize sua senha
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-[#4B5563] sm:text-base">
-          Preparando a validação do link de recuperação.
-        </p>
-      </div>
-
-      <div className="mt-6 rounded-[18px] border border-[#E5E7EB] bg-[#FAFAFA] px-4 py-4 text-base font-black text-[#374151]">
-        Validando link
-      </div>
-    </div>
   );
 }

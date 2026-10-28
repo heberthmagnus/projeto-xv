@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 
 const path = "/admin/interno-campao-2026/times/simulacao-avancada";
 
 export async function saveCampaoRelationship(input: { id?: string; category: "ADULTO" | "MASTER"; playerAId: string; playerBId: string; relationshipType: string; priorityWeight: number; notes?: string }) {
-  await requireAdmin();
+  await requireSportsAdmin();
   if (input.playerAId === input.playerBId) throw new Error("Selecione dois jogadores diferentes.");
   const championship = await ensureInternoCampao2026Championship();
   const count = await prisma.registration.count({ where: { id: { in: [input.playerAId, input.playerBId] }, championshipId: championship.id, category: input.category } });
@@ -19,10 +19,10 @@ export async function saveCampaoRelationship(input: { id?: string; category: "AD
   revalidatePath(path);
 }
 
-export async function deleteCampaoRelationship(id: string) { await requireAdmin(); await prisma.teamRelationship.delete({ where: { id } }); revalidatePath(path); }
+export async function deleteCampaoRelationship(id: string) { await requireSportsAdmin(); await prisma.teamRelationship.delete({ where: { id } }); revalidatePath(path); }
 
 export async function saveCampaoSimulation(input: { category: "ADULTO" | "MASTER"; name: string; teams: unknown; statistics: unknown; balanceScore: number }) {
-  await requireAdmin(); const championship = await ensureInternoCampao2026Championship();
+  await requireSportsAdmin(); const championship = await ensureInternoCampao2026Championship();
   await prisma.teamSimulation.create({ data: { championshipId: championship.id, category: input.category, name: input.name.trim() || `Divisão ${new Date().toLocaleString("pt-BR")}`, settings: { starters: "2-2-1-2-1", reserves: 5 }, teams: input.teams as object, statistics: input.statistics as object, balanceScore: input.balanceScore } });
   revalidatePath(path);
 }

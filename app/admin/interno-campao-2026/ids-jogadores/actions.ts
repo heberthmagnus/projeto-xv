@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { normalizeFullName } from "@/lib/athlete-profiles";
 import { prisma } from "@/lib/prisma";
 
@@ -18,7 +18,7 @@ function finish(success: string) {
 }
 
 export async function declareDifferentAthletes(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const registrationId = String(formData.get("registrationId") || "").trim();
   if (!registrationId) throw new Error("Jogador não encontrado.");
 
@@ -75,7 +75,7 @@ export async function declareDifferentAthletes(formData: FormData) {
 }
 
 export async function assignPlayerProfile(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const registrationId = String(formData.get("registrationId") || "").trim();
   const athleteProfileId = String(formData.get("athleteProfileId") || "").trim();
   if (!registrationId || !athleteProfileId) throw new Error("Informe um ID de atleta válido.");
@@ -114,7 +114,7 @@ export async function assignPlayerProfile(formData: FormData) {
 }
 
 export async function moveChampionshipPlayer(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championshipPlayerId = String(formData.get("championshipPlayerId") || "").trim();
   const teamId = String(formData.get("teamId") || "").trim();
   if (!championshipPlayerId || !teamId) throw new Error("Selecione um time válido.");

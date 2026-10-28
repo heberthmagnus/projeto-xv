@@ -3,6 +3,8 @@ import bcrypt from "bcrypt";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE } from "@/lib/auth-session";
+import { hasAdministrativeRole, hasPermission, type Permission } from "@/lib/permissions";
+import { createSupabaseAuthClient } from "@/lib/supabase/server-auth";
 import { prisma } from "@/lib/prisma";
 import {
   executePrisma,
@@ -13,6 +15,7 @@ const SESSION_DURATION_SECONDS = 60 * 60 * 12;
 type SessionPayload = {
   userId: string;
   expiresAt: number;
+  supabaseAccessToken?: string;
 };
 
 export class AuthDatabaseUnavailableError extends Error {
@@ -91,9 +94,9 @@ function normalizeBcryptHash(password: string) {
   return password;
 }
 
-export async function createAdminSession(userId: string) {
+export async function createAdminSession(userId: string, supabaseAccessToken?: string) {
   const expiresAt = Date.now() + SESSION_DURATION_SECONDS * 1000;
-  const payload = encodePayload({ userId, expiresAt });
+  const payload = encodePayload({ userId, expiresAt, supabaseAccessToken });
   const signature = sign(payload);
   const cookieStore = await cookies();
 
@@ -138,7 +141,7 @@ export async function readAdminSession() {
   }
 }
 
-export async function getAuthenticatedAdmin() {
+export async function getAuthenticatedUser() {
   const session = await readAdminSession();
 
   if (!session) {
@@ -150,15 +153,16 @@ export async function getAuthenticatedAdmin() {
       () =>
         prisma.user.findUnique({
           where: { id: session.userId },
-          select: { id: true, email: true, role: true },
+          select: { id: true, email: true, role: true, supabaseAuthId: true, roles: { select: { role: true } }, member: { select: { id: true, status: true } } },
         }),
       "auth:get-authenticated-admin",
     );
 
-    if (!user || !isAdminRole(user.role)) {
-      return null;
+    if (user?.supabaseAuthId) {
+      if (!session.supabaseAccessToken) return null;
+      const { data, error } = await createSupabaseAuthClient().auth.getUser(session.supabaseAccessToken);
+      if (error || data.user?.id !== user.supabaseAuthId || !data.user.email_confirmed_at) return null;
     }
-
     return user;
   } catch (error) {
     if (isPrismaConnectionError(error)) {
@@ -169,14 +173,50 @@ export async function getAuthenticatedAdmin() {
   }
 }
 
-export async function requireAdmin() {
+export function userHasPermission(user: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>, permission: Permission) {
+  // Explicitly migrated users use their assigned roles; legacy-only users retain access.
+  return (user.roles.length === 0 && isAdminRole(user.role)) || hasPermission(user.roles.map((item) => item.role), permission);
+}
+
+export function canAccessAdministration(user: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>) {
+  return (user.roles.length === 0 && isAdminRole(user.role)) || hasAdministrativeRole(user.roles.map((item) => item.role));
+}
+
+export function isActiveMember(user: NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>) {
+  return user.roles.some((item) => item.role === "ASSOCIADO") && user.member?.status === "ATIVO";
+}
+
+export async function getAuthenticatedAdmin() {
+  const user = await getAuthenticatedUser();
+  return user && canAccessAdministration(user) ? user : null;
+}
+
+export async function requireAdministrativeAccess() {
   const user = await getAuthenticatedAdmin();
-
-  if (!user) {
-    redirect("/login");
-  }
-
+  if (!user) redirect("/login");
   return user;
+}
+
+export async function requirePermission(permission: Permission) {
+  const user = await getAuthenticatedUser();
+  if (!user) redirect("/login");
+  if (!userHasPermission(user, permission)) throw new Error("Acesso não autorizado.");
+  return user;
+}
+
+export async function requireSportsAdmin() {
+  return requirePermission("sports.manage");
+}
+
+export async function requireActiveMember() {
+  const user = await getAuthenticatedUser();
+  if (!user) redirect("/login");
+  if (!isActiveMember(user)) throw new Error("Acesso disponível apenas para associados ativos.");
+  return user;
+}
+
+export async function requireAdmin() {
+  return requirePermission("permission.manage");
 }
 
 export async function verifyStoredPassword(

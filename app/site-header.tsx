@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CALENDARIO_XV_PATH, getChampionshipBasePath } from "@/lib/routes";
+import { logout } from "@/app/login/actions";
 
 const menuItems = [
   { href: "/", label: "Início" },
@@ -21,7 +22,7 @@ const menuItems = [
   { href: "/fale-conosco", label: "Fale conosco" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ isLoggedIn, accountHref, accountLabel }: { isLoggedIn: boolean; accountHref: string | null; accountLabel: string }) {
   const pathname = usePathname();
 
   return (
@@ -49,12 +50,12 @@ export function SiteHeader() {
           </div>
 
           <div className="flex w-full items-center justify-start gap-3 sm:w-auto sm:justify-end">
-            <Link
+            {isLoggedIn ? <><Link href={accountHref ?? "/minha-conta"} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#8B6914] bg-[#B8960C] px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-[#8B6914]">{accountLabel || "Minha conta"}</Link><form action={logout}><button className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#8B6914] bg-[#101010] px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition hover:bg-[#333]">Sair</button></form></> : <Link
               href="/login"
               className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#8B6914] bg-[#B8960C] px-4 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-[#8B6914]"
             >
-              Admin
-            </Link>
+              Entrar
+            </Link>}
           </div>
         </div>
       </header>

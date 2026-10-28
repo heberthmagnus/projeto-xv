@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
 
 const championshipSlug = "interno-campao-2026";
 
 export default async function ChampionshipPendingPage() {
-  await requireAdmin();
+  await requireSportsAdmin();
   const [registrations, profiles] = await Promise.all([
     prisma.registration.findMany({
       where: { championship: { slug: championshipSlug } },

@@ -2,7 +2,7 @@
 
 import { MatchEventType, MatchStatus, Prisma, SuspensionStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import {
   getRequiredChampionshipBySlug,
   getTioHugoAdminMatchesPath,
@@ -13,7 +13,7 @@ import { parseClubDateTimeLocalInput } from "@/lib/peladas";
 import { prisma } from "@/lib/prisma";
 
 export async function createChampionshipMatch(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const data = await parseMatchFormData(formData, championship.id);
@@ -39,7 +39,7 @@ export async function createChampionshipMatch(formData: FormData) {
 }
 
 export async function updateChampionshipMatch(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const matchId = String(formData.get("matchId") || "").trim();
@@ -91,7 +91,7 @@ export async function updateChampionshipMatch(formData: FormData) {
 }
 
 export async function createMatchEvent(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const data = await parseMatchEventFormData(formData, championship.id);
@@ -117,7 +117,7 @@ export async function createMatchEvent(formData: FormData) {
 }
 
 export async function updateMatchEvent(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const eventId = String(formData.get("eventId") || "").trim();
@@ -170,7 +170,7 @@ export async function updateMatchEvent(formData: FormData) {
 }
 
 export async function deleteMatchEvent(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const eventId = String(formData.get("eventId") || "").trim();
@@ -201,7 +201,7 @@ export async function deleteMatchEvent(formData: FormData) {
 }
 
 export async function createSuspension(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const data = await parseSuspensionFormData(formData, championship.id);
@@ -223,7 +223,7 @@ export async function createSuspension(formData: FormData) {
 }
 
 export async function updateSuspension(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const suspensionId = String(formData.get("suspensionId") || "").trim();
@@ -260,7 +260,7 @@ export async function updateSuspension(formData: FormData) {
 }
 
 export async function deleteSuspension(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const suspensionId = String(formData.get("suspensionId") || "").trim();
@@ -284,7 +284,7 @@ export async function deleteSuspension(formData: FormData) {
 }
 
 export async function markSuspensionAsServed(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const suspensionId = String(formData.get("suspensionId") || "").trim();
@@ -311,7 +311,7 @@ export async function markSuspensionAsServed(formData: FormData) {
 }
 
 export async function applyTioHugoBaseSchedule() {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const [stages, standings, matches] = await Promise.all([

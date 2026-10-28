@@ -1,9 +1,13 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   AuthConfigurationError,
   AuthDatabaseUnavailableError,
-  getAuthenticatedAdmin,
+  getAuthenticatedUser,
+  canAccessAdministration,
+  isActiveMember,
+  userHasPermission,
 } from "@/lib/auth";
 import { getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships";
 import { LoginForm } from "./login-form";
@@ -14,7 +18,7 @@ export default async function LoginPage() {
   let authUnavailable = false;
 
   try {
-    user = await getAuthenticatedAdmin();
+    user = await getAuthenticatedUser();
   } catch (error) {
     if (error instanceof AuthDatabaseUnavailableError) {
       databaseUnavailable = true;
@@ -25,9 +29,10 @@ export default async function LoginPage() {
     }
   }
 
-  if (user) {
-    redirect(getInternoCampao2026AdminRegistrationsPath());
+  if (user && canAccessAdministration(user)) {
+    redirect(userHasPermission(user, "sports.manage") ? getInternoCampao2026AdminRegistrationsPath() : "/acesso");
   }
+  if (user && isActiveMember(user)) redirect("/minha-conta");
 
   return (
     <main className="flex flex-1 items-center justify-center bg-[linear-gradient(180deg,#F4F4F4_0%,#EAEAEA_100%)] px-4 py-6 sm:px-6 sm:py-10">
@@ -41,11 +46,10 @@ export default async function LoginPage() {
             className="mx-auto mb-3 h-[74px] w-auto sm:mb-[14px] sm:h-[86px]"
           />
           <h1 className="mb-2 text-[2rem] font-extrabold text-[#101010] sm:text-[28px]">
-            Área administrativa
+            Acesso ao Clube XV
           </h1>
           <p className="leading-7 text-[#4B5563]">
-            Entre com um usuário já cadastrado manualmente para acessar as
-            inscrições do campeonato.
+            Entre com sua conta cadastrada para acessar os serviços disponíveis ao seu perfil.
           </p>
         </div>
 
@@ -64,6 +68,8 @@ export default async function LoginPage() {
         )}
 
         <LoginForm />
+        <p className="mt-4 text-center text-sm"><Link className="font-bold text-[#8B6914] underline" href="/esqueci-senha">Esqueci minha senha</Link> <span aria-hidden="true">·</span> <Link className="font-bold text-[#8B6914] underline" href="/reenviar-confirmacao">Reenviar confirmação</Link></p>
+        <p className="mt-5 text-center text-sm">Ainda não tem conta? <Link className="font-bold text-[#8B6914] underline" href="/criar-conta">Criar conta de associado</Link></p>
       </div>
     </main>
   );

@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { CampaoSimulationClient } from "./simulation-client";
@@ -6,7 +6,7 @@ import { CampaoSimulationClient } from "./simulation-client";
 const ageReferenceTime = Date.now();
 
 export default async function CampaoAdvancedSimulationPage() {
-  await requireAdmin(); const championship = await ensureInternoCampao2026Championship();
+  await requireSportsAdmin(); const championship = await ensureInternoCampao2026Championship();
   const registrations = await prisma.registration.findMany({ where: { championshipId: championship.id, category: { in: ["ADULTO", "MASTER"] } }, select: { id: true, fullName: true, birthDate: true, phone: true, preferredPosition: true, level: true, category: true, adminNotes: true }, orderBy: { fullName: "asc" } });
   let relationships: Awaited<ReturnType<typeof prisma.teamRelationship.findMany>> = [];
   let simulations: Awaited<ReturnType<typeof prisma.teamSimulation.findMany>> = [];

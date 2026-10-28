@@ -1,5 +1,5 @@
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { ensureInternoCampao2026Championship, getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { executePrismaWithFallback } from "@/lib/prisma-safe";
@@ -11,7 +11,7 @@ type SearchParams = Promise<{ success?: string }>;
 type Registration = RegistrationTableItem;
 
 export default async function InternoCampaoAdminRegistrationsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const params = await searchParams;
   const { data, databaseUnavailable } = await executePrismaWithFallback<{ registrations: Registration[] }>(
     async () => {

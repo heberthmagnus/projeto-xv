@@ -1,13 +1,14 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import {
   AuthConfigurationError,
   AuthDatabaseUnavailableError,
   clearAdminSession,
   createAdminSession,
-  isAdminRole,
+  canAccessAdministration,
+  isActiveMember,
+  userHasPermission,
   verifyStoredPassword,
 } from "@/lib/auth";
 import { getInternoCampao2026AdminRegistrationsPath } from "@/lib/championships";
@@ -15,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { executePrisma, getFriendlyDatabaseErrorMessage } from "@/lib/prisma-safe";
 import { LoginFormState } from "./form-state";
 import { isRateLimited } from "@/lib/request-rate-limit";
+import { verifySupabasePassword } from "@/lib/supabase/server-auth";
 
 export async function login(
   _prevState: LoginFormState,
@@ -40,7 +42,7 @@ export async function login(
       () =>
         prisma.user.findUnique({
           where: { email },
-          select: { id: true, password: true, role: true },
+          select: { id: true, email: true, password: true, supabaseAuthId: true, role: true, roles: { select: { role: true } }, member: { select: { id: true, status: true } } },
         }),
       "login:find-user",
     );
@@ -54,20 +56,18 @@ export async function login(
     throw error;
   }
 
-  if (
-    !user ||
-    !(await verifyStoredPassword(user.password, password))
-  ) {
+  if (!user) {
     return { error: "E-mail ou senha inválidos." };
   }
+  const supabaseToken = user.supabaseAuthId ? await verifySupabasePassword(email, password, user.supabaseAuthId) : null;
+  if (user.supabaseAuthId ? !supabaseToken : !(await verifyStoredPassword(user.password, password))) return { error: "E-mail ou senha inválidos." };
 
-  if (!isAdminRole(user.role)) {
-    console.warn(`Login denied for non-admin user: ${email}`);
-    return { error: "Seu usuário não tem permissão para acessar a área administrativa." };
+  if (!canAccessAdministration(user) && !isActiveMember(user)) {
+    return { error: "Seu usuário não possui acesso ativo à plataforma." };
   }
 
   try {
-    await createAdminSession(user.id);
+    await createAdminSession(user.id, supabaseToken ?? undefined);
   } catch (error) {
     if (error instanceof AuthConfigurationError) {
       console.error("Login failed: auth secret missing in production.");
@@ -80,7 +80,7 @@ export async function login(
     throw error;
   }
 
-  redirect(getInternoCampao2026AdminRegistrationsPath());
+  redirect(canAccessAdministration(user) ? (userHasPermission(user, "sports.manage") ? getInternoCampao2026AdminRegistrationsPath() : "/acesso") : "/minha-conta");
 }
 
 export async function logout() {

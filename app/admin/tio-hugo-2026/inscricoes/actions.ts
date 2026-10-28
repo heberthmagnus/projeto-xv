@@ -1,14 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { getTioHugoAdminRegistrationsPath } from "@/lib/championships";
 import { isValidBrazilPhone, PHONE_ERROR_MESSAGE } from "@/lib/phone";
 import { prisma } from "@/lib/prisma";
 
 export async function updateRegistrationLevel(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const id = String(formData.get("id") || "");
   const rawLevel = String(formData.get("level") || "").trim();
@@ -46,7 +46,7 @@ export async function updateRegistrationLevel(formData: FormData) {
 }
 
 export async function updateRegistrationQuickFields(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const id = String(formData.get("id") || "");
   const rawLevel = String(formData.get("level") || "").trim();
@@ -90,7 +90,7 @@ export async function updateRegistrationQuickFields(formData: FormData) {
 }
 
 export async function updateRegistration(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const id = String(formData.get("id") || "");
   const fullName = String(formData.get("fullName") || "").trim();
@@ -161,7 +161,7 @@ export async function updateRegistration(formData: FormData) {
 }
 
 export async function deleteRegistration(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const id = String(formData.get("id") || "");
 

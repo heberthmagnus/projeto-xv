@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { dispatchGlobalFeedback } from "@/app/global-feedback-events";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { verifyRecoveryAccount } from "./actions";
 
 type ResetState =
   | "loading"
@@ -50,7 +51,7 @@ export function ResetPasswordClient() {
             refresh_token: refreshToken,
           });
 
-          if (error) {
+          if (error || !(await verifyRecoveryAccount(accessToken))) {
             if (!cancelled) {
               setExpiredState();
             }
@@ -70,12 +71,12 @@ export function ResetPasswordClient() {
           verificationParams.tokenHash &&
           verificationParams.type === "recovery"
         ) {
-          const { error } = await supabase.auth.verifyOtp({
+          const { error, data } = await supabase.auth.verifyOtp({
             token_hash: verificationParams.tokenHash,
             type: "recovery",
           });
 
-          if (error) {
+          if (error || !data.session?.access_token || !(await verifyRecoveryAccount(data.session.access_token))) {
             if (!cancelled) {
               setExpiredState();
             }
@@ -132,11 +133,11 @@ export function ResetPasswordClient() {
       return;
     }
 
-    if (password.length < 8) {
+    if (password.length < 12 || new TextEncoder().encode(password).length > 72) {
       dispatchGlobalFeedback({
         key: "reset-password:length",
         tone: "error",
-        message: "A nova senha precisa ter pelo menos 8 caracteres.",
+        message: "A nova senha deve ter pelo menos 12 caracteres e até 72 bytes.",
       });
       return;
     }
@@ -209,7 +210,7 @@ export function ResetPasswordClient() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className={inputClassName}
-              minLength={8}
+              minLength={12}
               required
             />
           </Field>
@@ -221,7 +222,7 @@ export function ResetPasswordClient() {
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               className={inputClassName}
-              minLength={8}
+              minLength={12}
               required
             />
           </Field>

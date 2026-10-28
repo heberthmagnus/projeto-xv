@@ -1,7 +1,7 @@
 import { ChampionshipPlayerStatus } from "@prisma/client";
 import { PostActionFeedbackBanner } from "@/app/post-action-feedback-banner";
 import { DatabaseUnavailableNotice } from "@/components/ui/DatabaseUnavailableNotice";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import {
   getChampionshipTeamsWithPlayersBySlug,
   getRequiredChampionshipBySlug,
@@ -27,7 +27,7 @@ export default async function TimesAdminPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  await requireAdmin();
+  await requireSportsAdmin();
   const { data, databaseUnavailable } = await executePrismaWithFallback<{
     championship: Awaited<ReturnType<typeof getRequiredChampionshipBySlug>> | null;
     championshipWithTeams: any;

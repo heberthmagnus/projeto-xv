@@ -2,8 +2,8 @@
 
 import { MatchEventType, MatchStatus, Prisma, SuspensionStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
-import { ensureInternoCampao2026Championship } from "@/lib/championships";
+import { requireSportsAdmin, requirePermission } from "@/lib/auth";
+import { ensureInternoCampao2026Championship, getRequiredChampionshipBySlug, INTERNO_CAMPAO_2026_SLUG } from "@/lib/championships";
 import { prisma } from "@/lib/prisma";
 import { normalizeFullName, syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
@@ -18,7 +18,7 @@ export type MatchSaveState = { status: "idle" | "success" | "error"; message: st
 
 export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormData): Promise<MatchSaveState> {
   try {
-    await requireAdmin();
+    await requireSportsAdmin();
     const matchId = String(formData.get("matchId") || "").trim();
     const homeScore = Number(formData.get("homeScore"));
     const awayScore = Number(formData.get("awayScore"));
@@ -92,21 +92,26 @@ export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormDa
 }
 
 export async function saveMatchResult(formData: FormData) {
-  await requireAdmin();
-  const championship = await ensureInternoCampao2026Championship();
+  const actor = await requirePermission("match.result.manage");
+  const championship = await getRequiredChampionshipBySlug(INTERNO_CAMPAO_2026_SLUG);
   const id = String(formData.get("matchId") || "");
-  const homeScore = Number(formData.get("homeScore"));
-  const awayScore = Number(formData.get("awayScore"));
-  if (!id || !Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) throw new Error("Informe placares válidos.");
+  const homeRaw = String(formData.get("homeScore") ?? "").trim();
+  const awayRaw = String(formData.get("awayScore") ?? "").trim();
+  const homeScore = Number(homeRaw);
+  const awayScore = Number(awayRaw);
+  if (!id || !/^\d+$/.test(homeRaw) || !/^\d+$/.test(awayRaw) || !Number.isSafeInteger(homeScore) || !Number.isSafeInteger(awayScore) || homeScore > 999 || awayScore > 999) throw new Error("Informe placares válidos.");
   await prisma.$transaction(async (tx) => {
-    await tx.match.updateMany({ where: { id, championshipId: championship.id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
+    const before = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { homeScore: true, awayScore: true, status: true } });
+    if (!before) throw new Error("Partida não encontrada.");
+    await tx.match.update({ where: { id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
+    await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${id}`, previous: before, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO } } });
     await refreshSuspensionStatuses(tx, championship.id);
   }, matchSheetTransactionOptions);
   finish();
 }
 
 export async function saveMatchSchedule(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const id = String(formData.get("matchId") || "");
   const rawScheduledAt = String(formData.get("scheduledAt") || "");
@@ -117,7 +122,7 @@ export async function saveMatchSchedule(formData: FormData) {
 }
 
 export async function saveMatchReport(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const id = String(formData.get("matchId") || "");
   const matchReport = String(formData.get("matchReport") || "").trim();
@@ -130,7 +135,7 @@ export async function saveMatchReport(formData: FormData) {
 }
 
 export async function saveTeamMatchSheet(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const matchId = String(formData.get("matchId") || "");
   const teamId = String(formData.get("teamId") || "");
@@ -177,7 +182,7 @@ export async function saveTeamMatchSheet(formData: FormData) {
 }
 
 export async function addMatchEvent(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const matchId = String(formData.get("matchId") || "");
   const championshipPlayerId = String(formData.get("championshipPlayerId") || "");
@@ -194,7 +199,7 @@ export async function addMatchEvent(formData: FormData) {
 }
 
 export async function registerMatchParticipation(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const matchId = String(formData.get("matchId") || "");
   const championshipPlayerId = String(formData.get("championshipPlayerId") || "");
@@ -208,7 +213,7 @@ export async function registerMatchParticipation(formData: FormData) {
 }
 
 export async function updateMatchEvent(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const eventId = String(formData.get("eventId") || "");
   const matchId = String(formData.get("matchId") || "");
@@ -230,7 +235,7 @@ export async function updateMatchEvent(formData: FormData) {
 }
 
 export async function deleteMatchEvent(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championship = await ensureInternoCampao2026Championship();
   const eventId = String(formData.get("eventId") || "");
   const event = await prisma.matchEvent.findFirst({ where: { id: eventId, match: { championshipId: championship.id } } });

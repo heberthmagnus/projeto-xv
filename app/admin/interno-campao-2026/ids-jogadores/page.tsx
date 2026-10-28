@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
 import { assignPlayerProfile, declareDifferentAthletes, moveChampionshipPlayer } from "./actions";
@@ -7,7 +7,7 @@ import { assignPlayerProfile, declareDifferentAthletes, moveChampionshipPlayer }
 const championshipSlug = "interno-campao-2026";
 
 export default async function PlayerIdsPage({ searchParams }: { searchParams: Promise<{ search?: string; team?: string; status?: string; success?: string }> }) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const filters = await searchParams;
   const [players, profiles, championshipTeams] = await Promise.all([
     prisma.championshipPlayer.findMany({

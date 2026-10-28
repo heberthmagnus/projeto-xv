@@ -4,7 +4,7 @@ import type { PreferredPosition } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { normalizeFullName } from "@/lib/athlete-profiles";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { safeExternalUrl } from "@/lib/sponsor-links";
 
@@ -22,7 +22,7 @@ function finish(success: string) {
 }
 
 export async function moveRosterPlayer(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championshipPlayerId = String(formData.get("championshipPlayerId") || "").trim();
   const teamId = String(formData.get("teamId") || "").trim();
   if (!championshipPlayerId || !teamId) throw new Error("Selecione o jogador e o novo time.");
@@ -37,7 +37,7 @@ export async function moveRosterPlayer(formData: FormData) {
 }
 
 export async function setRegistrationTeam(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const registrationId = String(formData.get("registrationId") || "").trim();
   const selectedTeamId = String(formData.get("teamId") || "").trim();
   if (!registrationId || !selectedTeamId) throw new Error("Selecione o jogador e o time.");
@@ -61,7 +61,7 @@ export async function setRegistrationTeam(formData: FormData) {
 }
 
 export async function addRosterPlayer(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const fullName = String(formData.get("fullName") || "").trim();
   const nickname = String(formData.get("nickname") || "").trim();
   const teamId = String(formData.get("teamId") || "").trim();
@@ -109,7 +109,7 @@ export async function addRosterPlayer(formData: FormData) {
 }
 
 export async function addExistingAthleteToRoster(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const athleteProfileId = String(formData.get("athleteProfileId") || "").trim();
   const teamId = String(formData.get("teamId") || "").trim();
   const preferredPosition = String(formData.get("preferredPosition") || "").trim();
@@ -151,7 +151,7 @@ export async function addExistingAthleteToRoster(formData: FormData) {
 }
 
 export async function updateRosterTeamPresentation(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const championshipTeamId = String(formData.get("championshipTeamId") || "").trim();
   const sponsorId = String(formData.get("sponsorId") || "").trim();
   const rawShirtImageUrl = String(formData.get("shirtImageUrl") || "").trim();

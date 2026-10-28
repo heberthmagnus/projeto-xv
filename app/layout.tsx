@@ -6,6 +6,7 @@ import { ScrollRestoration } from "./scroll-restoration";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader } from "./site-header";
 import { WhatsAppFloatingButton } from "./whatsapp-floating-button";
+import { canAccessAdministration, getAuthenticatedUser } from "@/lib/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,11 +29,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let isLoggedIn = false;
+  let accountHref: string | null = null;
+  let accountLabel = "";
+  try {
+    const user = await getAuthenticatedUser();
+    isLoggedIn = Boolean(user);
+    if (user) {
+      accountHref = canAccessAdministration(user) ? "/acesso" : "/minha-conta";
+      accountLabel = canAccessAdministration(user) ? "Área administrativa" : "Minha conta";
+    }
+  } catch {
+    // The public site must remain available if the authentication database is down.
+  }
+
   return (
     <html
       lang="pt-BR"
@@ -47,7 +62,7 @@ export default function RootLayout({
           <GlobalFeedbackToast />
         </Suspense>
         <WhatsAppFloatingButton />
-        <SiteHeader />
+        <SiteHeader isLoggedIn={isLoggedIn} accountHref={accountHref} accountLabel={accountLabel} />
         <div className="flex flex-1 flex-col">{children}</div>
         <SiteFooter />
       </body>

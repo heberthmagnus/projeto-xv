@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { AuthDatabaseUnavailableError, requireAdmin } from "@/lib/auth";
+import { AuthDatabaseUnavailableError, requireSportsAdmin } from "@/lib/auth";
 import {
   getAthleteProfileAge,
   syncAthleteProfileFromPeladaArrival,
@@ -32,7 +32,7 @@ import {
 import { parsePeladaFormData } from "./pelada-form-values";
 
 export async function createPelada(formData: FormData) {
-  await requireAdminForAction(ADMIN_PELADAS_PATH);
+  await requireSportsAdminForAction(ADMIN_PELADAS_PATH);
 
   const data = parsePeladaFormData(formData);
 
@@ -44,7 +44,7 @@ export async function createPelada(formData: FormData) {
 }
 
 export async function updatePelada(formData: FormData) {
-  await requireAdminForAction(ADMIN_PELADAS_PATH);
+  await requireSportsAdminForAction(ADMIN_PELADAS_PATH);
 
   const id = String(formData.get("id") || "").trim();
 
@@ -67,7 +67,7 @@ export async function updatePeladaStatus(formData: FormData) {
   const status = String(formData.get("status") || "").trim();
   const returnTo = getSafeReturnTo(formData, ADMIN_PELADAS_PATH);
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!id) {
     throw new Error("Pelada não encontrada.");
@@ -112,7 +112,7 @@ export async function updatePeladaStatus(formData: FormData) {
 }
 
 export async function deletePelada(formData: FormData) {
-  await requireAdminForAction(ADMIN_PELADAS_PATH);
+  await requireSportsAdminForAction(ADMIN_PELADAS_PATH);
 
   const id = String(formData.get("id") || "").trim();
 
@@ -328,9 +328,9 @@ async function syncPeladaRoundScoreWithGoals(roundId: string) {
   });
 }
 
-async function requireAdminForAction(returnTo: string) {
+async function requireSportsAdminForAction(returnTo: string) {
   try {
-    await requireAdmin();
+    await requireSportsAdmin();
   } catch (error) {
     if (error instanceof AuthDatabaseUnavailableError) {
       redirect(
@@ -511,7 +511,7 @@ export async function createAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -599,7 +599,7 @@ export async function updateAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
@@ -721,7 +721,7 @@ export async function addGuestToAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
@@ -793,7 +793,7 @@ export async function deleteAdminPeladaConfirmation(formData: FormData) {
     getAdminPeladaConfirmadosPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
@@ -978,7 +978,7 @@ export async function registerArrivalFromConfirmation(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !confirmationId) {
     throw new Error("Confirmado não encontrado.");
@@ -1091,7 +1091,7 @@ export async function createManualPeladaArrival(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -1179,7 +1179,7 @@ export async function updatePeladaArrival(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !arrivalId) {
     throw new Error("Chegada não encontrada.");
@@ -1270,7 +1270,7 @@ export async function deletePeladaArrival(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !arrivalId) {
     throw new Error("Chegada não encontrada.");
@@ -1437,7 +1437,7 @@ export async function defineFirstGame(formData: FormData) {
     getAdminPeladaChegadaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -1541,7 +1541,7 @@ export async function generatePeladaTeams(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -1654,7 +1654,7 @@ export async function openFirstPeladaRoundAndGenerateTeams(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -1801,7 +1801,7 @@ export async function openFirstPeladaRound(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -1924,7 +1924,7 @@ export async function markArrivalAvailableForNextRound(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !arrivalId) {
     throw new Error("Jogador não encontrado.");
@@ -1973,7 +1973,7 @@ export async function markArrivalOutForDay(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !arrivalId) {
     throw new Error("Jogador não encontrado.");
@@ -2020,7 +2020,7 @@ export async function startCurrentPeladaRound(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -2101,7 +2101,7 @@ export async function closeCurrentPeladaRound(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -2164,7 +2164,7 @@ export async function generateNextPeladaRound(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -2316,7 +2316,7 @@ export async function generateNextPeladaRoundAndGenerateTeams(
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -2495,7 +2495,7 @@ export async function updatePeladaRoundResult(formData: FormData) {
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
   const blackScore = Number.parseInt(
     String(formData.get("blackScore") || "0").trim(),
     10,
@@ -2571,7 +2571,7 @@ export async function createPeladaRoundGoal(formData: FormData) {
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
   const roundPlayerId = String(formData.get("roundPlayerId") || "").trim();
   const quantityRaw = String(formData.get("quantity") || "1").trim();
   const minuteRaw = String(formData.get("minute") || "").trim();
@@ -2694,7 +2694,7 @@ export async function deletePeladaRoundGoal(formData: FormData) {
     formData,
     getAdminPeladaResultadosPath(peladaId),
   );
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !goalId) {
     throw new Error("Gol não encontrado.");
@@ -2762,7 +2762,7 @@ export async function swapPeladaTeamPlayers(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId || !yellowAssignmentId || !blackAssignmentId) {
     throw new Error("Selecione os dois jogadores para concluir a troca.");
@@ -2903,7 +2903,7 @@ export async function clearPeladaTeams(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");
@@ -2938,7 +2938,7 @@ export async function resetPeladaProgress(formData: FormData) {
     getAdminPeladaPeladasDoDiaPath(peladaId),
   );
 
-  await requireAdminForAction(returnTo);
+  await requireSportsAdminForAction(returnTo);
 
   if (!peladaId) {
     throw new Error("Pelada não encontrada.");

@@ -121,6 +121,11 @@ strong {
   padding: 0;
 }
 
+/* Administração fica logo após a navegação pública, evitando uma faixa vazia. */
+.xv-admin-shell {
+  padding: 8px 0 24px;
+}
+
 .xv-admin-content .xv-page-container {
   max-width: none;
   margin: 0;

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import {
   getInternoCampao2026AdminRegistrationsPath,
@@ -37,7 +37,7 @@ async function requireInternoRegistration(id: string) {
 }
 
 export async function updateRegistrationCategoryAndLevel(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const id = String(formData.get("id") || "").trim();
   const rawCategory = String(formData.get("category") || "").trim();
@@ -87,7 +87,7 @@ export async function updateRegistrationCategoryAndLevel(formData: FormData) {
 }
 
 export async function updateRegistration(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const id = String(formData.get("id") || "").trim();
   const fullName = String(formData.get("fullName") || "").trim();
@@ -152,7 +152,7 @@ export async function updateRegistration(formData: FormData) {
 }
 
 export async function deleteRegistration(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
   const id = String(formData.get("id") || "").trim();
   if (!id) throw new Error("Inscrição não encontrada.");
 

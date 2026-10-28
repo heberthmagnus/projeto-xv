@@ -1,7 +1,8 @@
 import {
   AuthConfigurationError,
   AuthDatabaseUnavailableError,
-  requireAdmin,
+  requireAdministrativeAccess,
+  userHasPermission,
 } from "@/lib/auth";
 import { AdminSectionsNavigation } from "./admin-sections-navigation";
 
@@ -10,8 +11,18 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  let canManageSports = false;
+  let canManagePlatform = false;
+  let canManagePlayers = false;
+  let canManageResults = false;
+  let canApproveAccounts = false;
   try {
-    await requireAdmin();
+    const user = await requireAdministrativeAccess();
+    canManageSports = userHasPermission(user, "sports.manage");
+    canManagePlatform = userHasPermission(user, "permission.manage");
+    canManagePlayers = userHasPermission(user, "player.manage");
+    canManageResults = userHasPermission(user, "match.result.manage");
+    canApproveAccounts = userHasPermission(user, "member.account.approve");
   } catch (error) {
     if (error instanceof AuthDatabaseUnavailableError) {
       return (
@@ -61,9 +72,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="xv-page-shell">
-      <div className="flex w-full flex-col gap-5 px-3 py-5 lg:flex-row lg:items-stretch lg:px-5">
-        <AdminSectionsNavigation />
+    <div className="xv-page-shell xv-admin-shell">
+      <div className="flex w-full flex-col gap-4 px-3 py-3 lg:flex-row lg:items-stretch lg:px-5">
+        <AdminSectionsNavigation canManageSports={canManageSports} canManagePlatform={canManagePlatform} canManagePlayers={canManagePlayers} canManageResults={canManageResults} canApproveAccounts={canApproveAccounts} />
         <div className="xv-admin-content min-w-0 flex-1">{children}</div>
       </div>
     </div>

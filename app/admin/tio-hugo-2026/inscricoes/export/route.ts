@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import {
   getRequiredChampionshipBySlug,
   TIO_HUGO_2026_SLUG,
@@ -32,7 +32,7 @@ function escapeCsv(value: string | null | undefined) {
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireSportsAdmin();
 
     const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
 

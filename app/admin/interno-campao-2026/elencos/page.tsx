@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import { TeamFlag } from "@/components/championship/TeamFlag";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
 import { prisma } from "@/lib/prisma";
@@ -10,7 +10,7 @@ const championshipSlug = "interno-campao-2026";
 type SearchParams = { search?: string; success?: string };
 
 export default async function RostersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireAdmin();
+  await requireSportsAdmin();
   let data: Awaited<ReturnType<typeof loadRosterData>>;
   try {
     data = await loadRosterData(searchParams);

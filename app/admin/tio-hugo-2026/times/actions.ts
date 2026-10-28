@@ -8,7 +8,7 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireSportsAdmin } from "@/lib/auth";
 import {
   getRequiredChampionshipBySlug,
   getTioHugoAdminTeamsPath,
@@ -26,7 +26,7 @@ const PLACEHOLDER_TEAMS = [
 ] as const;
 
 export async function createChampionshipTeam(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const name = String(formData.get("name") || "").trim();
@@ -72,7 +72,7 @@ export async function createChampionshipTeam(formData: FormData) {
 }
 
 export async function assignRegistrationToTeam(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const registrationId = String(formData.get("registrationId") || "").trim();
@@ -151,7 +151,7 @@ export async function assignRegistrationToTeam(formData: FormData) {
 }
 
 export async function updateChampionshipTeamSettings(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const teamId = String(formData.get("teamId") || "").trim();
@@ -240,7 +240,7 @@ export async function updateChampionshipTeamSettings(formData: FormData) {
 }
 
 export async function createPlaceholderTeamsAndBaseTable() {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const existingTeamsCount = await prisma.championshipTeam.count({
@@ -307,7 +307,7 @@ export async function createPlaceholderTeamsAndBaseTable() {
 }
 
 export async function generateBaseTableFromExistingTeams() {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championship = await getRequiredChampionshipBySlug(TIO_HUGO_2026_SLUG);
   const [teams, matchesCount] = await Promise.all([
@@ -352,7 +352,7 @@ export async function generateBaseTableFromExistingTeams() {
 }
 
 export async function unassignChampionshipPlayer(formData: FormData) {
-  await requireAdmin();
+  await requireSportsAdmin();
 
   const championshipPlayerId = String(formData.get("championshipPlayerId") || "").trim();
 

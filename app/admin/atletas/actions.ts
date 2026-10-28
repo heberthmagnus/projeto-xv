@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import type { PlayerLevel } from "@prisma/client";
+import { requirePermission, userHasPermission } from "@/lib/auth";
 import { normalizeFullName } from "@/lib/athlete-profiles";
 import { prisma } from "@/lib/prisma";
 
@@ -11,7 +12,7 @@ const levels = ["A", "B", "C", "D", "E"] as const;
 
 function optional(value: FormDataEntryValue | null) { const text = String(value || "").trim(); return text || null; }
 function optionalDate(value: FormDataEntryValue | null) { const text = optional(value); if (!text) return null; const date = new Date(`${text}T12:00:00`); if (Number.isNaN(date.getTime())) throw new Error("Data de nascimento inválida."); return date; }
-function profileData(formData: FormData) {
+async function profileData(formData: FormData, existingLevel?: PlayerLevel | null) {
   const fullName = optional(formData.get("fullName"));
   const preferredPosition = optional(formData.get("preferredPosition"));
   const defaultLevel = optional(formData.get("defaultLevel"));
@@ -21,17 +22,19 @@ function profileData(formData: FormData) {
   if (defaultLevel && !levels.includes(defaultLevel as (typeof levels)[number])) throw new Error("Nível inválido.");
   const age = lastKnownAge ? Number(lastKnownAge) : null;
   if (age !== null && (!Number.isInteger(age) || age < 0 || age > 120)) throw new Error("Idade inválida.");
-  return { fullName, normalizedFullName: normalizeFullName(fullName), nickname: optional(formData.get("nickname")), birthDate: optionalDate(formData.get("birthDate")), lastKnownAge: age, phone: optional(formData.get("phone")), email: optional(formData.get("email")), preferredPosition: preferredPosition as (typeof positions)[number] | null, defaultLevel: defaultLevel as (typeof levels)[number] | null };
+  const actor = await requirePermission("player.manage");
+  if (!userHasPermission(actor, "player.rating.manage") && defaultLevel) throw new Error("Acesso não autorizado.");
+  return { fullName, normalizedFullName: normalizeFullName(fullName), nickname: optional(formData.get("nickname")), birthDate: optionalDate(formData.get("birthDate")), lastKnownAge: age, phone: optional(formData.get("phone")), email: optional(formData.get("email")), preferredPosition: preferredPosition as (typeof positions)[number] | null, defaultLevel: userHasPermission(actor, "player.rating.manage") ? defaultLevel as PlayerLevel | null : existingLevel ?? null };
 }
 
 function finish(notice?: string) { revalidatePath("/admin/atletas"); revalidatePath("/admin/interno-campao-2026/ids-jogadores"); revalidatePath("/admin/interno-campao-2026/pendencias"); revalidatePath("/campeonatos/interno-campao-2026"); revalidatePath("/campeonatos/tio-hugo-2026"); redirect(`/admin/atletas${notice ? `?notice=${notice}` : ""}`); }
 
-export async function createAthlete(formData: FormData) { await requireAdmin(); await prisma.athleteProfile.create({ data: profileData(formData) }); finish(); }
+export async function createAthlete(formData: FormData) { await prisma.athleteProfile.create({ data: await profileData(formData) }); finish(); }
 
-export async function updateAthlete(formData: FormData) { await requireAdmin(); const id = optional(formData.get("id")); if (!id) throw new Error("Atleta não encontrado."); await prisma.athleteProfile.update({ where: { id }, data: profileData(formData) }); finish(); }
+export async function updateAthlete(formData: FormData) { await requirePermission("player.manage"); const id = optional(formData.get("id")); if (!id) throw new Error("Atleta não encontrado."); const existing = await prisma.athleteProfile.findUnique({ where: { id }, select: { defaultLevel: true } }); if (!existing) throw new Error("Atleta não encontrado."); await prisma.athleteProfile.update({ where: { id }, data: await profileData(formData, existing.defaultLevel) }); finish(); }
 
 export async function deleteAthlete(formData: FormData) {
-  await requireAdmin(); const id = optional(formData.get("id")); if (!id) throw new Error("Atleta não encontrado.");
+  await requirePermission("player.manage"); const id = optional(formData.get("id")); if (!id) throw new Error("Atleta não encontrado.");
   const counts = await prisma.athleteProfile.findUnique({ where: { id }, select: { _count: { select: { registrations: true, peladaArrivals: true, peladaConfirmations: true, matchEvents: true, matchParticipations: true, suspensions: true } } } });
   if (!counts) throw new Error("Atleta não encontrado.");
   if (Object.values(counts._count).some(Boolean)) finish("historico-preservado");
@@ -39,7 +42,7 @@ export async function deleteAthlete(formData: FormData) {
 }
 
 export async function deleteAthleteAssumingRisk(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("player.manage");
   const id = optional(formData.get("id"));
   const acknowledged = formData.get("acknowledgeRisk") === "yes";
   if (!id || !acknowledged) throw new Error("Confirme que entende a exclusão antes de continuar.");
@@ -64,14 +67,14 @@ export async function deleteAthleteAssumingRisk(formData: FormData) {
 }
 
 export async function mergeAthletes(formData: FormData) {
-  await requireAdmin(); const firstId = optional(formData.get("firstId")); const secondId = optional(formData.get("secondId"));
+  await requirePermission("player.manage"); const firstId = optional(formData.get("firstId")); const secondId = optional(formData.get("secondId"));
   if (!firstId || !secondId || firstId === secondId) throw new Error("Selecione dois atletas diferentes.");
   await mergeAthleteProfiles([firstId, secondId]);
   finish("perfis-integrados");
 }
 
 export async function mergeSelectedAthletes(formData: FormData) {
-  await requireAdmin();
+  await requirePermission("player.manage");
   if (formData.get("acknowledgeMerge") !== "yes") throw new Error("Confirme que os cadastros selecionados são da mesma pessoa.");
   const athleteIds = [...new Set(formData.getAll("athleteIds").map((value) => String(value).trim()).filter(Boolean))];
   if (athleteIds.length < 2) throw new Error("Selecione pelo menos dois cadastros para integrar.");
