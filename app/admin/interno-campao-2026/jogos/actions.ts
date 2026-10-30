@@ -18,7 +18,7 @@ export type MatchSaveState = { status: "idle" | "success" | "error"; message: st
 
 export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormData): Promise<MatchSaveState> {
   try {
-    await requireSportsAdmin();
+    const actor = await requireSportsAdmin();
     const matchId = String(formData.get("matchId") || "").trim();
     const homeScore = Number(formData.get("homeScore"));
     const awayScore = Number(formData.get("awayScore"));
@@ -41,7 +41,7 @@ export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormDa
 
     const championship = await ensureInternoCampao2026Championship();
     await prisma.$transaction(async (tx) => {
-      const match = await tx.match.findFirst({ where: { id: matchId, championshipId: championship.id }, select: { id: true, homeTeamId: true, awayTeamId: true } });
+      const match = await tx.match.findFirst({ where: { id: matchId, championshipId: championship.id }, select: { id: true, homeTeamId: true, awayTeamId: true, homeScore: true, awayScore: true, status: true } });
       if (!match || new Set(sheets.map((sheet) => sheet.teamId)).size !== 2 || !sheets.every((sheet) => [match.homeTeamId, match.awayTeamId].includes(sheet.teamId))) throw new Error("Súmula inválida para esta partida.");
       const submittedIds = sheets.flatMap((sheet) => sheet.players.map((player) => player.championshipPlayerId));
       if (new Set(submittedIds).size !== submittedIds.length) throw new Error("Um atleta foi informado mais de uma vez na súmula.");
@@ -51,6 +51,9 @@ export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormDa
       const affectedPlayers = new Map<string, string>();
 
       await tx.match.update({ where: { id: match.id }, data: { homeScore, awayScore, scheduledAt, matchReport: String(formData.get("matchReport") || "").trim() || null, status: MatchStatus.FINALIZADO } });
+      if (match.homeScore !== homeScore || match.awayScore !== awayScore || match.status !== MatchStatus.FINALIZADO) {
+        await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${match.id}`, previous: { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO, source: "match_sheet" } } });
+      }
       // Uma suspensão pode apontar para um cartão que será regravado abaixo.
       // Soltar a referência dentro da mesma transação evita bloquear a correção da súmula.
       await tx.suspension.updateMany({ where: { relatedEvent: { matchId } }, data: { relatedEventId: null, status: SuspensionStatus.CANCELADA } });

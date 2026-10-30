@@ -15,7 +15,7 @@ import {
 } from "@/lib/routes";
 
 type Item = { label: string; href: string; match: (pathname: string) => boolean };
-type Group = { title: string; description: string; items: Item[] };
+type Group = { title: string; description?: string; items: Item[] };
 
 const internoItems: Item[] = [
   { label: "Inscrições", href: getAdminChampionshipRegistrationsPath("interno-campao-2026"), match: (path) => path === "/admin/interno-campao-2026/inscricoes" },
@@ -34,26 +34,42 @@ const tioHugoItems: Item[] = [
   { label: "Simulação avançada", href: ADMIN_ADVANCED_SIMULATION_PATH, match: (path) => path === ADMIN_ADVANCED_SIMULATION_PATH },
 ];
 
-export function AdminSectionsNavigation({ canManageSports, canManagePlatform, canManagePlayers, canManageResults, canApproveAccounts }: { canManageSports: boolean; canManagePlatform: boolean; canManagePlayers: boolean; canManageResults: boolean; canApproveAccounts: boolean }) {
+export function AdminSectionsNavigation({ canManageSports, canManagePlatform, canManagePlayers, canManageMembers, canManageResults, canApproveAccounts, canAccessMemberArea, canAccessPool, canManagePool }: { canManageSports: boolean; canManagePlatform: boolean; canManagePlayers: boolean; canManageMembers: boolean; canManageResults: boolean; canApproveAccounts: boolean; canAccessMemberArea: boolean; canAccessPool: boolean; canManagePool: boolean }) {
   const pathname = usePathname();
-  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["Minha área"]);
   const groups: Group[] = [];
+
+  if (canAccessMemberArea) {
+    groups.push({
+      title: "Minha área",
+      items: [
+        { label: "Minha conta", href: "/minha-conta", match: (path) => path.startsWith("/minha-conta") },
+        ...(canAccessPool ? [{ label: "Bolão XV", href: "/bolao", match: (path: string) => path === "/bolao" }] : []),
+        ...(canAccessPool ? [{ label: "Regulamento do Bolão", href: "/bolao/regulamento", match: (path: string) => path.startsWith("/bolao/regulamento") }] : []),
+      ],
+    });
+  }
 
   if (canManageSports) {
     groups.push(
       { title: "Campão 2026", description: "Campeonato interno", items: internoItems },
       { title: "Copa Tio Hugo 2026", description: "Gestão esportiva", items: tioHugoItems },
-      { title: "Rotina esportiva", description: "Atividades do clube", items: [{ label: "Peladas", href: ADMIN_PELADAS_PATH, match: (path) => path.startsWith(ADMIN_PELADAS_PATH) }] },
+      { title: "Rotina esportiva", description: "Atividades do clube", items: [{ label: "Peladas", href: ADMIN_PELADAS_PATH, match: (path) => path.startsWith(ADMIN_PELADAS_PATH) }, { label: "Interclubes", href: "/admin/interclubes", match: (path) => path.startsWith("/admin/interclubes") }] },
     );
   } else if (canManageResults) {
     groups.push({ title: "Campeonato interno", description: "Resultados autorizados", items: [internoItems[2]] });
   }
 
   const membershipItems: Item[] = [
+    ...(canManageMembers ? [{ label: "Associados", href: "/admin/associados", match: (path: string) => path.startsWith("/admin/associados") }] : []),
     ...(canManagePlayers ? [{ label: "Cadastro de atletas", href: "/admin/atletas", match: (path: string) => path.startsWith("/admin/atletas") }] : []),
     ...(canApproveAccounts ? [{ label: "Solicitações de acesso", href: "/solicitacoes", match: (path: string) => path.startsWith("/solicitacoes") }] : []),
   ];
   if (membershipItems.length) groups.push({ title: "Associados", description: "Cadastros e aprovações", items: membershipItems });
+
+  if (canManagePool) groups.push({ title: "Bolão XV", description: "Gestão e resultados", items: [
+    { label: "Gestão do Bolão", href: "/admin/bolao", match: (path) => path.startsWith("/admin/bolao") },
+  ] });
 
   if (canManagePlatform) groups.push({ title: "Plataforma", description: "Administração do site", items: [
     { label: "Patrocinadores", href: "/admin/patrocinadores", match: (path) => path.startsWith("/admin/patrocinadores") },
@@ -73,11 +89,10 @@ export function AdminSectionsNavigation({ canManageSports, canManagePlatform, ca
     <div className="border-b border-white/15 px-3 pb-4 pt-2">
       <p className="text-xs font-bold uppercase tracking-[.16em] text-[#D6B34A]">Área administrativa</p>
       <h2 className="mt-2 text-xl font-black leading-tight">Organização do clube</h2>
-      <p className="mt-2 text-sm leading-5 text-white/65">Acesse apenas os módulos liberados para seu perfil.</p>
     </div>
     <nav className="mt-3 grid gap-3" aria-label="Seções administrativas">
       {groups.map((group) => { const isExpanded = expandedGroups.includes(group.title); const hasActiveItem = group.items.some((item) => item.match(pathname)); return <section key={group.title} className="rounded-2xl border border-white/10 bg-white/[0.045] p-2">
-        <button type="button" onClick={() => toggleGroup(group.title)} aria-expanded={isExpanded} className={`flex w-full items-center justify-between rounded-xl px-2 py-1 text-left transition ${hasActiveItem ? "text-[#F2C76B]" : "text-white"}`}><span><span className="block text-sm font-black">{group.title}</span><span className="mt-0.5 block text-xs text-white/55">{group.description}</span></span><span aria-hidden className={`grid h-7 w-7 place-items-center rounded-full bg-white/10 text-base transition-transform ${isExpanded ? "rotate-180" : ""}`}>⌄</span></button>
+        <button type="button" onClick={() => toggleGroup(group.title)} aria-expanded={isExpanded} className={`flex w-full items-center justify-between rounded-xl px-2 py-1 text-left transition ${hasActiveItem ? "text-[#F2C76B]" : "text-white"}`}><span><span className="block text-sm font-black">{group.title}</span>{group.description ? <span className="mt-0.5 block text-xs text-white/55">{group.description}</span> : null}</span><span aria-hidden className={`grid h-7 w-7 place-items-center rounded-full bg-white/10 text-base transition-transform ${isExpanded ? "rotate-180" : ""}`}>⌄</span></button>
         {isExpanded ? <div className="mt-2 grid gap-1">{group.items.map((item) => <Link key={item.href} href={item.href} className={`rounded-xl px-3 py-2.5 text-sm font-semibold no-underline transition ${item.match(pathname) ? "bg-[#B89020] text-white shadow-[0_8px_18px_rgba(184,144,32,0.25)]" : "text-white/80 hover:bg-white/10 hover:text-white"}`}>{item.label}<span aria-hidden className="float-right opacity-60">→</span></Link>)}</div> : null}
       </section>; })}
     </nav>

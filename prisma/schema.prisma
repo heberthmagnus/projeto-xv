@@ -8,15 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String?
-  email     String   @unique
-  password  String
-  supabaseAuthId String? @unique
-  role      String   @default("USER")
-  createdAt DateTime @default(now())
-  roles     UserRole[]
-  member    Member?
+  id                       String             @id @default(uuid())
+  name                     String?
+  email                    String             @unique
+  password                 String
+  supabaseAuthId           String?            @unique
+  role                     String             @default("USER")
+  createdAt                DateTime           @default(now())
+  roles                    UserRole[]
+  member                   Member?
+  createdMemberInvitations MemberInvitation[] @relation("MemberInvitationCreator")
 }
 
 enum PlatformRole {
@@ -43,64 +44,95 @@ enum AccountRequestStatus {
   RECUSADO
 }
 
+enum PredictionPoolCategory {
+  ADULTO
+  MASTER
+}
+
+enum PermanentTeamCategory {
+  LIVRE
+  MAIS_38
+  MAIS_48
+  MAIS_58
+}
+
+enum InterclubesFixtureType {
+  AMISTOSO
+  INTERCLUBES
+}
+
+enum MemberInvitationStatus {
+  PENDENTE
+  ACEITO
+  CANCELADO
+  EXPIRADO
+}
+
 model AccountRequest {
-  id String @id @default(uuid())
-  fullName String
-  email String
-  phone String
-  passwordHash String
-  supabaseAuthId String? @unique
-  status AccountRequestStatus @default(PENDENTE)
-  createdAt DateTime @default(now())
-  decidedAt DateTime?
-  decidedBy String?
+  id             String               @id @default(uuid())
+  fullName       String
+  email          String
+  phone          String
+  passwordHash   String
+  supabaseAuthId String?              @unique
+  status         AccountRequestStatus @default(PENDENTE)
+  createdAt      DateTime             @default(now())
+  decidedAt      DateTime?
+  decidedBy      String?
+
   @@index([status, createdAt])
 }
 
 model RequestRateLimit {
-  key String @id
-  count Int
+  key     String   @id
+  count   Int
   resetAt DateTime
+
   @@index([resetAt])
 }
 
 model AuthEmailDelivery {
-  webhookId String @id
-  status String
+  webhookId String   @id
+  status    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   @@index([createdAt])
 }
 
 model UserRole {
   userId String
-  role PlatformRole
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   PlatformRole
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@id([userId, role])
 }
 
 model Member {
-  id String @id @default(uuid())
-  userId String? @unique
-  fullName String
-  email String? @unique
-  phone String?
-  category MembershipCategory
-  status MembershipStatus @default(ATIVO)
-  membershipCode String? @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id                     String                      @id @default(uuid())
+  userId                 String?                     @unique
+  fullName               String
+  email                  String?                     @unique
+  phone                  String?
+  category               MembershipCategory
+  status                 MembershipStatus            @default(ATIVO)
+  membershipCode         String?                     @unique
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  user                   User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  athleteProfile         AthleteProfile?
+  predictionParticipants PredictionPoolParticipant[]
 }
 
 model AdministrativeAudit {
-  id String @id @default(uuid())
-  actorId String
-  action String
-  target String
-  previous Json?
-  next Json?
+  id        String   @id @default(uuid())
+  actorId   String
+  action    String
+  target    String
+  previous  Json?
+  next      Json?
   createdAt DateTime @default(now())
+
   @@index([target, createdAt])
 }
 
@@ -138,6 +170,79 @@ model AthleteProfile {
   matchEvents         MatchEvent[]
   matchParticipations MatchPlayerParticipation[]
   suspensions         Suspension[]
+  memberId            String?                    @unique
+  member              Member?                    @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  permanentTeamMemberships PermanentTeamMembership[]
+  interclubesFixturePlayers InterclubesFixturePlayer[]
+}
+
+/// Equipe contínua do Clube XV. Não representa um elenco de campeonato.
+model PermanentTeam {
+  id                  String                  @id @default(uuid())
+  category            PermanentTeamCategory   @unique
+  name                String
+  activeForInterclubes Boolean                @default(false)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  memberships         PermanentTeamMembership[]
+  fixtures            InterclubesFixture[]
+}
+
+/// Histórico de vínculo de um atleta com um time permanente.
+model PermanentTeamMembership {
+  id               String         @id @default(uuid())
+  permanentTeamId  String
+  athleteProfileId String
+  joinedAt         DateTime       @default(now())
+  leftAt           DateTime?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  permanentTeam    PermanentTeam  @relation(fields: [permanentTeamId], references: [id], onDelete: Cascade)
+  athleteProfile   AthleteProfile @relation(fields: [athleteProfileId], references: [id], onDelete: Restrict)
+
+  @@index([permanentTeamId, leftAt])
+  @@index([athleteProfileId, leftAt])
+}
+
+/// Agenda de amistosos e partidas oficiais dos times permanentes.
+model InterclubesFixture {
+  id              String                 @id @default(uuid())
+  permanentTeamId String
+  type            InterclubesFixtureType
+  opponentName    String
+  scheduledAt     DateTime
+  location        String?
+  notes           String?
+  homeGame        Boolean                @default(true)
+  status          MatchStatus            @default(AGENDADO)
+  clubScore       Int?
+  opponentScore   Int?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  permanentTeam   PermanentTeam          @relation(fields: [permanentTeamId], references: [id], onDelete: Cascade)
+  players         InterclubesFixturePlayer[]
+
+  @@index([permanentTeamId, scheduledAt])
+  @@index([scheduledAt, status])
+}
+
+/// Participação e estatísticas exclusivamente do Clube XV em uma partida da agenda.
+model InterclubesFixturePlayer {
+  id          String              @id @default(uuid())
+  fixtureId   String
+  athleteId   String
+  played      Boolean             @default(false)
+  starter     Boolean             @default(false)
+  goals       Int                 @default(0)
+  yellowCards Int                 @default(0)
+  blueCards   Int                 @default(0)
+  redCards    Int                 @default(0)
+  fixture     InterclubesFixture  @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  athlete     AthleteProfile      @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+
+  @@unique([fixtureId, athleteId])
+  @@index([athleteId])
 }
 
 model Championship {
@@ -162,6 +267,7 @@ model Championship {
   suspensions       Suspension[]
   teamRelationships TeamRelationship[]
   teamSimulations   TeamSimulation[]
+  predictionPools   PredictionPool[]
 }
 
 model Team {
@@ -216,15 +322,117 @@ model Sponsor {
   @@index([active])
 }
 
+model MemberInvitation {
+  id          String                 @id @default(uuid())
+  email       String
+  tokenHash   String                 @unique
+  status      MemberInvitationStatus @default(PENDENTE)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime               @default(now())
+  createdById String
+  createdBy   User                   @relation("MemberInvitationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([email, status])
+  @@index([expiresAt])
+}
+
+model PredictionPool {
+  id             String                      @id @default(uuid())
+  championshipId String
+  category       PredictionPoolCategory
+  active         Boolean                     @default(true)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  championship   Championship                @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  participants   PredictionPoolParticipant[]
+  matches        PredictionPoolMatch[]
+  multipliers    PredictionMultiplier[]
+
+  @@unique([championshipId, category])
+  @@index([active, category])
+}
+
+model PredictionPoolParticipant {
+  id                String                 @id @default(uuid())
+  poolId            String
+  memberId          String
+  firstPredictionAt DateTime?
+  joinedAt          DateTime               @default(now())
+  pool              PredictionPool         @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  member            Member                 @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  predictions       Prediction[]
+  multipliers       PredictionMultiplier[]
+
+  @@unique([poolId, memberId])
+  @@index([memberId, joinedAt])
+}
+
+/// Snapshot do prazo por jogo dentro do Bolão. Ele impede reabrir palpites
+/// quando o jogo é reagendado depois do fechamento original.
+model PredictionPoolMatch {
+  id          String                 @id @default(uuid())
+  poolId      String
+  matchId     String
+  lockAt      DateTime
+  lockedAt    DateTime?
+  eligible    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  pool        PredictionPool         @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  match       Match                  @relation(fields: [matchId], references: [id], onDelete: Restrict)
+  predictions Prediction[]
+  multipliers PredictionMultiplier[]
+
+  @@unique([poolId, matchId])
+  @@index([poolId, lockAt])
+  @@index([matchId])
+}
+
+model Prediction {
+  id            String                    @id @default(uuid())
+  participantId String
+  poolMatchId   String
+  homeGoals     Int
+  awayGoals     Int
+  basePoints    Int                       @default(0)
+  awardedPoints Int                       @default(0)
+  scoredAt      DateTime?
+  submittedAt   DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  participant   PredictionPoolParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  poolMatch     PredictionPoolMatch       @relation(fields: [poolMatchId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, poolMatchId])
+  @@index([poolMatchId, scoredAt])
+}
+
+model PredictionMultiplier {
+  id            String                    @id @default(uuid())
+  participantId String
+  poolId        String
+  poolMatchId   String
+  round         Int
+  lockedAt      DateTime?
+  selectedAt    DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  participant   PredictionPoolParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  pool          PredictionPool            @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  poolMatch     PredictionPoolMatch       @relation(fields: [poolMatchId], references: [id], onDelete: Restrict)
+
+  @@unique([participantId, poolId, round])
+  @@index([poolMatchId])
+}
+
 model SiteBacklogItem {
-  id          String             @id @default(uuid())
+  id          String            @id @default(uuid())
   title       String
   description String
   area        String
-  status      SiteBacklogStatus  @default(BACKLOG)
-  sortOrder   Int                @default(0)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  status      SiteBacklogStatus @default(BACKLOG)
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([status, sortOrder])
 }
@@ -279,30 +487,31 @@ model ChampionshipPlayer {
 }
 
 model Match {
-  id             String                     @id @default(uuid())
-  championshipId String
-  homeTeamId     String
-  awayTeamId     String
-  homeScore      Int?
-  awayScore      Int?
-  round          Int
-  createdAt      DateTime                   @default(now())
-  location       String?
-  notes          String?
-  matchReport    String?
-  referee        String?
-  roundNumber    Int?
-  scheduledAt    DateTime?
-  stageId        String?
-  status         MatchStatus                @default(AGENDADO)
-  updatedAt      DateTime                   @default(now()) @updatedAt
-  awayTeam       Team                       @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  championship   Championship               @relation(fields: [championshipId], references: [id])
-  homeTeam       Team                       @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  stage          ChampionshipStage?         @relation(fields: [stageId], references: [id])
-  events         MatchEvent[]
-  participations MatchPlayerParticipation[]
-  suspensions    Suspension[]
+  id                    String                     @id @default(uuid())
+  championshipId        String
+  homeTeamId            String
+  awayTeamId            String
+  homeScore             Int?
+  awayScore             Int?
+  round                 Int
+  createdAt             DateTime                   @default(now())
+  location              String?
+  notes                 String?
+  matchReport           String?
+  referee               String?
+  roundNumber           Int?
+  scheduledAt           DateTime?
+  stageId               String?
+  status                MatchStatus                @default(AGENDADO)
+  updatedAt             DateTime                   @default(now()) @updatedAt
+  awayTeam              Team                       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  championship          Championship               @relation(fields: [championshipId], references: [id])
+  homeTeam              Team                       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  stage                 ChampionshipStage?         @relation(fields: [stageId], references: [id])
+  events                MatchEvent[]
+  participations        MatchPlayerParticipation[]
+  suspensions           Suspension[]
+  predictionPoolMatches PredictionPoolMatch[]
 }
 
 model Standing {

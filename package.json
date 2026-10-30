@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1",
+    "dev": "next dev --hostname localhost",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "import:athletes": "node --experimental-strip-types scripts/import-athletes.ts",
     "backfill:pelada-athletes": "node --experimental-strip-types scripts/backfill-pelada-confirmations-athlete-profile.ts",
+    "setup:bolao-campao-2026": "tsx scripts/setup-bolao-campao-2026.ts",
     "seed:copa-tio-hugo-2026": "tsx scripts/seed-copa-tio-hugo-2026.ts",
     "postinstall": "prisma generate"
   },

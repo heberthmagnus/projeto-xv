@@ -1,6 +1,7 @@
 import {
   AuthConfigurationError,
   AuthDatabaseUnavailableError,
+  isActiveMember,
   requireAdministrativeAccess,
   userHasPermission,
 } from "@/lib/auth";
@@ -14,15 +15,23 @@ export default async function AdminLayout({
   let canManageSports = false;
   let canManagePlatform = false;
   let canManagePlayers = false;
+  let canManageMembers = false;
   let canManageResults = false;
   let canApproveAccounts = false;
+  let canAccessMemberArea = false;
+  let canAccessPool = false;
+  let canManagePool = false;
   try {
     const user = await requireAdministrativeAccess();
     canManageSports = userHasPermission(user, "sports.manage");
     canManagePlatform = userHasPermission(user, "permission.manage");
     canManagePlayers = userHasPermission(user, "player.manage");
+    canManageMembers = userHasPermission(user, "member.read");
     canManageResults = userHasPermission(user, "match.result.manage");
     canApproveAccounts = userHasPermission(user, "member.account.approve");
+    canAccessMemberArea = isActiveMember(user);
+    canAccessPool = canAccessMemberArea && userHasPermission(user, "pool.read");
+    canManagePool = userHasPermission(user, "pool.manage");
   } catch (error) {
     if (error instanceof AuthDatabaseUnavailableError) {
       return (
@@ -74,7 +83,7 @@ export default async function AdminLayout({
   return (
     <div className="xv-page-shell xv-admin-shell">
       <div className="flex w-full flex-col gap-4 px-3 py-3 lg:flex-row lg:items-stretch lg:px-5">
-        <AdminSectionsNavigation canManageSports={canManageSports} canManagePlatform={canManagePlatform} canManagePlayers={canManagePlayers} canManageResults={canManageResults} canApproveAccounts={canApproveAccounts} />
+        <AdminSectionsNavigation canManageSports={canManageSports} canManagePlatform={canManagePlatform} canManagePlayers={canManagePlayers} canManageMembers={canManageMembers} canManageResults={canManageResults} canApproveAccounts={canApproveAccounts} canAccessMemberArea={canAccessMemberArea} canAccessPool={canAccessPool} canManagePool={canManagePool} />
         <div className="xv-admin-content min-w-0 flex-1">{children}</div>
       </div>
     </div>

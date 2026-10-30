@@ -19,6 +19,12 @@ Este documento complementa o backlog existente do site; não substitui seus iten
 - Reutilizar identidades dos atletas; permitir cadastro de equipes, associação de jogadores, verificação de categoria, elencos, calendário, resultados, histórico das equipes e participação dos atletas.
 - A Diretoria administra a operação esportiva; associados integrantes acessam a página de sua equipe. Não expor informações privadas a associados sem vínculo.
 
+## Times permanentes
+
+- Manter times fixos do clube separados dos elencos temporários de cada campeonato, reutilizando a identidade única dos atletas e permitindo períodos de vínculo.
+- Registrar responsáveis, atletas ativos e históricos por time; a Diretoria administra as alterações e associados visualizam apenas os times aos quais pertencem.
+- Permitir que Interclubes e futuros campeonatos usem esses times como origem de elenco sem copiar cadastros ou misturar o histórico esportivo.
+
 ## Gestão financeira
 
 - A administração financeira futura pertence ao escopo da Secretaria. Um diretor poderá receber também SECRETARIA quando autorizado; não criar papel FINANCEIRO.
