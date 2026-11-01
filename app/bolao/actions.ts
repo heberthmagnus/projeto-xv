@@ -6,14 +6,15 @@ import { requireActiveMember, userHasPermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export type BolaoActionState = { error?: string; success?: string };
-const initial = { error: "" };
 
 function text(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
 
 function goals(value: FormDataEntryValue | null) {
-  const parsed = Number(text(value));
+  const raw = text(value);
+  if (!/^\d+$/.test(raw)) throw new Error("Informe gols inteiros entre 0 e 99.");
+  const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 0 || parsed > 99) throw new Error("Informe gols inteiros entre 0 e 99.");
   return parsed;
 }
@@ -51,11 +52,17 @@ export async function savePrediction(_: BolaoActionState, formData: FormData): P
 
     await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const poolMatch = await tx.predictionPoolMatch.findFirst({ where: { id: poolMatchId, poolId, eligible: true }, select: { id: true, lockAt: true, lockedAt: true } });
+      const poolMatch = await tx.predictionPoolMatch.findFirst({ where: { id: poolMatchId, poolId, eligible: true, match: { status: { notIn: ["FINALIZADO", "CANCELADO"] } } }, select: { id: true, lockAt: true, lockedAt: true, match: { select: { round: true } } } });
       if (!poolMatch) throw new Error("Partida indisponível para palpite.");
       if (poolMatch.lockedAt || poolMatch.lockAt <= now) {
         if (!poolMatch.lockedAt) await tx.predictionPoolMatch.update({ where: { id: poolMatch.id }, data: { lockedAt: now } });
         throw new Error("O prazo deste palpite já foi encerrado.");
+      }
+      if (formData.get("selectMultiplier") === "yes") {
+        const round = poolMatch.match.round;
+        const current = await tx.predictionMultiplier.findUnique({ where: { participantId_poolId_round: { participantId: participant.id, poolId, round } }, include: { poolMatch: { select: { lockAt: true, lockedAt: true } } } });
+        if (current && (current.lockedAt || current.poolMatch.lockedAt || current.poolMatch.lockAt <= now) && current.poolMatchId !== poolMatchId) throw new Error("O multiplicador desta rodada já está bloqueado.");
+        if (!current || current.poolMatchId !== poolMatchId) await tx.predictionMultiplier.upsert({ where: { participantId_poolId_round: { participantId: participant.id, poolId, round } }, create: { participantId: participant.id, poolId, poolMatchId, round }, update: { poolMatchId, selectedAt: now } });
       }
       await tx.prediction.upsert({ where: { participantId_poolMatchId: { participantId: participant.id, poolMatchId } }, create: { participantId: participant.id, poolMatchId, homeGoals, awayGoals }, update: { homeGoals, awayGoals } });
       await tx.predictionPoolParticipant.updateMany({ where: { id: participant.id, firstPredictionAt: null }, data: { firstPredictionAt: now } });
@@ -78,7 +85,7 @@ export async function selectMultiplier(_: BolaoActionState, formData: FormData):
 
     await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const selectedMatch = await tx.predictionPoolMatch.findFirst({ where: { id: poolMatchId, poolId, eligible: true }, select: { id: true, lockAt: true, lockedAt: true } });
+      const selectedMatch = await tx.predictionPoolMatch.findFirst({ where: { id: poolMatchId, poolId, eligible: true, match: { round, status: { notIn: ["FINALIZADO", "CANCELADO"] } } }, select: { id: true, lockAt: true, lockedAt: true } });
       if (!selectedMatch || selectedMatch.lockedAt || selectedMatch.lockAt <= now) throw new Error("Escolha uma partida que ainda esteja aberta.");
       const prediction = await tx.prediction.findUnique({ where: { participantId_poolMatchId: { participantId: participant.id, poolMatchId } }, select: { id: true } });
       if (!prediction) throw new Error("Registre o palpite desta partida antes de selecionar 2×.");

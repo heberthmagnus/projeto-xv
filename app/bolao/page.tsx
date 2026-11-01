@@ -72,7 +72,7 @@ export default async function BolaoPage() {
     where: {
       poolMatch: {
         pool: { active: true, championship: { slug: "interno-campao-2026" } },
-        lockAt: { lte: now },
+        OR: [{ lockAt: { lte: now } }, { lockedAt: { not: null } }],
       },
     },
     select: {
@@ -103,7 +103,7 @@ export default async function BolaoPage() {
         lockAt: item.lockAt.toISOString(),
         locked: Boolean(item.lockedAt) || item.lockAt <= now,
         status: item.match.status,
-        officialScore: item.match.homeScore === null || item.match.awayScore === null
+        officialScore: item.match.status !== "FINALIZADO" || !item.eligible || item.match.homeScore === null || item.match.awayScore === null
           ? null
           : { homeGoals: item.match.homeScore, awayGoals: item.match.awayScore },
         home: {
@@ -115,9 +115,10 @@ export default async function BolaoPage() {
           icon: item.match.awayTeam.icon,
         },
         prediction: item.predictions[0] ?? null,
+        points: item.predictions[0] && item.eligible && item.match.status === "FINALIZADO" && item.match.homeScore !== null && item.match.awayScore !== null ? awardedPoints(scorePrediction(item.predictions[0], { homeGoals: item.match.homeScore, awayGoals: item.match.awayScore }).basePoints, item.multipliers.length > 0) : null,
         multiplierSelected: item.multipliers.length > 0,
         multiplierLocked: Boolean(item.multipliers[0]?.lockedAt),
-        revealedPredictions: item.lockAt <= now
+        revealedPredictions: item.lockedAt || item.lockAt <= now
           ? (revealedByPoolMatch.get(item.id) ?? []).map((prediction) => ({
             name: prediction.participant.member.fullName,
             homeGoals: prediction.homeGoals,
@@ -174,7 +175,7 @@ export default async function BolaoPage() {
       .filter((item) => item.predictions[0])
       .map((item) => {
         const prediction = item.predictions[0];
-        const officialScore = item.match.homeScore === null || item.match.awayScore === null
+        const officialScore = item.match.status !== "FINALIZADO" || !item.eligible || item.match.homeScore === null || item.match.awayScore === null
           ? null
           : { homeGoals: item.match.homeScore, awayGoals: item.match.awayScore };
         const selectedMultiplier = item.multipliers.length > 0;

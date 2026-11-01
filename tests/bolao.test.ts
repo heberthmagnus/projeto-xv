@@ -37,6 +37,27 @@ test("reprocessamento só persiste pontuação de resultado oficial finalizado",
     finalized: false,
     multiplierSelected: true,
   }), { basePoints: 0, awardedPoints: 0, scored: false });
+  assert.deepEqual(calculateStoredPredictionScore({
+    prediction: { homeGoals: 5, awayGoals: 0 },
+    officialScore: { homeGoals: 5, awayGoals: 0 },
+    eligible: false,
+    finalized: true,
+    multiplierSelected: false,
+  }), { basePoints: 0, awardedPoints: 0, scored: false });
+});
+
+test("WO pontua como placar oficial finalizado e não reabre com reagendamento posterior", () => {
+  const wo = calculateStoredPredictionScore({
+    prediction: { homeGoals: 5, awayGoals: 0 },
+    officialScore: { homeGoals: 5, awayGoals: 0 },
+    eligible: true,
+    finalized: true,
+    multiplierSelected: true,
+  });
+  assert.deepEqual(wo, { basePoints: 10, awardedPoints: 20, scored: true });
+  const originalLock = getLockAt(new Date("2026-10-31T16:15:00.000Z"));
+  const postponedLock = getLockAt(new Date("2026-11-07T16:15:00.000Z"));
+  assert.ok(postponedLock > originalLock, "o novo horário só pode ser usado antes do bloqueio original");
 });
 
 test("ranking mantém ausência fora dos erros, calcula eficiência e usa posição de competição", () => {

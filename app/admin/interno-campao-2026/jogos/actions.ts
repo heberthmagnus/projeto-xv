@@ -7,6 +7,7 @@ import { ensureInternoCampao2026Championship, getRequiredChampionshipBySlug, INT
 import { prisma } from "@/lib/prisma";
 import { normalizeFullName, syncAthleteProfileFromRegistration } from "@/lib/athlete-profiles";
 import { getPreferredPlayerName } from "@/lib/player-display-name";
+import { syncPredictionPoolsForMatch, syncPredictionPoolSchedule } from "@/lib/bolao-recalculation";
 
 const basePath = "/admin/interno-campao-2026/jogos";
 // A atualização da súmula recalcula o histórico disciplinar completo do atleta.
@@ -52,8 +53,12 @@ export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormDa
 
       await tx.match.update({ where: { id: match.id }, data: { homeScore, awayScore, scheduledAt, matchReport: String(formData.get("matchReport") || "").trim() || null, status: MatchStatus.FINALIZADO } });
       if (match.homeScore !== homeScore || match.awayScore !== awayScore || match.status !== MatchStatus.FINALIZADO) {
-        await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${match.id}`, previous: { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO, source: "match_sheet" } } });
+        const source = formData.get("walkover") === "on" ? "walkover" : "match_sheet";
+        await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${match.id}`, previous: { homeScore: match.homeScore, awayScore: match.awayScore, status: match.status }, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO, source } } });
       }
+      await syncPredictionPoolSchedule(tx, match.id, scheduledAt, MatchStatus.FINALIZADO);
+      const bolao = await syncPredictionPoolsForMatch(tx, match.id);
+      if (bolao.poolIds.length) await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "prediction_pool.reprocess", target: `Match:${match.id}`, previous: { trigger: "match_sheet" }, next: { poolIds: bolao.poolIds, recalculatedPredictions: bolao.recalculatedPredictions } } });
       // Uma suspensão pode apontar para um cartão que será regravado abaixo.
       // Soltar a referência dentro da mesma transação evita bloquear a correção da súmula.
       await tx.suspension.updateMany({ where: { relatedEvent: { matchId } }, data: { relatedEventId: null, status: SuspensionStatus.CANCELADA } });
@@ -108,6 +113,8 @@ export async function saveMatchResult(formData: FormData) {
     if (!before) throw new Error("Partida não encontrada.");
     await tx.match.update({ where: { id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
     await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${id}`, previous: before, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO } } });
+    const bolao = await syncPredictionPoolsForMatch(tx, id);
+    if (bolao.poolIds.length) await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "prediction_pool.reprocess", target: `Match:${id}`, previous: { trigger: "official_result" }, next: { poolIds: bolao.poolIds, recalculatedPredictions: bolao.recalculatedPredictions } } });
     await refreshSuspensionStatuses(tx, championship.id);
   }, matchSheetTransactionOptions);
   finish();
@@ -120,8 +127,35 @@ export async function saveMatchSchedule(formData: FormData) {
   const rawScheduledAt = String(formData.get("scheduledAt") || "");
   const scheduledAt = rawScheduledAt ? new Date(`${rawScheduledAt}:00-03:00`) : null;
   if (!id || (scheduledAt && Number.isNaN(scheduledAt.getTime()))) throw new Error("Informe uma data e horário válidos.");
-  await prisma.match.updateMany({ where: { id, championshipId: championship.id }, data: { scheduledAt } });
+  await prisma.$transaction(async (tx) => {
+    const match = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { id: true, status: true } });
+    if (!match) throw new Error("Partida não encontrada.");
+    await tx.match.update({ where: { id }, data: { scheduledAt } });
+    await syncPredictionPoolSchedule(tx, id, scheduledAt, match.status);
+  }, matchSheetTransactionOptions);
   finish();
+}
+
+export async function cancelMatch(_: MatchSaveState, formData: FormData): Promise<MatchSaveState> {
+  try {
+    const actor = await requireSportsAdmin();
+    const championship = await ensureInternoCampao2026Championship();
+    const id = String(formData.get("matchId") || "").trim();
+    if (!id) throw new Error("Partida não encontrada.");
+    await prisma.$transaction(async (tx) => {
+      const before = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { id: true, scheduledAt: true, homeScore: true, awayScore: true, status: true } });
+      if (!before) throw new Error("Partida não encontrada.");
+      await tx.match.update({ where: { id }, data: { homeScore: null, awayScore: null, status: MatchStatus.CANCELADO } });
+      await syncPredictionPoolSchedule(tx, id, before.scheduledAt, MatchStatus.CANCELADO);
+      const bolao = await syncPredictionPoolsForMatch(tx, id);
+      await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.cancel", target: `Match:${id}`, previous: before, next: { status: MatchStatus.CANCELADO } } });
+      if (bolao.poolIds.length) await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "prediction_pool.reprocess", target: `Match:${id}`, previous: { trigger: "cancellation" }, next: { poolIds: bolao.poolIds, recalculatedPredictions: bolao.recalculatedPredictions } } });
+    }, matchSheetTransactionOptions);
+    finish();
+    return { status: "success", message: "Partida cancelada. Ela não pontua no Bolão." };
+  } catch (error) {
+    return { status: "error", message: error instanceof Error ? error.message : "Não foi possível cancelar a partida." };
+  }
 }
 
 export async function saveMatchReport(formData: FormData) {
@@ -369,4 +403,6 @@ function finish() {
   revalidatePath(basePath);
   revalidatePath("/campeonatos/interno-campao-2026");
   revalidatePath("/campeonatos/interno-campao-2026/jogos", "layout");
+  revalidatePath("/bolao");
+  revalidatePath("/admin/bolao");
 }
