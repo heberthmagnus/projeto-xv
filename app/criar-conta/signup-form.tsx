@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { PhoneInput } from "@/app/components/phone-input";
 import { reenviarConfirmacao, solicitarConta, type SignupField } from "./actions";
 
 export function SignupForm() {
@@ -15,7 +16,7 @@ export function SignupForm() {
   return <form action={action} className="grid gap-3">
     <label>Nome completo<input className={field("fullName")} name="fullName" autoComplete="name" maxLength={120} required value={values.fullName} onChange={(event) => update("fullName", event.target.value)} aria-invalid={Boolean(state.errors?.fullName)} aria-describedby={state.errors?.fullName ? "fullName-error" : undefined} /></label>{error("fullName")}
     <label>E-mail<input className={field("email")} name="email" type="email" autoComplete="email" maxLength={254} required value={values.email} onChange={(event) => update("email", event.target.value)} aria-invalid={Boolean(state.errors?.email)} aria-describedby={state.errors?.email ? "email-error" : undefined} /></label>{error("email")}
-    <label>Telefone<input className={field("phone")} name="phone" autoComplete="tel" placeholder="(27) 99999-9999" required value={values.phone} onChange={(event) => update("phone", event.target.value)} aria-invalid={Boolean(state.errors?.phone)} aria-describedby={state.errors?.phone ? "phone-error" : undefined} /></label>{error("phone")}
+    <label>Telefone / WhatsApp<PhoneInput className={field("phone")} name="phone" required aria-invalid={Boolean(state.errors?.phone)} aria-describedby={state.errors?.phone ? "phone-help phone-error" : "phone-help"} /></label><p id="phone-help" className="-mt-2 text-xs leading-5 text-[#6B7280]">Digite apenas os números do DDD e do celular. O formato é aplicado automaticamente.</p>{error("phone")}
     <label>Senha<input className={field("password")} name="password" type="password" autoComplete="new-password" minLength={12} required value={values.password} onChange={(event) => update("password", event.target.value)} aria-invalid={Boolean(state.errors?.password)} aria-describedby={state.errors?.password ? "password-error" : undefined} /></label>{error("password")}
     <label>Confirme a senha<input className={field("confirmation")} name="confirmation" type="password" autoComplete="new-password" minLength={12} required value={values.confirmation} onChange={(event) => update("confirmation", event.target.value)} aria-invalid={Boolean(state.errors?.confirmation)} aria-describedby={state.errors?.confirmation ? "confirmation-error" : undefined} /></label>{error("confirmation")}
     {state.message && <p role="alert" className="text-sm text-red-700">{state.message}</p>}

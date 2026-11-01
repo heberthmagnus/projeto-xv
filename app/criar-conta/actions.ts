@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/request-rate-limit";
-import { isValidBrazilPhone } from "@/lib/phone";
+import { formatBrazilPhone, isValidBrazilPhone } from "@/lib/phone";
 import { createSupabaseAuthClient } from "@/lib/supabase/server-auth";
 
 export type SignupField = "fullName" | "email" | "phone" | "password" | "confirmation";
@@ -20,13 +20,13 @@ export async function solicitarConta(_: SignupState, data: FormData): Promise<Si
   if (await isRateLimited("account-request", 5, 15 * 60 * 1000)) return { success: false, message: "Muitas tentativas. Tente novamente mais tarde." };
   const fullName = String(data.get("fullName") ?? "").trim().replace(/\s+/g, " ");
   const email = String(data.get("email") ?? "").trim().toLowerCase();
-  const phone = String(data.get("phone") ?? "").trim();
+  const phone = formatBrazilPhone(String(data.get("phone") ?? ""));
   const password = String(data.get("password") ?? "");
   const confirmation = String(data.get("confirmation") ?? "");
   const errors: SignupState["errors"] = {};
   if (fullName.length < 3 || fullName.length > 120) errors.fullName = "Informe seu nome completo.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) errors.email = "Informe um e-mail válido.";
-  if (!isValidBrazilPhone(phone)) errors.phone = "Use o formato (DD) 9XXXX-XXXX.";
+  if (!isValidBrazilPhone(phone)) errors.phone = "Informe um celular com DDD e 9 dígitos.";
   if (password.length < 12 || Buffer.byteLength(password, "utf8") > 72) errors.password = "Use uma senha entre 12 e 72 bytes.";
   if (password !== confirmation) errors.confirmation = "As senhas não coincidem.";
   if (Object.keys(errors).length > 0) return { success: false, message: "Confira os campos destacados.", errors };

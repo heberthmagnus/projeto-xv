@@ -3,10 +3,11 @@ const PHONE_REGEX = /^\(\d{2}\) 9\d{4}-\d{4}$/;
 export const PHONE_PLACEHOLDER = "(51) 91234-5678";
 export const PHONE_PATTERN = "\\(\\d{2}\\) 9\\d{4}-\\d{4}";
 export const PHONE_ERROR_MESSAGE =
-  "Informe o telefone no formato (DD) 9XXXX-XXXX.";
+  "Informe um celular com DDD e 9 dígitos.";
 
 export function isValidBrazilPhone(phone: string) {
-  return PHONE_REGEX.test(phone.trim());
+  const digits = phone.replace(/\D/g, "");
+  return digits.length === 11 && PHONE_REGEX.test(formatBrazilPhone(digits));
 }
 
 export function formatBrazilPhone(value: string) {

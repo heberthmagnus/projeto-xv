@@ -13,6 +13,9 @@ type PhoneInputProps = {
   defaultValue?: string;
   required?: boolean;
   style?: React.CSSProperties;
+  className?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 };
 
 export function PhoneInput({
@@ -20,6 +23,9 @@ export function PhoneInput({
   defaultValue = "",
   required = false,
   style,
+  className,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
 }: PhoneInputProps) {
   const [value, setValue] = useState(formatBrazilPhone(defaultValue));
 
@@ -33,6 +39,9 @@ export function PhoneInput({
       pattern={PHONE_PATTERN}
       title={PHONE_ERROR_MESSAGE}
       required={required}
+      className={className}
+      aria-invalid={ariaInvalid}
+      aria-describedby={ariaDescribedBy}
       value={value}
       onChange={(event) => {
         event.currentTarget.setCustomValidity("");
