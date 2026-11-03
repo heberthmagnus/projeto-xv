@@ -83,14 +83,19 @@ export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormDa
         const stats = [["GOL", line.goals], ["CARTAO_AMARELO", line.yellow], ["CARTAO_AZUL", line.blue], ["CARTAO_VERMELHO", line.red]] as const;
         await Promise.all(stats.filter(([, quantity]) => quantity > 0).map(([type, quantity]) => tx.matchEvent.create({ data: { matchId, teamId: sheet.teamId, playerId: profileId, player: playerName, type, quantity } })));
         if (line.played || stats.some(([, quantity]) => quantity > 0)) await tx.matchPlayerParticipation.create({ data: { matchId, playerId: profileId, teamId: sheet.teamId, goals: line.goals, yellowCards: line.yellow, redCards: line.red } });
-        affectedPlayers.set(`${profileId}:${sheet.teamId}`, sheet.teamId);
+        // Só quem recebeu cartão nesta súmula pode ter a punição alterada.
+        // Recalcular todo o elenco aqui deixava a transação aberta por tempo
+        // demais em bancos remotos e podia encerrá-la antes do update final.
+        if (line.yellow > 0 || line.blue > 0 || line.red > 0) {
+          affectedPlayers.set(`${profileId}:${sheet.teamId}`, sheet.teamId);
+        }
       }
       oldEventPlayers.forEach((event) => { if (event.playerId && event.teamId) affectedPlayers.set(`${event.playerId}:${event.teamId}`, event.teamId); });
       for (const key of affectedPlayers.keys()) {
         const [playerId, teamId] = key.split(":");
         await syncDisciplinarySuspensions(tx, championship.id, playerId, teamId);
       }
-      await refreshSuspensionStatuses(tx, championship.id);
+      await refreshSuspensionStatuses(tx, championship.id, [match.homeTeamId, match.awayTeamId]);
     }, matchSheetTransactionOptions);
     finish();
     return { status: "success", message: "Todas as alterações da súmula foram salvas." };
@@ -109,13 +114,13 @@ export async function saveMatchResult(formData: FormData) {
   const awayScore = Number(awayRaw);
   if (!id || !/^\d+$/.test(homeRaw) || !/^\d+$/.test(awayRaw) || !Number.isSafeInteger(homeScore) || !Number.isSafeInteger(awayScore) || homeScore > 999 || awayScore > 999) throw new Error("Informe placares válidos.");
   await prisma.$transaction(async (tx) => {
-    const before = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { homeScore: true, awayScore: true, status: true } });
+    const before = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { homeScore: true, awayScore: true, status: true, homeTeamId: true, awayTeamId: true } });
     if (!before) throw new Error("Partida não encontrada.");
     await tx.match.update({ where: { id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
     await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${id}`, previous: before, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO } } });
     const bolao = await syncPredictionPoolsForMatch(tx, id);
     if (bolao.poolIds.length) await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "prediction_pool.reprocess", target: `Match:${id}`, previous: { trigger: "official_result" }, next: { poolIds: bolao.poolIds, recalculatedPredictions: bolao.recalculatedPredictions } } });
-    await refreshSuspensionStatuses(tx, championship.id);
+    await refreshSuspensionStatuses(tx, championship.id, [before.homeTeamId, before.awayTeamId]);
   }, matchSheetTransactionOptions);
   finish();
 }
@@ -357,9 +362,9 @@ async function syncDisciplinarySuspensions(tx: Prisma.TransactionClient, champio
   }
 }
 
-async function refreshSuspensionStatuses(tx: Prisma.TransactionClient, championshipId: string) {
+async function refreshSuspensionStatuses(tx: Prisma.TransactionClient, championshipId: string, teamIds?: string[]) {
   const suspensions = await tx.suspension.findMany({
-    where: { championshipId, relatedMatchId: { not: null } },
+    where: { championshipId, relatedMatchId: { not: null }, ...(teamIds?.length ? { teamId: { in: teamIds } } : {}) },
     select: { id: true, status: true, teamId: true, relatedMatch: { select: { round: true, stage: { select: { order: true } } } } },
   });
   for (const suspension of suspensions) {

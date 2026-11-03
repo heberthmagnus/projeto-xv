@@ -369,6 +369,7 @@ export const getChampionshipPublicPageDataBySlug = cache(async (slug: string) =>
               id: true,
               player: true,
               playerId: true,
+              teamId: true,
               quantity: true,
               type: true,
             },
@@ -455,6 +456,15 @@ function buildDynamicChampionshipStandings(args: {
       order: number;
       stageType: string;
     } | null;
+    participations: Array<{
+      teamId: string;
+      yellowCards: number;
+      redCards: number;
+    }>;
+    events: Array<{
+      teamId: string | null;
+      quantity: number;
+    }>;
   }>;
 }) {
   const table = new Map(
@@ -471,6 +481,9 @@ function buildDynamicChampionshipStandings(args: {
         goalsFor: 0,
         goalsAgainst: 0,
         goalDifference: 0,
+        yellowCards: 0,
+        blueCards: 0,
+        redCards: 0,
         winRate: 0,
         movement: "MANTEVE" as const,
         team: championshipTeam.team,
@@ -501,6 +514,17 @@ function buildDynamicChampionshipStandings(args: {
     home.goalsAgainst += match.awayScore;
     away.goalsFor += match.awayScore;
     away.goalsAgainst += match.homeScore;
+    for (const participation of match.participations) {
+      const team = table.get(participation.teamId);
+      if (!team) continue;
+      team.yellowCards += participation.yellowCards;
+      team.redCards += participation.redCards;
+    }
+    for (const event of match.events) {
+      if (!event.teamId) continue;
+      const team = table.get(event.teamId);
+      if (team) team.blueCards += event.quantity;
+    }
 
     if (match.homeScore > match.awayScore) {
       home.wins += 1;
@@ -532,12 +556,28 @@ function buildDynamicChampionshipStandings(args: {
         return b.points - a.points;
       }
 
+      if (b.wins !== a.wins) {
+        return b.wins - a.wins;
+      }
+
       if (b.goalDifference !== a.goalDifference) {
         return b.goalDifference - a.goalDifference;
       }
 
       if (b.goalsFor !== a.goalsFor) {
         return b.goalsFor - a.goalsFor;
+      }
+
+      if (a.redCards !== b.redCards) {
+        return a.redCards - b.redCards;
+      }
+
+      if (a.blueCards !== b.blueCards) {
+        return a.blueCards - b.blueCards;
+      }
+
+      if (a.yellowCards !== b.yellowCards) {
+        return a.yellowCards - b.yellowCards;
       }
 
       return a.team.name.localeCompare(b.team.name, "pt-BR");
@@ -551,7 +591,7 @@ function buildDynamicChampionshipStandings(args: {
 }
 
 function buildCampaoTeamStandings(teams: (Parameters<typeof buildDynamicChampionshipStandings>[0]["teams"][number] & { displayOrder: number | null })[], matches: Parameters<typeof buildDynamicChampionshipStandings>[0]["matches"]) {
-  const table = new Map(teams.map((entry) => [entry.team.id, { id: `dynamic-standing-${entry.team.id}`, rank: 0, points: 0, gamesPlayed: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, winRate: 0, movement: "MANTEVE" as const, team: entry.team, order: entry.displayOrder ?? 0 }]));
+  const table = new Map(teams.map((entry) => [entry.team.id, { id: `dynamic-standing-${entry.team.id}`, rank: 0, points: 0, gamesPlayed: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, yellowCards: 0, blueCards: 0, redCards: 0, winRate: 0, movement: "MANTEVE" as const, team: entry.team, order: entry.displayOrder ?? 0 }]));
   for (const match of matches) {
     if (match.status !== "FINALIZADO" || match.homeScore === null || match.awayScore === null) continue;
     const home = table.get(match.homeTeam.id);
@@ -560,11 +600,22 @@ function buildCampaoTeamStandings(teams: (Parameters<typeof buildDynamicChampion
     home.gamesPlayed++; away.gamesPlayed++;
     home.goalsFor += match.homeScore; home.goalsAgainst += match.awayScore;
     away.goalsFor += match.awayScore; away.goalsAgainst += match.homeScore;
+    for (const participation of match.participations) {
+      const team = table.get(participation.teamId);
+      if (!team) continue;
+      team.yellowCards += participation.yellowCards;
+      team.redCards += participation.redCards;
+    }
+    for (const event of match.events) {
+      if (!event.teamId) continue;
+      const team = table.get(event.teamId);
+      if (team) team.blueCards += event.quantity;
+    }
     if (match.homeScore > match.awayScore) { home.wins++; home.points += 3; away.losses++; }
     else if (match.homeScore < match.awayScore) { away.wins++; away.points += 3; home.losses++; }
     else { home.draws++; away.draws++; home.points++; away.points++; }
   }
-  return [...table.values()].map((entry) => ({ ...entry, goalDifference: entry.goalsFor - entry.goalsAgainst, winRate: entry.gamesPlayed ? Math.round(entry.points / (entry.gamesPlayed * 3) * 100) : 0 })).sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || a.order - b.order).map((entry, index) => ({ ...entry, rank: index + 1 }));
+  return [...table.values()].map((entry) => ({ ...entry, goalDifference: entry.goalsFor - entry.goalsAgainst, winRate: entry.gamesPlayed ? Math.round(entry.points / (entry.gamesPlayed * 3) * 100) : 0 })).sort((a, b) => b.points - a.points || b.wins - a.wins || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || a.redCards - b.redCards || a.blueCards - b.blueCards || a.yellowCards - b.yellowCards || a.order - b.order).map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
 export const getChampionshipTeamPublicPageData = cache(

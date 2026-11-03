@@ -145,12 +145,12 @@ function SponsorsShowcase({ teams }: { teams: Team[] }) {
   return <section className="xv-card"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Apoio aos times</p><h2 className="mt-1 text-2xl font-black">Patrocinadores dos Times</h2><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{sponsoredTeams.map((team) => { const sponsor = team.sponsor!; const logo = safeExternalUrl(sponsor.logoUrl)!; const shirt = safeExternalUrl(team.shirtImageUrl); return <Link key={team.name} href={team.slug ? `/campeonatos/interno-campao-2026/times/${team.slug}` : "#"} className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFC] p-4 no-underline transition hover:border-[#D4B051]"><div className="flex items-center gap-2 font-black text-[#101010]"><CountryFlag icon={team.icon} name={team.name} className="text-xl"/>{team.name}</div>{shirt ? <img src={shirt} alt={`Camisa ${team.name}`} className="mt-3 h-32 w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"/> : null}<p className="mt-3 text-xs font-bold uppercase tracking-[.14em] text-[#8B6914]">Patrocínio</p><img src={logo} alt={`Logotipo ${sponsor.name}`} className="mt-2 h-14 w-28 rounded-xl border border-[#E5E7EB] bg-white object-contain p-2"/><p className="mt-2 font-bold text-[#101010]">{sponsor.name}</p></Link>; })}</div></section>;
 }
 
-type StandingEntry = { team: Team; points: number; games: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number };
+type StandingEntry = { team: Team; points: number; games: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number; yellowCards: number; blueCards: number; redCards: number };
 type SimulatedScore = { home?: number; away?: number };
 type SimulatedScores = Record<string, SimulatedScore>;
 
 function buildStandings(teams: Team[], matches: Game[], simulatedScores: SimulatedScores = {}) {
-  const table = new Map(teams.map((team) => [team.name, { team, points: 0, games: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 }]));
+  const table = new Map(teams.map((team) => [team.name, { team, points: 0, games: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, yellowCards: 0, blueCards: 0, redCards: 0 }]));
   for (const match of matches) {
     const simulated = match.status === "FINALIZADO" ? null : simulatedScores[match.id];
     const homeScore = match.status === "FINALIZADO" ? match.homeScore : simulated?.home;
@@ -161,11 +161,31 @@ function buildStandings(teams: Team[], matches: Game[], simulatedScores: Simulat
     home.games += 1; away.games += 1;
     home.goalsFor += homeScore; home.goalsAgainst += awayScore;
     away.goalsFor += awayScore; away.goalsAgainst += homeScore;
+    // Cartões só existem em jogos já realizados; placares simulados não podem
+    // interferir nos critérios disciplinares de desempate.
+    if (match.status === "FINALIZADO") {
+      for (const card of match.cards) {
+        const entry = table.get(card.team);
+        if (!entry) continue;
+        if (card.type === "VERMELHO") entry.redCards += card.quantity;
+        else if (card.type === "AZUL") entry.blueCards += card.quantity;
+        else entry.yellowCards += card.quantity;
+      }
+    }
     if (homeScore > awayScore) { home.wins += 1; home.points += 3; away.losses += 1; }
     else if (homeScore < awayScore) { away.wins += 1; away.points += 3; home.losses += 1; }
     else { home.draws += 1; away.draws += 1; home.points += 1; away.points += 1; }
   }
-  return Array.from(table.values()).sort((left, right) => right.points - left.points || (right.goalsFor - right.goalsAgainst) - (left.goalsFor - left.goalsAgainst) || right.goalsFor - left.goalsFor || left.team.order - right.team.order);
+  return Array.from(table.values()).sort((left, right) =>
+    right.points - left.points
+    || right.wins - left.wins
+    || (right.goalsFor - right.goalsAgainst) - (left.goalsFor - left.goalsAgainst)
+    || right.goalsFor - left.goalsFor
+    || left.redCards - right.redCards
+    || left.blueCards - right.blueCards
+    || left.yellowCards - right.yellowCards
+    || left.team.order - right.team.order,
+  );
 }
 
 function buildScorers(matches: Game[]) {
