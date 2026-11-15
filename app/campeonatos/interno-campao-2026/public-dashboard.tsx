@@ -308,15 +308,16 @@ function StandingsSimulator({ label, teams, matches }: { label: string; teams: T
 }
 
 function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: string; games: Game[]; round: number; rounds: number[]; onRoundChange: (round: number) => void }) {
+  const phaseName = getPhaseName(round, games);
   return (
     <section className="xv-card">
       <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-2">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8B6914]">Categoria {label}</p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight">Jogos</h2>
+          <h2 className="mt-1 text-2xl font-black tracking-tight">{phaseName}</h2>
         </div>
         <select value={round} onChange={(event) => onRoundChange(Number(event.target.value))} className="rounded-xl border border-[#D4D4D8] bg-white px-3 py-2 text-sm font-bold">
-          {rounds.map((item) => <option key={item} value={item}>{item}ª rodada</option>)}
+          {rounds.map((item) => <option key={item} value={item}>{getPhaseName(item, item === round ? games : [])}</option>)}
         </select>
       </div>
       <div className="divide-y divide-[#E5E7EB]">
@@ -324,6 +325,15 @@ function RoundPanel({ label, games, round, rounds, onRoundChange }: { label: str
       </div>
     </section>
   );
+}
+
+function getPhaseName(round: number, games: Game[]) {
+  const stage = games[0]?.stage;
+  if (stage?.name) return stage.name;
+  if (round === 11) return "Repescagem";
+  if (round === 12) return "Semifinais";
+  if (round === 13) return "Finais e disputa de 3º lugar";
+  return `${round}ª rodada`;
 }
 
 function StatisticsAndDiscipline({ label, matches, suspensions }: { label: string; matches: Game[]; suspensions: Suspension[] }) {

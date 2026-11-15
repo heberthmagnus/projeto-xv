@@ -289,6 +289,7 @@ model Team {
   matchParticipations MatchPlayerParticipation[]
   standings           Standing[]
   suspensions         Suspension[]
+  resolvedMatchSlots  MatchSlot[]                @relation("ResolvedMatchSlotTeam")
 }
 
 model ChampionshipTeam {
@@ -512,6 +513,24 @@ model Match {
   participations        MatchPlayerParticipation[]
   suspensions           Suspension[]
   predictionPoolMatches PredictionPoolMatch[]
+  slots                MatchSlot[]
+}
+
+/// Declares a bracket position before its team is known (for example,
+/// "Vencedor da Semi A"). The representative stays null until defined.
+model MatchSlot {
+  id             String        @id @default(uuid())
+  matchId        String
+  side           MatchSlotSide
+  label          String
+  resolvedTeamId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+  match          Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  resolvedTeam   Team?         @relation("ResolvedMatchSlotTeam", fields: [resolvedTeamId], references: [id], onDelete: SetNull)
+
+  @@unique([matchId, side])
+  @@index([resolvedTeamId])
 }
 
 model Standing {
@@ -890,6 +909,11 @@ enum MatchStatus {
   EM_ANDAMENTO
   FINALIZADO
   CANCELADO
+}
+
+enum MatchSlotSide {
+  HOME
+  AWAY
 }
 
 enum MatchEventType {
