@@ -42,8 +42,9 @@ export async function saveCompleteMatchSheet(_: MatchSaveState, formData: FormDa
 
     const championship = await ensureInternoCampao2026Championship();
     await prisma.$transaction(async (tx) => {
-      const match = await tx.match.findFirst({ where: { id: matchId, championshipId: championship.id }, select: { id: true, homeTeamId: true, awayTeamId: true, homeScore: true, awayScore: true, status: true } });
+      const match = await tx.match.findFirst({ where: { id: matchId, championshipId: championship.id }, select: { id: true, homeTeamId: true, awayTeamId: true, homeScore: true, awayScore: true, status: true, homeTeam: { select: { slug: true } }, awayTeam: { select: { slug: true } } } });
       if (!match || new Set(sheets.map((sheet) => sheet.teamId)).size !== 2 || !sheets.every((sheet) => [match.homeTeamId, match.awayTeamId].includes(sheet.teamId))) throw new Error("Súmula inválida para esta partida.");
+      if (isPlayoffPlaceholder(match.homeTeam.slug) || isPlayoffPlaceholder(match.awayTeam.slug)) throw new Error("Defina os representantes reais deste confronto antes de lançar o resultado.");
       const submittedIds = sheets.flatMap((sheet) => sheet.players.map((player) => player.championshipPlayerId));
       if (new Set(submittedIds).size !== submittedIds.length) throw new Error("Um atleta foi informado mais de uma vez na súmula.");
       const players = await tx.championshipPlayer.findMany({ where: { id: { in: submittedIds }, championshipId: championship.id }, include: { registration: true } });
@@ -114,8 +115,9 @@ export async function saveMatchResult(formData: FormData) {
   const awayScore = Number(awayRaw);
   if (!id || !/^\d+$/.test(homeRaw) || !/^\d+$/.test(awayRaw) || !Number.isSafeInteger(homeScore) || !Number.isSafeInteger(awayScore) || homeScore > 999 || awayScore > 999) throw new Error("Informe placares válidos.");
   await prisma.$transaction(async (tx) => {
-    const before = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { homeScore: true, awayScore: true, status: true, homeTeamId: true, awayTeamId: true } });
+    const before = await tx.match.findFirst({ where: { id, championshipId: championship.id }, select: { homeScore: true, awayScore: true, status: true, homeTeamId: true, awayTeamId: true, homeTeam: { select: { slug: true } }, awayTeam: { select: { slug: true } } } });
     if (!before) throw new Error("Partida não encontrada.");
+    if (isPlayoffPlaceholder(before.homeTeam.slug) || isPlayoffPlaceholder(before.awayTeam.slug)) throw new Error("Defina os representantes reais deste confronto antes de lançar o resultado.");
     await tx.match.update({ where: { id }, data: { homeScore, awayScore, status: MatchStatus.FINALIZADO } });
     await tx.administrativeAudit.create({ data: { actorId: actor.id, action: "match.result.update", target: `Match:${id}`, previous: before, next: { homeScore, awayScore, status: MatchStatus.FINALIZADO } } });
     const bolao = await syncPredictionPoolsForMatch(tx, id);
@@ -402,6 +404,10 @@ async function syncParticipation(tx: Prisma.TransactionClient, matchId: string, 
 function parseCount(value: FormDataEntryValue | null) {
   const count = Number(value);
   return Number.isInteger(count) && count > 0 ? count : 0;
+}
+
+function isPlayoffPlaceholder(slug: string | null) {
+  return slug?.startsWith("vaga-") ?? false;
 }
 
 function finish() {

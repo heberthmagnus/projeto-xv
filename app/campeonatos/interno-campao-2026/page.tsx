@@ -15,7 +15,7 @@ export default async function InternoCampaoPublicPage({ searchParams }: { search
     select: {
       teams: { orderBy: { displayOrder: "asc" }, select: { groupLabel: true, displayOrder: true, shirtImageUrl: true, sponsors: { where: { isPrimary: true }, take: 1, select: { sponsor: { select: { name: true, logoUrl: true } } } }, team: { select: { id: true, name: true, shortName: true, slug: true, icon: true, players: { where: { championship: { slug: "interno-campao-2026" } }, orderBy: { rosterOrder: "asc" }, select: { registration: { select: { fullName: true, nickname: true, athleteProfileId: true } } } } } } } },
       suspensions: { where: { status: "ATIVA" }, select: { playerId: true, reason: true, player: { select: { fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } },
-      matches: { orderBy: [{ round: "asc" }, { scheduledAt: "asc" }], select: { id: true, round: true, roundNumber: true, scheduledAt: true, status: true, homeScore: true, awayScore: true, stage: { select: { order: true, stageType: true, name: true } }, participations: { where: { OR: [{ goals: { gt: 0 } }, { yellowCards: { gt: 0 } }, { redCards: { gt: 0 } }] }, select: { goals: true, yellowCards: true, redCards: true, player: { select: { id: true, fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } }, events: { where: { type: "CARTAO_AZUL" }, select: { player: true, playerId: true, quantity: true, athlete: { select: { fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } }, homeTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } }, awayTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } } } },
+      matches: { orderBy: [{ round: "asc" }, { scheduledAt: "asc" }], select: { id: true, round: true, roundNumber: true, scheduledAt: true, status: true, notes: true, homeScore: true, awayScore: true, stage: { select: { order: true, stageType: true, name: true } }, participations: { where: { OR: [{ goals: { gt: 0 } }, { yellowCards: { gt: 0 } }, { redCards: { gt: 0 } }] }, select: { goals: true, yellowCards: true, redCards: true, player: { select: { id: true, fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } }, events: { where: { type: "CARTAO_AZUL" }, select: { player: true, playerId: true, quantity: true, athlete: { select: { fullName: true, nickname: true } }, team: { select: { id: true, shortName: true, name: true, icon: true } } } }, homeTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } }, awayTeam: { select: { id: true, shortName: true, name: true, slug: true, icon: true } } } },
     },
   });
   const categoryByTeamId = new Map(championship.teams.map((entry) => [entry.team.id, entry.groupLabel === "MASTER" ? "MASTER" : "ADULTO"] as const));
@@ -45,7 +45,7 @@ export default async function InternoCampaoPublicPage({ searchParams }: { search
     const matchLabel = `Rodada ${match.round} · ${match.homeTeam.shortName || match.homeTeam.name} ${match.homeScore ?? "–"} × ${match.awayScore ?? "–"} ${match.awayTeam.shortName || match.awayTeam.name}`;
     return {
       id: match.id,
-      category: (categoryByTeamId.get(match.homeTeam.id) ?? "ADULTO") as "MASTER" | "ADULTO",
+      category: getMatchCategory(categoryByTeamId.get(match.homeTeam.id), match.notes),
       round: match.round,
       order: match.roundNumber ?? 0,
       stage: match.stage,
@@ -86,4 +86,9 @@ export default async function InternoCampaoPublicPage({ searchParams }: { search
 
 function normalizePlayerName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
+}
+
+function getMatchCategory(category: "ADULTO" | "MASTER" | undefined, notes: string | null) {
+  if (category) return category;
+  return notes?.startsWith("CAMPAO_PLAYOFF:MASTER:") ? "MASTER" : "ADULTO";
 }

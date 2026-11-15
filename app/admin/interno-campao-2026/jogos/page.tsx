@@ -25,7 +25,7 @@ export default async function JogosInternoAdminPage() {
   ]);
   const categories = new Map(championshipTeams.map((team) => [team.teamId, team.groupLabel === "MASTER" ? "MASTER" : "ADULTO"] as const));
   const data: AdminMatch[] = matches.map((match) => ({
-    id: match.id, category: categories.get(match.homeTeamId) ?? "ADULTO", round: match.round, scheduledAt: match.scheduledAt?.toISOString() ?? null,
+    id: match.id, category: categories.get(match.homeTeamId) ?? (match.notes?.startsWith("CAMPAO_PLAYOFF:MASTER:") ? "MASTER" : "ADULTO"), round: match.round, scheduledAt: match.scheduledAt?.toISOString() ?? null,
     homeScore: match.homeScore, awayScore: match.awayScore, status: match.status, matchReport: match.matchReport,
     events: match.events.map((event) => ({ player: event.player, playerId: event.playerId, teamId: event.teamId, type: event.type as "GOL" | "CARTAO_AMARELO" | "CARTAO_AZUL" | "CARTAO_VERMELHO", quantity: event.quantity })),
     participations: match.participations.map((item) => ({ playerId: item.playerId, teamId: item.teamId, goals: item.goals, yellowCards: item.yellowCards, redCards: item.redCards })),
